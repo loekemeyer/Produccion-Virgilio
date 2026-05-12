@@ -23,7 +23,7 @@ button {
 #legajoScreen h1 { font-size: 36px; text-align: center; }
 #legajoInput { width: 100%; font-size: 34px; padding: 12px; text-align: center; border: 6px solid; }
 
-/* 👇 espacio donde se verá el historial (ACHICADO) */
+/* espacio donde se verá el historial (ACHICADO) */
 #legajoHistorySpace{
   margin-top: 12px;
   min-height: 25vh;
@@ -95,7 +95,7 @@ button {
  text-align:center;
 }
 
-/* ✅ deshabilitado visual */
+/* deshabilitado visual */
 .box.disabled{
   background:#ddd;
   color:#888;
@@ -103,17 +103,37 @@ button {
   pointer-events:none;
   opacity:0.6;
 }
+
+/* Badge de sincronización */
+#syncBadge{
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: bold;
+  border-radius: 999px;
+  border: 2px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  z-index: 9999;
+  cursor: pointer;
+  transition: transform 0.12s;
+  user-select: none;
+}
 </style>
 </head>
 
 <body>
+
+<div id="syncBadge" title="Tocar para reintentar envío">v1.0 ✓</div>
 
 <!-- ================= LEGAJO ================= -->
 <div id="legajoScreen">
   <h1>Ingresá tu número de legajo</h1>
   <input id="legajoInput" type="number" inputmode="numeric">
 
-  <!-- 👇 espacio para historial -->
+  <!-- espacio para historial -->
   <div id="legajoHistorySpace">
     <div class="history-title">Últimos 2 reportes de este legajo</div>
     <div id="legajoHistoryContent" class="history-empty">Ingresá tu legajo para ver el historial</div>
@@ -338,7 +358,7 @@ function renderPendingSuggestion(){
   box.innerHTML = "";
   if(!legajo) return;
 
-  // ✅ SI HAY BLOQUEO (cualquier toggle activo), NO MOSTRAR sugerencias
+  // SI HAY BLOQUEO (cualquier toggle activo), NO MOSTRAR sugerencias
   const blocking = getAnyBlockingToggleActive(legajo);
   if (blocking) return;
 
@@ -433,7 +453,7 @@ function selectOption(code) {
   const ending = isToggleEnding(legajoStr, code);
 
   // Estos NUNCA piden input
-  const NEVER_INPUT = ["AT","PB","Limp","PC","Perm","MG","CR","CT"];  // 👈 CR agregado y CT
+  const NEVER_INPUT = ["AT","PB","Limp","PC","Perm","MG","CR","CT"];
 
   if (ending && !NEVER_INPUT.includes(code)) {
     inputArea.classList.remove("hidden");
@@ -477,6 +497,193 @@ function resetSelection() {
 }
 
 /* =========================================================
+   CAPA DE ENTREGA GARANTIZADA (cola + reintentos + SW)
+   ========================================================= */
+const LS_QUEUE = "legajo_queue_virgilio_v1";
+const SEND_TIMEOUT_MS = 15000;
+
+function uuidv4() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  (window.crypto || window.msCrypto).getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
+function isoNow() { return new Date().toISOString(); }
+
+function readQueue() {
+  try { return JSON.parse(localStorage.getItem(LS_QUEUE)) || []; }
+  catch { return []; }
+}
+function writeQueue(arr) { localStorage.setItem(LS_QUEUE, JSON.stringify(arr)); }
+
+/* IDB espejo para Background Sync del SW */
+const IDB_NAME = "virgilio-prod";
+const IDB_VERSION = 1;
+const IDB_STORE = "queue";
+let _dbPromise = null;
+
+function idbOpen() {
+  if (_dbPromise) return _dbPromise;
+  if (!("indexedDB" in window)) {
+    _dbPromise = Promise.reject(new Error("IDB not available"));
+    return _dbPromise;
+  }
+  _dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return _dbPromise;
+}
+function idbPut(item) {
+  return idbOpen().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    const r = tx.objectStore(IDB_STORE).put(item);
+    r.onsuccess = () => resolve();
+    r.onerror = () => reject(r.error);
+  }));
+}
+function idbDelete(id) {
+  return idbOpen().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    const r = tx.objectStore(IDB_STORE).delete(id);
+    r.onsuccess = () => resolve();
+    r.onerror = () => reject(r.error);
+  }));
+}
+function idbGetAll() {
+  return idbOpen().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const r = tx.objectStore(IDB_STORE).getAll();
+    r.onsuccess = () => resolve(r.result || []);
+    r.onerror = () => reject(r.error);
+  }));
+}
+
+// Si el SW ya envió un item en background, su id desaparece de IDB. Lo sacamos de LS.
+async function reconcileQueueWithIDB() {
+  let idbItems;
+  try { idbItems = await idbGetAll(); } catch { return; }
+  const idbIds = new Set(idbItems.map(x => x.id));
+  const lsQueue = readQueue();
+  if (!lsQueue.length) return;
+  const stillQueued = lsQueue.filter(item => idbIds.has(item.id));
+  if (stillQueued.length !== lsQueue.length) {
+    writeQueue(stillQueued);
+  }
+}
+
+async function registerBackgroundSync() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg && "sync" in reg) await reg.sync.register("flush-queue");
+  } catch { /* navegador sin soporte: igual reintentamos por polling */ }
+}
+
+function enqueue(payload) {
+  const item = { ...payload, __tries: 0, __queuedAt: isoNow() };
+  const q = readQueue();
+  q.push(item);
+  writeQueue(q);
+  idbPut(item).catch(() => {});
+  registerBackgroundSync();
+  updateSyncBadge();
+}
+
+async function withTimeout(promise, ms, errMsg) {
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(errMsg)), ms);
+  });
+  try { return await Promise.race([promise, timeoutPromise]); }
+  finally { clearTimeout(timer); }
+}
+
+async function postToSheet(item) {
+  // Body como string sin Content-Type explícito = request "simple" CORS, sin preflight.
+  // Apps Script lee e.postData.contents igual.
+  const res = await withTimeout(
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        id: item.id,
+        legajo: item.legajo,
+        opcion: item.opcion,
+        descripcion: item.descripcion,
+        texto: item.texto,
+        ts_event: item.ts_event
+      }),
+      redirect: "follow"
+    }),
+    SEND_TIMEOUT_MS,
+    `Timeout ${SEND_TIMEOUT_MS / 1000}s al enviar a Google Sheets`
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+let isFlushing = false;
+async function flushQueue() {
+  if (isFlushing) return;
+  isFlushing = true;
+  try {
+    let q = readQueue();
+    if (!q.length) return;
+    const batch = q.slice(0, 20);
+    for (const item of batch) {
+      try {
+        await postToSheet(item);
+        q = readQueue();
+        const idx = q.findIndex(x => x.id === item.id);
+        if (idx !== -1) { q.splice(idx, 1); writeQueue(q); }
+        idbDelete(item.id).catch(() => {});
+      } catch (err) {
+        item.__tries = (item.__tries || 0) + 1;
+        const idx = q.findIndex(x => x.id === item.id);
+        if (idx !== -1) { q[idx] = item; writeQueue(q); }
+        idbPut(item).catch(() => {});
+      }
+    }
+  } finally {
+    isFlushing = false;
+    updateSyncBadge();
+  }
+}
+
+function updateSyncBadge() {
+  const badge = document.getElementById("syncBadge");
+  if (!badge) return;
+  const q = readQueue();
+  const failed = q.filter(x => (x.__tries || 0) > 0).length;
+  if (q.length === 0) {
+    badge.textContent = "v1.0 ✓";
+    badge.style.background = "#f0fdf4";
+    badge.style.color = "#166534";
+    badge.style.borderColor = "#bbf7d0";
+  } else if (failed > 0) {
+    badge.textContent = `v1.0 ⚠ ${q.length}`;
+    badge.style.background = "#fef2f2";
+    badge.style.color = "#991b1b";
+    badge.style.borderColor = "#fecaca";
+  } else {
+    badge.textContent = `v1.0 ⏳ ${q.length}`;
+    badge.style.background = "#fffbeb";
+    badge.style.color = "#92400e";
+    badge.style.borderColor = "#fde68a";
+  }
+}
+
+/* =========================================================
    ENVÍO
    ========================================================= */
 function send() {
@@ -517,17 +724,18 @@ function send() {
     toggleStartOrEnd(legajoStr, opcion);
   }
 
-  fetch(GOOGLE_SCRIPT_URL,{
-    method:"POST",
-    body:JSON.stringify({
-      legajo: legajoInput.value,
-      opcion: selected,
-      descripcion: desc[selected],
-      texto: texto
-    })
-  }).catch(()=>{});
+  /* ---- encolar para envío garantizado ---- */
+  enqueue({
+    id: uuidv4(),
+    legajo: legajoStr,
+    opcion: opcion,
+    descripcion: descripcion,
+    texto: texto,
+    ts_event: isoNow()
+  });
+  flushQueue();
 
-  alert("Reporte enviado correctamente");
+  alert("Reporte guardado");
 
   resetSelection();
   optionsScreen.classList.add("hidden");
@@ -542,7 +750,57 @@ function send() {
   renderPendingSuggestion();
 }
 
-/* init */
+/* =========================================================
+   DISPARADORES DE FLUSH
+   ========================================================= */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") flushQueue();
+});
+window.addEventListener("focus", () => flushQueue());
+window.addEventListener("online", async () => {
+  const end = Date.now() + 3000;
+  while (Date.now() < end && readQueue().length) await flushQueue();
+});
+setInterval(() => flushQueue(), 5000);
+
+/* Tap en badge fuerza reintento */
+const syncBadgeEl = document.getElementById("syncBadge");
+if (syncBadgeEl) {
+  syncBadgeEl.addEventListener("click", () => {
+    syncBadgeEl.style.transform = "scale(0.92)";
+    setTimeout(() => { syncBadgeEl.style.transform = ""; }, 120);
+    flushQueue();
+  });
+}
+
+/* =========================================================
+   SERVICE WORKER
+   ========================================================= */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" })
+    .then((reg) => {
+      console.log("SW registrado", reg.scope);
+      setInterval(() => { reg.update().catch(() => {}); }, 60000);
+    })
+    .catch((err) => console.warn("SW no se pudo registrar:", err));
+
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "SW_UPDATED") {
+      console.log("[SW] Nueva version", event.data.version, "- recargando...");
+      window.location.reload();
+    }
+  });
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+reconcileQueueWithIDB().then(() => updateSyncBadge());
+if (readQueue().length > 0) {
+  registerBackgroundSync();
+  flushQueue();
+}
+updateSyncBadge();
 renderLegajoHistory("");
 </script>
 
