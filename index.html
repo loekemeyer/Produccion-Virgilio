@@ -1392,7 +1392,7 @@ button {
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.44 ✓</div>
+<div id="versionBadge">v1.45 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -3096,7 +3096,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.44";
+const APP_VERSION = "v1.45";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -4117,6 +4117,14 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && document.getElementById("monitorModal").classList.contains("show")) {
     closeMonitor();
   }
+});
+
+// La smart TV colgada en planta no puede clickear el botón 📊 con el control
+// remoto. Con la URL ?monitor=tv (o ?monitor=1) el monitor se abre SOLO al
+// cargar la página: basta apuntar el navegador de la tele a esa URL.
+window.addEventListener("load", () => {
+  const v = new URLSearchParams(location.search).get("monitor");
+  if (v === "tv" || v === "1") openMonitor();
 });
 
 /* Parser CSV simple — soporta campos entre comillas con comas y comillas
