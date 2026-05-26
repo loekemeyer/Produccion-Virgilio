@@ -480,6 +480,9 @@ button {
 .monitor-table td.center, .monitor-table th.center{ text-align: center; }
 .monitor-table td.num, .monitor-table th.num{ text-align: right; font-variant-numeric: tabular-nums; }
 .monitor-tanda{ font-weight: bold; color: #1e6bd6; }
+/* Legajo del que empezó la tanda, al lado del ✅/⏰ en el monitor. */
+.monitor-legajo{ font-size: 11px; color: #64748b; font-weight: 600; margin-left: 2px; vertical-align: middle; }
+#monitorModal.tv .monitor-legajo{ color: #94a3b8; font-size: 0.8em; }
 .status-icon{ font-size: 20px; line-height: 1; }
 .status-pend{ color: #94a3b8; }
 .status-curso{ color: #d97706; }
@@ -1371,7 +1374,7 @@ button {
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.27 ✓</div>
+<div id="versionBadge">v1.41 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -3075,7 +3078,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.40";
+const APP_VERSION = "v1.41";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -4355,7 +4358,7 @@ async function fetchMonitorEvents(targetTandaKeys, sheetMap) {
       "&texto=in.(" + targetTandaKeys.join(",") + ")" +
       "&order=ts_cliente.asc" +
       "&limit=5000" +
-      "&select=opcion,texto,ts_cliente";
+      "&select=opcion,texto,ts_cliente,legajo";
     const rA = await fetch(urlA, { headers });
     if (!rA.ok) throw new Error("Supabase HTTP " + rA.status + " (status query)");
     dataA = await rA.json();
@@ -4451,18 +4454,31 @@ async function fetchMonitorEvents(targetTandaKeys, sheetMap) {
   };
 
   // Procesar A: último evento de Picking (EP/TP) y Armado (AP/TAP) por tanda.
+  // startPick/startArm guardan el legajo del que EMPEZÓ (último EP / último AP)
+  // para mostrarlo al lado del ✅/⏰ en el monitor.
   const lastPick = new Map();
   const lastArm  = new Map();
+  const startPick = new Map();   // tanda -> { legajo, ts }  (último EP)
+  const startArm  = new Map();   // tanda -> { legajo, ts }  (último AP)
   for (const ev of dataA) {
     const t = (ev.texto || "").trim().toUpperCase();
     if (!t) continue;
-    const ts = ev.ts_cliente;
+    const ts  = ev.ts_cliente;
+    const leg = String(ev.legajo || "").trim();
     if (ev.opcion === "EP" || ev.opcion === "TP") {
       const cur = lastPick.get(t);
       if (!cur || ts > cur.ts) lastPick.set(t, { opcion: ev.opcion, ts });
+      if (ev.opcion === "EP") {
+        const cs = startPick.get(t);
+        if (!cs || ts > cs.ts) startPick.set(t, { legajo: leg, ts });
+      }
     } else if (ev.opcion === "AP" || ev.opcion === "TAP") {
       const cur = lastArm.get(t);
       if (!cur || ts > cur.ts) lastArm.set(t, { opcion: ev.opcion, ts });
+      if (ev.opcion === "AP") {
+        const cs = startArm.get(t);
+        if (!cs || ts > cs.ts) startArm.set(t, { legajo: leg, ts });
+      }
     }
   }
   const statusMap = new Map();
@@ -4470,11 +4486,15 @@ async function fetchMonitorEvents(targetTandaKeys, sheetMap) {
   for (const t of tandas) {
     const p = lastPick.get(t);
     const a = lastArm.get(t);
+    const sp = startPick.get(t);
+    const sa = startArm.get(t);
     statusMap.set(t, {
       picking:  !p ? null : (p.opcion === "TP"  ? "done" : "curso"),
       separado: !a ? null : (a.opcion === "TAP" ? "done" : "curso"),
       doneTodayP: false,
-      doneTodayA: false
+      doneTodayA: false,
+      pickLegajo: sp ? sp.legajo : null,
+      sepLegajo:  sa ? sa.legajo : null
     });
   }
 
@@ -4561,6 +4581,13 @@ function statusIconToday(s) {
   return "";
 }
 
+/* Legajo del que EMPEZÓ la tanda (EP picking / AP armado), al lado del ✅/⏰.
+   Vacío si la celda no tiene estado o no se conoce el legajo. */
+function monitorLegajoTag(legajo, state) {
+  if (!legajo || state == null) return "";
+  return ` <span class="monitor-legajo" title="Lo empezó el legajo ${escapeHtml(String(legajo))}">${escapeHtml(String(legajo))}</span>`;
+}
+
 /* Barra compacta encima de los totales del día que muestra cuántos
    empleados fichaste hoy, cuántos siguen en jornada (sin FJ) y cuántos
    cerraron. Si hay fichadas con email no linkeado en Empleados, lo
@@ -4625,7 +4652,7 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
   const tandas = [];
   for (const [k, v] of sheetMap) {
     if (!targetSet.has(v.fechaEntregaRaw)) continue;
-    const ev = statusMap.get(k) || { picking: null, separado: null, doneTodayP: false, doneTodayA: false };
+    const ev = statusMap.get(k) || { picking: null, separado: null, doneTodayP: false, doneTodayA: false, pickLegajo: null, sepLegajo: null };
     const hasAny = (ev.picking !== null || ev.separado !== null);
     if (!v.opIsSi && !hasAny) continue;
     tandas.push({ ...v, ev, missingSi: !v.opIsSi });
@@ -4707,8 +4734,8 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
         <td class="monitor-tanda tanda-clickable" data-tanda="${escapeHtml(t._key || t.tanda)}" onclick="showTandaDetail(this.dataset.tanda)">${escapeHtml(t.tanda)}</td>
         <td class="num">${m3Txt}</td>
         <td class="center">${feTxt}</td>
-        <td class="center">${statusIconToday(ev.picking)}</td>
-        <td class="center">${statusIconToday(ev.separado)}</td>
+        <td class="center">${statusIconToday(ev.picking)}${monitorLegajoTag(ev.pickLegajo, ev.picking)}</td>
+        <td class="center">${statusIconToday(ev.separado)}${monitorLegajoTag(ev.sepLegajo, ev.separado)}</td>
       </tr>`;
   }
   const todayStr = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
