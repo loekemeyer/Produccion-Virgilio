@@ -480,9 +480,25 @@ button {
 .monitor-table td.center, .monitor-table th.center{ text-align: center; }
 .monitor-table td.num, .monitor-table th.num{ text-align: right; font-variant-numeric: tabular-nums; }
 .monitor-tanda{ font-weight: bold; color: #1e6bd6; }
-/* Legajo del que empezó la tanda, al lado del ✅/⏰ en el monitor. */
-.monitor-legajo{ font-size: 11px; color: #64748b; font-weight: 600; margin-left: 2px; vertical-align: middle; }
+/* Celda de estado del monitor: el icono (✅/⏰) queda SIEMPRE centrado en la
+   columna y el legajo del que empezó cuelga a la derecha, posicionado absoluto
+   para no descentrar el icono. */
+.status-wrap{ position: relative; display: block; }
+.monitor-legajo{
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  font-size: 11px; color: #64748b; font-weight: 600; white-space: nowrap;
+}
 #monitorModal.tv .monitor-legajo{ color: #94a3b8; font-size: 0.8em; }
+/* Leyenda de legajos abajo del monitor: "Leg 8: Juan Farias". */
+.monitor-legend{
+  margin-top: 10px; padding: 8px 10px; border-top: 1px solid #e2e8f0;
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  font-size: 13px; color: #334155;
+}
+.monitor-legend .legend-item{ white-space: nowrap; }
+.monitor-legend .legend-item b{ color: #1e6bd6; }
+#monitorModal.tv .monitor-legend{ border-top-color: #334155; color: #cbd5e1; font-size: 0.9em; gap: 8px 22px; }
+#monitorModal.tv .monitor-legend .legend-item b{ color: #60a5fa; }
 .status-icon{ font-size: 20px; line-height: 1; }
 .status-pend{ color: #94a3b8; }
 .status-curso{ color: #d97706; }
@@ -1374,7 +1390,7 @@ button {
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.41 ✓</div>
+<div id="versionBadge">v1.42 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -3078,7 +3094,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.41";
+const APP_VERSION = "v1.42";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -4339,6 +4355,37 @@ function getHistoricMap() {
    en (A) mantiene el resultado acotado. (B) y (C) son chicos (~50-300/día).
    Devuelve: { statusMap, alertasOffSheet, empleadosHoy }
      statusMap: TANDA -> { picking, separado, doneTodayP, doneTodayA } */
+/* Cache legajo -> nombre (tabla Empleados) para la leyenda del monitor
+   "Leg 8: Juan Farias". Refresca cada 1h; ante error mantiene lo cacheado. */
+let _empleadosNombres   = new Map();
+let _empleadosNombresTs = 0;
+const EMPLEADOS_TTL_MS  = 60 * 60 * 1000;
+async function getEmpleadosNombres() {
+  const now = Date.now();
+  if (_empleadosNombres.size && (now - _empleadosNombresTs) < EMPLEADOS_TTL_MS) {
+    return _empleadosNombres;
+  }
+  try {
+    const url = SUPABASE_EMPLEADOS_ENDPOINT + "?select=Legajo,Empleado&limit=5000";
+    const r = await fetch(url, {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+    });
+    if (!r.ok) throw new Error("Supabase HTTP " + r.status);
+    const data = await r.json();
+    const map = new Map();
+    for (const e of data) {
+      const leg = String(e.Legajo || "").trim();
+      const nom = (e.Empleado || "").trim();
+      if (leg && nom) map.set(leg, nom);
+    }
+    if (map.size) { _empleadosNombres = map; _empleadosNombresTs = Date.now(); }
+    return _empleadosNombres;
+  } catch (e) {
+    console.warn("[monitor] nombres de empleados fetch fallido:", e.message);
+    return _empleadosNombres;
+  }
+}
+
 async function fetchMonitorEvents(targetTandaKeys, sheetMap) {
   const now = new Date();
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -4581,11 +4628,21 @@ function statusIconToday(s) {
   return "";
 }
 
-/* Legajo del que EMPEZÓ la tanda (EP picking / AP armado), al lado del ✅/⏰.
-   Vacío si la celda no tiene estado o no se conoce el legajo. */
+/* Legajo del que EMPEZÓ la tanda (EP picking / AP armado). Se posiciona
+   absoluto a la derecha de la celda (ver .monitor-legajo en el CSS). Vacío si
+   no se conoce el legajo o la celda no tiene estado. */
 function monitorLegajoTag(legajo, state) {
   if (!legajo || state == null) return "";
-  return ` <span class="monitor-legajo" title="Lo empezó el legajo ${escapeHtml(String(legajo))}">${escapeHtml(String(legajo))}</span>`;
+  return `<span class="monitor-legajo" title="Lo empezó el legajo ${escapeHtml(String(legajo))}">${escapeHtml(String(legajo))}</span>`;
+}
+
+/* Celda de Picking / Pedido Separado: icono centrado en la columna + legajo
+   colgado a la derecha. El wrapper .status-wrap (block, full width) es el
+   contexto de posicionamiento para que el legajo no descentre el icono. */
+function statusCell(state, legajo) {
+  const icon = statusIconToday(state);
+  if (!icon) return "";   // sin actividad → celda vacía
+  return `<span class="status-wrap">${icon}${monitorLegajoTag(legajo, state)}</span>`;
 }
 
 /* Barra compacta encima de los totales del día que muestra cuántos
@@ -4734,8 +4791,8 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
         <td class="monitor-tanda tanda-clickable" data-tanda="${escapeHtml(t._key || t.tanda)}" onclick="showTandaDetail(this.dataset.tanda)">${escapeHtml(t.tanda)}</td>
         <td class="num">${m3Txt}</td>
         <td class="center">${feTxt}</td>
-        <td class="center">${statusIconToday(ev.picking)}${monitorLegajoTag(ev.pickLegajo, ev.picking)}</td>
-        <td class="center">${statusIconToday(ev.separado)}${monitorLegajoTag(ev.sepLegajo, ev.separado)}</td>
+        <td class="center">${statusCell(ev.picking, ev.pickLegajo)}</td>
+        <td class="center">${statusCell(ev.separado, ev.sepLegajo)}</td>
       </tr>`;
   }
   const todayStr = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
@@ -4881,6 +4938,20 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
     </div>
   ` : "";
 
+  // Leyenda de legajos abajo del monitor: "Leg 8: Juan Farias".
+  const legajosVistos = new Set();
+  for (const t of tandas) {
+    if (t.ev.pickLegajo) legajosVistos.add(String(t.ev.pickLegajo));
+    if (t.ev.sepLegajo)  legajosVistos.add(String(t.ev.sepLegajo));
+  }
+  const legendHtml = legajosVistos.size ? `
+    <div class="monitor-legend">
+      ${[...legajosVistos]
+          .sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0))
+          .map(l => `<span class="legend-item"><b>Leg ${escapeHtml(l)}:</b> ${escapeHtml(_empleadosNombres.get(l) || "—")}</span>`)
+          .join("")}
+    </div>` : "";
+
   const tableHtml = `
     <div class="monitor-flex">
       <div class="monitor-table-wrap">
@@ -4928,6 +4999,7 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
         ${alertHtml}
       </div>
     </div>
+    ${legendHtml}
   `;
   content.innerHTML = tableHtml;
   const countCurso = tandas.filter(t => t.ev.picking === "curso" || t.ev.separado === "curso").length;
@@ -4975,6 +5047,7 @@ async function refreshMonitor() {
       activeInNarrow++;
     }
     const targetDates = activeInNarrow <= 3 ? wideTargetDates : narrowDates;
+    await getEmpleadosNombres();   // legajo -> nombre para la leyenda (cacheado 1h)
     renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, empleadosHoy, pastDays, null, fichadasResumen);
     if (refrEl) { refrEl.textContent = "● al día"; refrEl.classList.remove("stale"); }
     // Si el fetch anda, ocultar banner offline (puede que estuviera mostrándose).
