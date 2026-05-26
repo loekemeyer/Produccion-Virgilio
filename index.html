@@ -480,24 +480,26 @@ button {
 .monitor-table td.center, .monitor-table th.center{ text-align: center; }
 .monitor-table td.num, .monitor-table th.num{ text-align: right; font-variant-numeric: tabular-nums; }
 .monitor-tanda{ font-weight: bold; color: #1e6bd6; }
-/* Celda de estado del monitor: el icono (✅/⏰) queda SIEMPRE centrado en la
-   columna y el legajo del que empezó cuelga a la derecha, posicionado absoluto
-   para no descentrar el icono. */
-.status-wrap{ position: relative; display: block; }
+/* Celda de estado del monitor (Picking / Pedido Separado): grid de 3 columnas
+   (1fr | icono | 1fr) para que el ✅/⏰ quede centrado en la columna y el legajo
+   del que empezó vaya a la derecha SIN pisar el icono (cada uno en su track). */
+.status-wrap{ display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-width: 4.2em; }
+.status-wrap .status-icon{ grid-column: 2; }
 .monitor-legajo{
-  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  grid-column: 3; justify-self: start; margin-left: 4px;
   font-size: 11px; color: #64748b; font-weight: 600; white-space: nowrap;
 }
 #monitorModal.tv .monitor-legajo{ color: #94a3b8; font-size: 0.8em; }
-/* Leyenda de legajos abajo del monitor: "Leg 8: Juan Farias". */
+/* Leyenda de operarios — abajo de "Fuera de ventana", lista ordenada por legajo. */
 .monitor-legend{
   margin-top: 10px; padding: 8px 10px; border-top: 1px solid #e2e8f0;
-  display: flex; flex-wrap: wrap; gap: 6px 16px;
-  font-size: 13px; color: #334155;
+  font-size: 13px; color: #334155; line-height: 1.55;
 }
-.monitor-legend .legend-item{ white-space: nowrap; }
+.monitor-legend .legend-title{ font-weight: bold; color: #475569; margin-bottom: 3px; }
+.monitor-legend .legend-item{ display: block; white-space: nowrap; }
 .monitor-legend .legend-item b{ color: #1e6bd6; }
-#monitorModal.tv .monitor-legend{ border-top-color: #334155; color: #cbd5e1; font-size: 0.9em; gap: 8px 22px; }
+#monitorModal.tv .monitor-legend{ border-top-color: #334155; color: #cbd5e1; font-size: 0.9em; }
+#monitorModal.tv .monitor-legend .legend-title{ color: #94a3b8; }
 #monitorModal.tv .monitor-legend .legend-item b{ color: #60a5fa; }
 .status-icon{ font-size: 20px; line-height: 1; }
 .status-pend{ color: #94a3b8; }
@@ -1390,7 +1392,7 @@ button {
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.42 ✓</div>
+<div id="versionBadge">v1.43 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -3094,7 +3096,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.42";
+const APP_VERSION = "v1.43";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -4946,6 +4948,7 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
   }
   const legendHtml = legajosVistos.size ? `
     <div class="monitor-legend">
+      <div class="legend-title">Operarios en pantalla</div>
       ${[...legajosVistos]
           .sort((a,b) => (parseInt(a,10)||0) - (parseInt(b,10)||0))
           .map(l => `<span class="legend-item"><b>Leg ${escapeHtml(l)}:</b> ${escapeHtml(_empleadosNombres.get(l) || "—")}</span>`)
@@ -4957,6 +4960,7 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
       <div class="monitor-table-wrap">
         ${leftHtml}
         ${beyondHtml}
+        ${legendHtml}
       </div>
       <div class="monitor-totales monitor-totales-side">
         <div class="totales-col-boxes">
@@ -4999,7 +5003,6 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
         ${alertHtml}
       </div>
     </div>
-    ${legendHtml}
   `;
   content.innerHTML = tableHtml;
   const countCurso = tandas.filter(t => t.ev.picking === "curso" || t.ev.separado === "curso").length;
