@@ -1392,7 +1392,7 @@ button {
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.43 ✓</div>
+<div id="versionBadge">v1.44 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -1997,7 +1997,7 @@ async function bulkSendDayReplay(legajoStr, historySnapshot) {
       legajo:      legajoStr,
       opcion:      item.opcion,
       descripcion: item.descripcion || (desc[item.opcion] || ""),
-      texto:       item.texto || "",
+      texto:       (item.texto || "").trim(),
       ts_cliente:  new Date(item.ts || Date.now()).toISOString(),
       ts_inicio:   item.ts_inicio_iso || null
     }));
@@ -2077,7 +2077,7 @@ async function confirmarTerminarDia() {
       // (ya validado más arriba). Para AT/PB/Limp/PC/CT/Perm el texto
       // queda vacío como antes.
       const textoCierre = CLOSE_NEEDS_INPUT_CODES.includes(code)
-        ? (closeInputs[code] || "")
+        ? (closeInputs[code] || "").trim()
         : "";
       const closeId = nowMs.toString(36) + "_fjclose_" + code + "_" + Math.random().toString(36).slice(2, 6);
       const closePayload = {
@@ -3096,7 +3096,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.43";
+const APP_VERSION = "v1.44";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -3193,10 +3193,10 @@ async function undoLastSent() {
 }
 
 async function send() {
-  const legajoStr   = String(legajoInput.value || "");
+  const legajoStr   = String(legajoInput.value || "").trim();
   const opcion      = selected;
   const descripcion = desc[selected] || "";
-  const texto       = (textInput.value || "").toUpperCase();
+  const texto       = (textInput.value || "").trim().toUpperCase();
 
   if (!legajoStr) { alert("Falta el número de legajo"); return; }
   if (!opcion)    { alert("Falta seleccionar una opción"); return; }
@@ -3205,7 +3205,7 @@ async function send() {
   const nowMs  = Date.now();
   const nowIso = new Date(nowMs).toISOString();
   const payload = {
-    legajo: legajoInput.value,
+    legajo: legajoStr,
     opcion,
     descripcion,
     texto,
