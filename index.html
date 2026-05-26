@@ -1392,7 +1392,7 @@ button {
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.45 ✓</div>
+<div id="versionBadge">v1.46 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -3096,7 +3096,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.45";
+const APP_VERSION = "v1.46";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -5044,20 +5044,20 @@ async function refreshMonitor() {
     // 2) Eventos: status por tanda + alertas de hoy + empleados de hoy + 5 días anteriores
     const { statusMap, alertasOffSheet, empleadosHoy, pastDays, fichadasResumen } = await fetchMonitorEvents(targetTandaKeys, sheetMap);
     monitorLastOkTs = Date.now();
-    // 3) Decidir cuántos días mostrar: por default los próximos 3, pero si
-    //    quedan ≤ 3 tandas activas (sin TAP confirmado), expandimos a 7 para
-    //    que el supervisor pueda planear adelante.
+    // 3) Decidir cuántos días mostrar: por default los próximos 3. Pero si en
+    //    la ventana corta ya quedan POCOS pickings por hacer (≤3), expandimos
+    //    a 7 días — así, cuando están terminando los pickings, el monitor
+    //    adelanta y muestra las tandas de los próximos días automáticamente.
     const narrowDates = targetDeliveryDates(sheetMap, 3);
     const narrowSet   = new Set(narrowDates);
-    let activeInNarrow = 0;
+    let pickingsPendientes = 0;
     for (const [k, v] of sheetMap) {
       if (!narrowSet.has(v.fechaEntregaRaw)) continue;
       if (!v.opIsSi) continue;
       const ev = statusMap.get(k) || {};
-      if (ev.picking === "done" && ev.separado === "done") continue;
-      activeInNarrow++;
+      if (ev.picking !== "done") pickingsPendientes++;
     }
-    const targetDates = activeInNarrow <= 3 ? wideTargetDates : narrowDates;
+    const targetDates = pickingsPendientes <= 3 ? wideTargetDates : narrowDates;
     await getEmpleadosNombres();   // legajo -> nombre para la leyenda (cacheado 1h)
     renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, empleadosHoy, pastDays, null, fichadasResumen);
     if (refrEl) { refrEl.textContent = "● al día"; refrEl.classList.remove("stale"); }
