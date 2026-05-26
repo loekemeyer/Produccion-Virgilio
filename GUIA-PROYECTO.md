@@ -4,7 +4,7 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-05-26 · Versión app al documentar: **v1.46**
+> Última actualización: 2026-05-26 · Versión app al documentar: **v1.47**
 
 ---
 
@@ -51,6 +51,8 @@ Todo vive en `index.html`, alternando con la clase `.hidden` (no hay router):
 - **Botones flotantes**: 📅 historial de días anteriores · 📊 **monitor** del supervisor.
 - **Monitor**: se abre con 📊 o automáticamente con `?monitor=tv` (o si la pantalla
   mide ≥1600 px). La URL `/Produccion-Virgilio/monitor` entra directo en modo TV.
+  Tiene **dos pestañas**: **Monitor** (tablero de tandas) e **Inconsistencias**
+  (hoja de alertas, ver § 12).
 
 ---
 
@@ -282,8 +284,12 @@ Operarios reales vistos recientemente: 104 (Jhonny Moncayo), 237 (Franco Ortiz),
 
 ## 12. Reglas de inconsistencia (qué es "correcto" vs anómalo)
 
-Base para la **hoja de inconsistencias / alertas**. Una inconsistencia = lo que el
-operario registró no condice con cómo debería operar el sistema.
+Una inconsistencia = lo que el operario registró no condice con cómo debería
+operar el sistema. **Implementado (v1.47)** como la pestaña **Inconsistencias**
+del monitor: selector de día (hoy + 6 anteriores), severidad **ALTA** (rojo) /
+**media** (ámbar), badge con el conteo y auto-refresco cada 20 s. Excluye los
+legajos test `0` y `1`. Reglas y umbrales (en `index.html`, sección "HOJA DE
+INCONSISTENCIAS"):
 
 **A. Tareas sin cerrar / duración absurda**
 - `EP` sin su `TP` (mismo legajo/tanda/día) → picking sin cerrar.

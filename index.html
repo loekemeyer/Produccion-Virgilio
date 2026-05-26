@@ -1348,6 +1348,32 @@ button {
   color: #991b1b;
   border-color: #fecaca;
 }
+
+/* ===== Pestañas del monitor + Hoja de inconsistencias ===== */
+.monitor-tabs{ display:flex; gap:6px; padding:6px 0 0; }
+.monitor-tab{ border:none; background:#e2e8f0; color:#334155; padding:7px 14px; border-radius:8px 8px 0 0; font-size:13px; font-weight:600; cursor:pointer; }
+.monitor-tab.active{ background:#fff; color:#0f172a; box-shadow:0 -2px 0 #2563eb inset; }
+.incons-badge{ display:inline-block; min-width:18px; padding:0 5px; margin-left:5px; border-radius:9px; background:#94a3b8; color:#fff; font-size:11px; line-height:18px; text-align:center; }
+.incons-badge.inc-badge-alta{ background:#dc2626; }
+.inc-days{ display:flex; flex-wrap:wrap; gap:5px; margin:8px 0; }
+.inc-day{ border:1px solid #cbd5e1; background:#f8fafc; color:#334155; padding:4px 9px; border-radius:6px; font-size:12px; cursor:pointer; }
+.inc-day.active{ background:#2563eb; color:#fff; border-color:#2563eb; }
+.inc-summary{ font-size:13px; color:#475569; margin:6px 0 10px; }
+.inc-alta-txt{ color:#dc2626; font-weight:600; }
+.inc-table td{ vertical-align:top; }
+.inc-chip{ display:inline-block; padding:1px 7px; border-radius:6px; font-size:11px; font-weight:700; color:#fff; }
+.inc-chip.inc-alta{ background:#dc2626; }
+.inc-chip.inc-media{ background:#d97706; }
+.inc-row-alta td{ background:#fef2f2; }
+.inc-row-media td{ background:#fffbeb; }
+.inc-nom{ font-size:11px; color:#94a3b8; }
+#monitorModal.tv .monitor-tab{ background:#1e293b; color:#cbd5e1; font-size:18px; padding:10px 20px; }
+#monitorModal.tv .monitor-tab.active{ background:#0f172a; color:#fff; }
+#monitorModal.tv .inc-summary{ color:#cbd5e1; font-size:18px; }
+#monitorModal.tv .inc-row-alta td{ background:#450a0a; color:#fecaca; }
+#monitorModal.tv .inc-row-media td{ background:#451a03; color:#fed7aa; }
+#monitorModal.tv .inc-day{ background:#1e293b; color:#cbd5e1; border-color:#334155; font-size:15px; }
+#monitorModal.tv .inc-nom{ color:#64748b; }
 </style>
 </head>
 
@@ -1373,7 +1399,14 @@ button {
       </div>
     </div>
     <div id="monitorOfflineBanner" class="hidden"></div>
+    <div class="monitor-tabs">
+      <button id="tabBtnMonitor" class="monitor-tab active" onclick="setMonitorTab('monitor')">📊 Monitor</button>
+      <button id="tabBtnIncons" class="monitor-tab" onclick="setMonitorTab('incons')">⚠ Inconsistencias <span id="inconsBadge" class="incons-badge hidden">0</span></button>
+    </div>
     <div id="monitorContent">
+      <div class="monitor-loading">Cargando…</div>
+    </div>
+    <div id="inconsContent" class="hidden">
       <div class="monitor-loading">Cargando…</div>
     </div>
   </div>
@@ -1392,7 +1425,7 @@ button {
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.46 ✓</div>
+<div id="versionBadge">v1.47 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -3096,7 +3129,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.46";
+const APP_VERSION = "v1.47";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -4089,6 +4122,8 @@ function openMonitor() {
   refreshMonitor();
   if (monitorIntervalId) clearInterval(monitorIntervalId);
   monitorIntervalId = setInterval(refreshMonitor, MONITOR_REFRESH_MS);
+  setMonitorTab("monitor");
+  startInconsAutoRefresh();
 }
 
 function closeMonitor() {
@@ -4096,6 +4131,7 @@ function closeMonitor() {
   m.classList.remove("show");
   m.classList.remove("tv");
   if (monitorIntervalId) { clearInterval(monitorIntervalId); monitorIntervalId = null; }
+  stopInconsAutoRefresh();
   // Reset del snapshot — al reabrir, el primer refresh no flashea masivo.
   _prevStatusMap = new Map();
 }
@@ -5087,6 +5123,312 @@ async function refreshMonitor() {
     if (!monitorLastOkTs) {
       document.getElementById("monitorContent").innerHTML =
         `<div class="monitor-error">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+}
+
+/* =========================================================================
+   HOJA DE INCONSISTENCIAS  (pestaña del monitor)
+   Cruza los eventos de Registros_Produccion_Virgilio de un día contra cómo
+   DEBERÍA operar el sistema y lista alertas para que el supervisor intervenga.
+   Reglas documentadas en GUIA-PROYECTO.md § 12.
+   ========================================================================= */
+const INCONS_REFRESH_MS = 20000;          // refresco propio (más lento que el monitor 1s)
+let _inconsIntervalId = null;
+let _inconsDayKey = null;                 // YYYY-MM-DD (BA); null => hoy
+let _inconsActive = false;                // pestaña visible
+
+const INC_DUR_CORE_MAX_MIN   = 8 * 60;    // picking/armado cerrado > 8h = absurdo
+const INC_DUR_TOGGLE_MAX_MIN = 3 * 60;    // toggle (CR,CC,RT,...) cerrado > 3h
+const INC_COMIDA_MAX_MIN     = 90;        // comida > 1h30
+const INC_OPEN_TODAY_MIN     = 180;       // tarea abierta hoy > 3h sin cerrar
+const INC_GAP_MIN            = 90;        // hueco de inactividad > 1h30
+const INC_JORNADA_MAX_MIN    = 12 * 60;   // jornada > 12h
+
+const INC_CORE   = ["EP", "TP", "AP", "TAP"];
+const INC_TOGGLE = ["CR", "CC", "RT", "MG", "RI", "EI", "AT", "PB", "Limp", "PC", "Perm", "CT"];
+const INC_DESC = {
+  EP: "Picking", TP: "Picking", AP: "Armado", TAP: "Armado", CR: "Control Remitos",
+  CC: "Carga Camión", RT: "Recepción Mercadería", MG: "Guardado Góndola",
+  RI: "Recepción Insumos", EI: "Entrega Insumos", AT: "Atendí Timbre",
+  PB: "Baño", Limp: "Limpieza", Perm: "Permiso", PC: "Comida", CT: "Conteo", FJ: "Fin Jornada"
+};
+
+function inconsDayKey() { return _inconsDayKey || getTodayKey(); }
+function _incMin(ms) { return ms / 60000; }
+function _incHora(iso) {
+  try {
+    return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" });
+  } catch { return String(iso).slice(11, 16); }
+}
+
+function setMonitorTab(tab) {
+  const cont = document.getElementById("monitorContent");
+  const inc  = document.getElementById("inconsContent");
+  const bM   = document.getElementById("tabBtnMonitor");
+  const bI   = document.getElementById("tabBtnIncons");
+  _inconsActive = (tab === "incons");
+  if (cont) cont.classList.toggle("hidden", _inconsActive);
+  if (inc)  inc.classList.toggle("hidden", !_inconsActive);
+  if (bM) bM.classList.toggle("active", !_inconsActive);
+  if (bI) bI.classList.toggle("active", _inconsActive);
+  if (_inconsActive) refreshInconsistencias();
+}
+
+function startInconsAutoRefresh() {
+  if (_inconsIntervalId) clearInterval(_inconsIntervalId);
+  refreshInconsistencias();   // pobla el badge aunque la pestaña no esté activa
+  _inconsIntervalId = setInterval(refreshInconsistencias, INCONS_REFRESH_MS);
+}
+function stopInconsAutoRefresh() {
+  if (_inconsIntervalId) { clearInterval(_inconsIntervalId); _inconsIntervalId = null; }
+  _inconsActive = false;
+}
+
+async function fetchInconsEvents(dayKey) {
+  const dayStartIso = new Date(`${dayKey}T00:00:00-03:00`).toISOString();
+  const dayEndIso   = new Date(`${dayKey}T23:59:59-03:00`).toISOString();
+  const url = SUPABASE_TABLE_ENDPOINT +
+    "?ts_cliente=gte." + encodeURIComponent(dayStartIso) +
+    "&ts_cliente=lte." + encodeURIComponent(dayEndIso) +
+    "&order=ts_cliente.asc&limit=5000" +
+    "&select=opcion,texto,legajo,ts_cliente,ts_inicio";
+  const r = await fetch(url, { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+}
+
+// Set de tandas válidas: las del sheet de programación + el histórico.
+async function inconsValidTandas() {
+  const s = new Set();
+  try {
+    const sheet = _monitorSheetCache || _pppCache;
+    if (sheet) for (const k of sheet.keys()) s.add(k);
+    const hist = await getHistoricMap();
+    if (hist) for (const k of hist.keys()) s.add(k);
+  } catch (_) { /* sin planilla: no se chequea pedido inválido */ }
+  return s;
+}
+
+function computeInconsistencias(events, dayKey, validTandas) {
+  const hoy = isTodayKey(dayKey);
+  const nowMs = Date.now();
+  const out = [];
+  const add = (sev, cat, legajo, hora, detalle) => out.push({ sev, cat, legajo, hora, detalle });
+
+  // Excluir legajos test/basura (0 y 1)
+  const evs = events.filter(e => {
+    const l = String(e.legajo || "").trim();
+    return l && l !== "0" && l !== "1";
+  });
+
+  // Pedido cargado por más de un operario (mismo rol)
+  const tandaClosers = new Map();   // tanda -> {TP:Set, TAP:Set}
+  for (const e of evs) {
+    if (e.opcion !== "TP" && e.opcion !== "TAP") continue;
+    const t = String(e.texto || "").trim().toUpperCase();
+    if (!t) continue;
+    if (!tandaClosers.has(t)) tandaClosers.set(t, { TP: new Set(), TAP: new Set() });
+    tandaClosers.get(t)[e.opcion].add(String(e.legajo).trim());
+  }
+  for (const [t, c] of tandaClosers) {
+    if (c.TP.size > 1)  add("alta", "Pedido duplicado", [...c.TP].join("/"),  "", `Tanda ${t}: picking (TP) cargado por ${c.TP.size} operarios`);
+    if (c.TAP.size > 1) add("alta", "Pedido duplicado", [...c.TAP].join("/"), "", `Tanda ${t}: armado (TAP) cargado por ${c.TAP.size} operarios`);
+  }
+
+  // Agrupar por legajo
+  const byLeg = new Map();
+  for (const e of evs) {
+    const l = String(e.legajo).trim();
+    if (!byLeg.has(l)) byLeg.set(l, []);
+    byLeg.get(l).push(e);
+  }
+
+  for (const [leg, list] of byLeg) {
+    list.sort((a, b) => new Date(a.ts_cliente) - new Date(b.ts_cliente));
+    const fjs = list.filter(e => e.opcion === "FJ");
+    const fjTs = fjs.length ? new Date(fjs[fjs.length - 1].ts_cliente) : null;
+    const firstTs = new Date(list[0].ts_cliente);
+    const lastTs  = new Date(list[list.length - 1].ts_cliente);
+
+    if (fjs.length > 1) add("alta", "Secuencia", leg, _incHora(fjs[fjs.length - 1].ts_cliente), `${fjs.length} Fin de Jornada (FJ) en el día`);
+
+    if (fjTs) for (const e of list) {
+      if (e.opcion === "FJ") continue;
+      if (new Date(e.ts_cliente) > fjTs) add("alta", "Secuencia", leg, _incHora(e.ts_cliente), `${INC_DESC[e.opcion] || e.opcion} después de Fin de Jornada`);
+    }
+
+    if (!hoy && !fjTs && list.some(e => INC_CORE.includes(e.opcion))) {
+      add("alta", "Secuencia", leg, _incHora(lastTs.toISOString()), "Jornada con producción pero SIN Fin de Jornada (FJ)");
+    }
+
+    const comidaMs = list
+      .filter(e => e.opcion === "PC" && e.ts_inicio && new Date(e.ts_cliente) > new Date(e.ts_inicio))
+      .reduce((s, e) => s + Math.min(new Date(e.ts_cliente) - new Date(e.ts_inicio), 8 * 3600 * 1000), 0);
+    const endJ = fjTs || lastTs;
+    const jornMin = _incMin((endJ - firstTs) - comidaMs);
+    if (jornMin > INC_JORNADA_MAX_MIN) add("media", "Tiempos", leg, "", `Jornada de ${(jornMin / 60).toFixed(1)} h (> ${INC_JORNADA_MAX_MIN / 60} h)`);
+
+    for (const e of list) {
+      if (!e.ts_inicio) continue;
+      const dur = new Date(e.ts_cliente) - new Date(e.ts_inicio);
+      if (dur <= 0) continue;
+      const durMin = _incMin(dur);
+      if (e.opcion === "TP" || e.opcion === "TAP") {
+        if (durMin > INC_DUR_CORE_MAX_MIN) add("alta", "Duración", leg, _incHora(e.ts_cliente), `${INC_DESC[e.opcion]} ${String(e.texto || "").toUpperCase()} duró ${(durMin / 60).toFixed(1)} h`);
+      } else if (e.opcion === "PC") {
+        if (durMin > INC_COMIDA_MAX_MIN) add("media", "Tiempos", leg, _incHora(e.ts_cliente), `Comida de ${Math.round(durMin)} min (> ${INC_COMIDA_MAX_MIN} min)`);
+      } else if (INC_TOGGLE.includes(e.opcion)) {
+        if (durMin > INC_DUR_TOGGLE_MAX_MIN) add("media", "Duración", leg, _incHora(e.ts_cliente), `${INC_DESC[e.opcion] || e.opcion} duró ${(durMin / 60).toFixed(1)} h`);
+      }
+    }
+
+    const pcCloses = list.filter(e => e.opcion === "PC" && e.ts_inicio);
+    if (pcCloses.length > 1) add("media", "Tiempos", leg, "", `${pcCloses.length} comidas (PC) en el día`);
+
+    // Secuencia EP/TP y AP/TAP por tanda
+    const seqPairs = [["EP", "TP", "Picking"], ["AP", "TAP", "Armado"]];
+    for (const [openOp, closeOp, label] of seqPairs) {
+      const opens = new Map();
+      const lastOpenTs = new Map();
+      for (const e of list) {
+        const t = String(e.texto || "").trim().toUpperCase() || "(sin código)";
+        if (e.opcion === openOp) {
+          opens.set(t, (opens.get(t) || 0) + 1);
+          lastOpenTs.set(t, e.ts_cliente);
+        } else if (e.opcion === closeOp) {
+          if ((opens.get(t) || 0) > 0) opens.set(t, opens.get(t) - 1);
+          else add("alta", "Secuencia", leg, _incHora(e.ts_cliente), `${label} ${t}: "${closeOp}" sin "${openOp}" previo`);
+        }
+      }
+      for (const [t, n] of opens) {
+        if (n <= 0) continue;
+        if (hoy) {
+          const ageMin = _incMin(nowMs - new Date(lastOpenTs.get(t)).getTime());
+          if (ageMin > INC_OPEN_TODAY_MIN) add("media", "Sin cerrar", leg, _incHora(lastOpenTs.get(t)), `${label} ${t} abierto hace ${(ageMin / 60).toFixed(1)} h (sin cerrar)`);
+        } else {
+          add("alta", "Sin cerrar", leg, _incHora(lastOpenTs.get(t)), `${label} ${t} quedó sin cerrar`);
+        }
+      }
+    }
+
+    // Pedido inválido (no está en la planilla PPP)
+    if (validTandas && validTandas.size) {
+      const vistos = new Set();
+      for (const e of list) {
+        if (!INC_CORE.includes(e.opcion)) continue;
+        const t = String(e.texto || "").trim().toUpperCase();
+        if (!t || vistos.has(t)) continue;
+        vistos.add(t);
+        if (!validTandas.has(t)) add("alta", "Pedido inválido", leg, _incHora(e.ts_cliente), `Tanda ${t} no está en la planilla PPP`);
+      }
+    }
+
+    // Hueco de inactividad (sólo cuando NO había tarea en curso)
+    let inProgress = 0;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (i > 0 && e.opcion !== "FJ") {
+        const gapMin = _incMin(new Date(e.ts_cliente) - new Date(list[i - 1].ts_cliente));
+        if (inProgress === 0 && gapMin > INC_GAP_MIN) {
+          add("media", "Tiempos", leg, _incHora(e.ts_cliente), `Hueco de ${(gapMin / 60).toFixed(1)} h sin actividad (${_incHora(list[i - 1].ts_cliente)}→${_incHora(e.ts_cliente)})`);
+        }
+      }
+      if (e.opcion === "FJ") { /* neutral */ }
+      else if (e.ts_inicio) inProgress = Math.max(0, inProgress - 1);   // cierre
+      else inProgress++;                                                // apertura
+    }
+  }
+
+  const sevRank = { alta: 0, media: 1 };
+  out.sort((a, b) => (sevRank[a.sev] - sevRank[b.sev]) || String(a.legajo).localeCompare(String(b.legajo)));
+  return out;
+}
+
+function inconsDayOptions() {
+  const out = [];
+  const t = getTodayKey();
+  const [y, m, d] = t.split("-").map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  for (let i = 0; i < 7; i++) {
+    const dd = new Date(base);
+    dd.setUTCDate(base.getUTCDate() - i);
+    out.push(dd.toISOString().slice(0, 10));
+  }
+  return out;
+}
+function setInconsDay(k) { _inconsDayKey = k; refreshInconsistencias(); }
+
+function inconsDaySelectorHtml(dayKey) {
+  const opts = inconsDayOptions();
+  const hoy = getTodayKey();
+  return `<div class="inc-days">` + opts.map(k => {
+    const [Y, M, D] = k.split("-");
+    const lbl = (k === hoy) ? "Hoy" : `${D}/${M}`;
+    return `<button class="inc-day ${k === dayKey ? "active" : ""}" onclick="setInconsDay('${k}')">${lbl}</button>`;
+  }).join("") + `</div>`;
+}
+
+function inconsSevChip(sev) {
+  return sev === "alta"
+    ? `<span class="inc-chip inc-alta">ALTA</span>`
+    : `<span class="inc-chip inc-media">media</span>`;
+}
+
+function renderInconsistencias(rows, dayKey, totalEv) {
+  const cont  = document.getElementById("inconsContent");
+  const badge = document.getElementById("inconsBadge");
+  const altas = rows.filter(r => r.sev === "alta").length;
+  const medias = rows.length - altas;
+  if (badge) {
+    badge.textContent = String(rows.length);
+    badge.classList.toggle("hidden", rows.length === 0);
+    badge.classList.toggle("inc-badge-alta", altas > 0);
+  }
+  if (!cont) return;
+  const esHoy = (dayKey === getTodayKey());
+  const head = inconsDaySelectorHtml(dayKey) + `
+    <div class="inc-summary">
+      <b>${rows.length}</b> inconsistencia(s) — <span class="inc-alta-txt">${altas} alta(s)</span>, ${medias} media(s)
+      · ${totalEv} eventos el ${esHoy ? "día de hoy" : dayKey}
+    </div>`;
+  if (!rows.length) {
+    cont.innerHTML = head + `<div class="monitor-loading">Sin inconsistencias detectadas ✅</div>`;
+    return;
+  }
+  const body = rows.map(r => {
+    const nombre = _empleadosNombres.get(String(r.legajo)) || "";
+    return `<tr class="inc-row inc-row-${r.sev}">
+      <td>${inconsSevChip(r.sev)}</td>
+      <td>${escapeHtml(r.cat)}</td>
+      <td><b>${escapeHtml(String(r.legajo))}</b>${nombre ? `<div class="inc-nom">${escapeHtml(nombre)}</div>` : ""}</td>
+      <td class="num">${escapeHtml(r.hora || "—")}</td>
+      <td>${escapeHtml(r.detalle)}</td>
+    </tr>`;
+  }).join("");
+  cont.innerHTML = head + `
+    <table class="monitor-table inc-table">
+      <thead><tr><th>Sev.</th><th>Categoría</th><th>Legajo</th><th class="num">Hora</th><th>Detalle</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+async function refreshInconsistencias() {
+  const dayKey = inconsDayKey();
+  const cont = document.getElementById("inconsContent");
+  if (!cont) return;
+  try {
+    const [events, validTandas] = await Promise.all([
+      fetchInconsEvents(dayKey),
+      inconsValidTandas(),
+      getEmpleadosNombres().catch(() => null)
+    ]);
+    const rows = computeInconsistencias(events, dayKey, validTandas);
+    renderInconsistencias(rows, dayKey, events.length);
+  } catch (e) {
+    if (_inconsActive) {
+      cont.innerHTML = inconsDaySelectorHtml(dayKey) +
+        `<div class="monitor-error">No se pudo cargar inconsistencias: ${escapeHtml(e.message)}</div>`;
     }
   }
 }
