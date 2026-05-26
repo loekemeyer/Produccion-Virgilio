@@ -586,12 +586,53 @@ button {
   align-items: flex-start;
 }
 .totales-col-fc{
-  /* FC y Total uno al lado del otro (no apilados) */
+  /* FC + Total + Charts uno al lado del otro (no apilados) */
   display: flex;
   flex-direction: row;
   gap: 8px;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
+/* Cards de gráficos productividad (Picking + Pedido) — a la derecha de
+   Total por día. Apilados verticalmente entre sí. */
+.monitor-charts-col{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+.monitor-chart-card{
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+}
+.monitor-chart-title{
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #1e6bd6;
+}
+.monitor-chart-canvas-wrap{
+  position: relative;
+  height: 180px;
+  width: 100%;
+}
+.monitor-chart-empty{
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+  padding: 20px 8px;
+}
+/* TV mode: charts oscuros y un poco más altos */
+#monitorModal.tv .monitor-chart-card{
+  background: #1f2937;
+  border-color: #334155;
+}
+#monitorModal.tv .monitor-chart-title{ color: #60a5fa; font-size: clamp(13px, 1.6vh, 18px); }
+#monitorModal.tv .monitor-chart-canvas-wrap{ height: clamp(180px, 22vh, 280px); }
+#monitorModal.tv .monitor-chart-empty{ color: #94a3b8; }
 .totales-row{
   display: flex;
   gap: 8px;
@@ -1348,7 +1389,165 @@ button {
   color: #991b1b;
   border-color: #fecaca;
 }
+
+/* ============================================================
+   FACTURACIÓN — pantalla 2do monitor para ventas
+   Tick por NP. Cuando todos los NPs de una tanda están tickeados,
+   monitor Virgilio muestra ✅ en "Tandas a FC".
+   ============================================================ */
+#btnFacturacion{
+  position: fixed;
+  bottom: 12px;
+  left: 70px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 100;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#btnFacturacion.hidden{ display: none; }
+
+/* Modal a pantalla completa pero contenido limitado a 1100px centrado —
+   no tiene sentido estirar las filas al ancho de un monitor 24". */
+#facturacionModal{
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #f1f5f9;
+  z-index: 200;
+  overflow: auto;
+  padding: 12px;
+}
+#facturacionModal.show{ display: block; }
+.fac-banner,
+.fac-top,
+.fac-group,
+.fac-cierre,
+.fac-empty{
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.fac-banner{
+  background: #fef3c7; border: 2px solid #f59e0b; color: #78350f;
+  padding: 8px 12px; border-radius: 6px; margin-bottom: 10px;
+  font-size: 13px; font-weight: bold; text-align: center;
+}
+.fac-top{
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.fac-top h1{ font-size: 22px; margin: 0; color: #0f172a; }
+.fac-stats{ display: flex; gap: 6px; align-items: center; font-size: 13px; flex-wrap: wrap; }
+.fac-chip{ background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 10px; font-weight: bold; font-size: 12px; }
+.fac-chip.green{ border-color: #16a34a; color: #15803d; }
+.fac-chip.blue{ border-color: #1e6bd6; color: #1e3a8a; }
+.fac-chip.orange{ border-color: #f59e0b; color: #92400e; }
+.fac-dot{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; margin-right: 5px; vertical-align: middle; }
+.fac-dot.ok{ background: #16a34a; }
+.fac-dot.err{ background: #dc2626; }
+.fac-close-btn{
+  background: #dc2626; color: #fff; border: none; border-radius: 6px;
+  padding: 5px 12px; font-size: 13px; font-weight: bold; cursor: pointer;
+}
+/* Botón ↺ Revertir — destructivo pero menos prominente que Cerrar.
+   Disabled cuando no hay nada que revertir. */
+.fac-btn-revertir{
+  background: #fff; color: #92400e; border: 1px solid #f59e0b; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; font-weight: bold; cursor: pointer;
+}
+.fac-btn-revertir:hover:not(:disabled){ background: #fef3c7; }
+.fac-btn-revertir:disabled{ opacity: 0.45; cursor: not-allowed; }
+.fac-group{
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+  margin-bottom: 8px; overflow: hidden;
+  transition: opacity .5s, transform .5s;
+}
+.fac-group.fading{ opacity: 0; transform: scale(.95); }
+.fac-group-head{
+  background: linear-gradient(90deg, #1e6bd6, #1e3a8a); color: #fff;
+  padding: 6px 12px; display: flex; justify-content: space-between;
+  align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.fac-tanda-code{ font-size: 17px; font-weight: bold; font-family: Consolas, Menlo, monospace; letter-spacing: 1px; }
+.fac-tanda-meta{ font-size: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.fac-tanda-meta .lbl{ opacity: .75; }
+.fac-tanda-meta b{ font-weight: bold; }
+.fac-progress{ background: rgba(255,255,255,.18); border-radius: 4px; padding: 2px 8px; font-weight: bold; font-size: 11px; }
+.fac-progress.complete{ background: #16a34a; }
+/* table-layout fixed: las cols mantienen el ancho que les asignamos —
+   evita que Razón Social y Dirección se estiren al infinito. */
+table.fac-np-tbl{ width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; line-height: 1.25; }
+table.fac-np-tbl th{
+  background: #f1f5f9; color: #475569; font-weight: bold; font-size: 11px;
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid #cbd5e1;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+table.fac-np-tbl th.num{ text-align: right; }
+table.fac-np-tbl th.center{ text-align: center; }
+table.fac-np-tbl tbody tr{ border-bottom: 1px solid #f1f5f9; transition: opacity .3s, transform .3s, background .15s; }
+table.fac-np-tbl tbody tr:last-child{ border-bottom: none; }
+table.fac-np-tbl tbody tr:hover{ background: #f8fafc; }
+table.fac-np-tbl tbody tr.fading{ opacity: 0; transform: translateX(20px); }
+table.fac-np-tbl td{ padding: 3px 8px; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.fac-np-tbl td.num{ text-align: right; font-variant-numeric: tabular-nums; }
+table.fac-np-tbl td.center{ text-align: center; }
+.fac-np-cell{ font-family: monospace; font-weight: bold; color: #1e6bd6; font-size: 13px; }
+.fac-cod-cell{ font-family: monospace; color: #475569; font-size: 12px; }
+.fac-dir-cell{ color: #475569; font-size: 12px; }
+/* Cabecera grupo eliminada — la tanda ahora es una col más. Para no perder
+   el agrupamiento visual, las filas de cada tanda comparten un fondo sutil
+   alternado (zebra por tanda, no por fila). */
+.fac-tanda-col{ font-family: Consolas, Menlo, monospace; font-weight: bold; color: #1e6bd6; font-size: 13px; letter-spacing: 0.5px; }
+table.fac-np-tbl tbody tr.fac-tanda-alt td{ background: #f8fafc; }
+table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
+.fac-table-wrap{
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+  overflow: hidden; max-width: 1100px; margin: 0 auto;
+}
+.fac-btn-tick{
+  background: #16a34a; color: #fff; border: none; border-radius: 4px;
+  padding: 1px 10px; font-size: 13px; font-weight: bold; cursor: pointer;
+  transition: background .15s, transform .1s; line-height: 1.4;
+}
+.fac-btn-tick:hover{ background: #15803d; }
+.fac-btn-tick:active{ transform: scale(.93); }
+.fac-empty{ padding: 32px 20px; text-align: center; color: #64748b; font-size: 15px; background: #fff; border-radius: 8px; border: 1px solid #cbd5e1; }
+.fac-cierre{
+  background: #fff; border: 2px solid #1e6bd6; border-radius: 8px; padding: 12px; margin-top: 12px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+}
+.fac-cierre-info{ font-size: 13px; color: #475569; }
+.fac-cierre-info b{ color: #0f172a; font-size: 14px; }
+.fac-btn-cierre{
+  background: #1e6bd6; color: #fff; border: none; border-radius: 6px;
+  padding: 10px 22px; font-size: 15px; font-weight: bold; cursor: pointer;
+}
+.fac-btn-cierre:hover{ background: #1e3a8a; }
+.fac-btn-cierre:disabled{ background: #94a3b8; cursor: not-allowed; }
+.fac-toast{
+  position: fixed; bottom: 20px; right: 20px; background: #0f172a; color: #fff;
+  padding: 10px 18px; border-radius: 6px; font-size: 14px; font-weight: bold;
+  opacity: 0; transform: translateY(20px); transition: opacity .25s, transform .25s;
+  z-index: 1000; pointer-events: none;
+}
+.fac-toast.show{ opacity: 1; transform: translateY(0); }
 </style>
+
+<!-- jsPDF + autotable para generar PDF de cierre de facturación (Marianela).
+     CDN ~150KB total. Solo se usa al apretar "Terminé de facturar". -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Chart.js para gráficos de productividad picking/pedido en el monitor.
+     CDN ~80KB. Bundle UMD para que window.Chart esté disponible. -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
 <body>
@@ -1358,6 +1557,10 @@ button {
 
 <!-- Botón flotante: monitor de operarios (supervisor) -->
 <button id="btnMonitor" title="Monitor de operarios" onclick="openMonitor()">📊</button>
+
+<!-- Botón flotante 📋 — pantalla de facturación (NPs a FC para ventas).
+     Acceso directo desde URL con ?monitor=fc para colgar en el 2do monitor. -->
+<button id="btnFacturacion" title="Facturación — NPs a FC" onclick="openFacturacion()">📋</button>
 
 <!-- Modal: monitor de operarios -->
 <div id="monitorModal" onclick="if(event.target.id==='monitorModal') closeMonitor()">
@@ -1391,8 +1594,40 @@ button {
   </div>
 </div>
 
+<!-- Modal: pantalla de facturación (NPs a FC). Pensada para el 2do monitor
+     de la oficina ventas. Tick por NP individual. Cuando todos los NPs de
+     una tanda están tickeados, monitor Virgilio muestra ✅ en esa tanda.
+     Marianela al final del día aprieta "Terminé" → genera PDF reparto. -->
+<div id="facturacionModal">
+  <div class="fac-banner" id="facBanner">
+    🧪 MOCKUP — tick por NP guardado en localStorage (resetea cada día). En producción persistirá en Supabase y el monitor Virgilio mostrará ✅ en tandas 100% facturadas.
+  </div>
+  <div class="fac-top">
+    <h1>📋 Facturación — NPs a FC</h1>
+    <div class="fac-stats">
+      <span class="fac-chip blue">Tandas: <span id="facCntTandas">0</span></span>
+      <span class="fac-chip orange">NPs pendientes: <span id="facCntPend">0</span></span>
+      <span class="fac-chip green">NPs facturados hoy: <span id="facCntDone">0</span></span>
+      <button id="facBtnRevertir" class="fac-btn-revertir" disabled onclick="facRevertir()" title="Borra todos los ticks pendientes de cierre">↺ Revertir</button>
+      <span class="fac-chip"><span class="fac-dot" id="facDot"></span><span id="facStatusTxt">Cargando…</span></span>
+      <button class="fac-close-btn" onclick="closeFacturacion()">Cerrar</button>
+    </div>
+  </div>
+  <div id="facContainer">
+    <div class="fac-empty">Cargando tandas…</div>
+  </div>
+  <div class="fac-cierre">
+    <div class="fac-cierre-info">
+      <b>📄 Cierre de jornada</b><br>
+      Genera PDF de reparto para mañana con todos los NPs facturados hoy. Los NPs sin tickear quedan pendientes para mañana.
+    </div>
+    <button class="fac-btn-cierre" id="facBtnCierre" disabled onclick="generateFacturacionPDF()">Terminé — Generar PDF</button>
+  </div>
+  <div class="fac-toast" id="facToast"></div>
+</div>
+
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.46 ✓</div>
+<div id="versionBadge">v1.49 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -1521,6 +1756,13 @@ const SUPABASE_HISTORICO_ENDPOINT =
   SUPABASE_URL + "/rest/v1/Fichadas_Historico";
 const SUPABASE_EMPLEADOS_ENDPOINT =
   SUPABASE_URL + "/rest/v1/Empleados";
+// Pantalla facturación: 1 row por NP facturado. cierre_id se llena cuando
+// Marianela aprieta "Terminé". El monitor Virgilio cruza esta tabla para
+// mostrar ✅ en "Tandas a FC" cuando todos los NPs están facturados.
+const SUPABASE_FACTURACION_NP_ENDPOINT =
+  SUPABASE_URL + "/rest/v1/Facturacion_NP";
+const SUPABASE_FACTURACION_CIERRES_ENDPOINT =
+  SUPABASE_URL + "/rest/v1/Facturacion_Cierres";
 
 const filas = {
   row1: ["EP","TP","AP","TAP","CR","CC"],
@@ -4098,6 +4340,15 @@ function closeMonitor() {
   if (monitorIntervalId) { clearInterval(monitorIntervalId); monitorIntervalId = null; }
   // Reset del snapshot — al reabrir, el primer refresh no flashea masivo.
   _prevStatusMap = new Map();
+  // Liberar instancias Chart.js (canvases ya no están visibles)
+  if (typeof _prodPickRef !== "undefined" && _prodPickRef.chart){
+    try { _prodPickRef.chart.destroy(); } catch(e){}
+    _prodPickRef.chart = null;
+  }
+  if (typeof _prodPedRef !== "undefined" && _prodPedRef.chart){
+    try { _prodPedRef.chart.destroy(); } catch(e){}
+    _prodPedRef.chart = null;
+  }
 }
 
 function toggleMonitorTV() {
@@ -4125,6 +4376,9 @@ document.addEventListener("keydown", (e) => {
 window.addEventListener("load", () => {
   const v = new URLSearchParams(location.search).get("monitor");
   if (v === "tv" || v === "1") openMonitor();
+  // ?monitor=fc → abre la pantalla de facturación directo. La PC del 2do
+  // monitor de ventas bookmark-ea esta URL y al cargar entra al dashboard.
+  if (v === "fc") openFacturacion();
 });
 
 /* Parser CSV simple — soporta campos entre comillas con comas y comillas
@@ -4250,6 +4504,12 @@ async function fetchMonitorSheet() {
   const cFE    = header.indexOf("fecha entrega");
   const cNP    = header.indexOf("n° np");
   const cRS    = header.indexOf("razon social");
+  // Cols extra para pantalla facturación: cod cliente, dirección, localidad,
+  // zona. Si no existen (índice -1) los pedidos quedan con string vacío.
+  const cCod    = header.indexOf("cod");
+  const cDir    = header.indexOf("direccion entrega");
+  const cBarrio = header.indexOf("barrio entrega");
+  const cZona   = header.indexOf("zona");
   const acc = new Map();
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
@@ -4288,7 +4548,14 @@ async function fetchMonitorSheet() {
     entry.m3 += m3;
     // Si CUALQUIER fila de esta tanda tiene Op=SI, marcamos la tanda como SI.
     if (op === "SI") entry.opIsSi = true;
-    if (np || m3) entry.pedidos.push({ np, m3, razonSocial: rs });
+    if (np || m3) entry.pedidos.push({
+      np, m3, razonSocial: rs,
+      // Campos extra para pantalla facturación (PDF Marianela)
+      cod:       cCod    >= 0 ? (r[cCod]    || "").trim() : "",
+      direccion: cDir    >= 0 ? (r[cDir]    || "").trim() : "",
+      barrio:    cBarrio >= 0 ? (r[cBarrio] || "").trim() : "",
+      zona:      cZona   >= 0 ? (r[cZona]   || "").trim() : ""
+    });
   }
   return acc;
 }
@@ -4836,7 +5103,17 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
         : `<div class="monitor-loading">Sin tandas planificadas para las próximas fechas (${targetLabel}).</div>`);
 
   // Panel "Tandas a FC" — tandas con picking + separado completados.
+  // Marca con ✅ las tandas cuyos NPs están todos facturados.
+  // El set _facNpsHoy se mantiene fresco con fetchFacturadosHoy() — TTL 4s.
+  // Lo disparamos fire-and-forget acá para que la próxima vuelta del monitor
+  // (cada 1s) ya tenga datos nuevos sin bloquear este render.
+  if (typeof fetchFacturadosHoy === "function") fetchFacturadosHoy().catch(() => {});
   const totalFcM3 = tandasFC.reduce((s, t) => s + (t.m3 || 0), 0);
+  const facturadas = (typeof _facNpsHoy !== "undefined") ? _facNpsHoy : new Set();
+  const isTandaFacturada = (t) => {
+    if (!t.pedidos || !t.pedidos.length) return false;
+    return t.pedidos.every(p => p.np && facturadas.has(p.np));
+  };
   const fcHtml = tandasFC.length ? `
     <div class="monitor-fc-card">
       <div class="monitor-fc-title">Tandas a FC (${totalFcM3.toFixed(1).replace(".", ",")} m3)</div>
@@ -4846,16 +5123,20 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
             <th>Tanda</th>
             <th class="num">M3</th>
             <th class="center">Fecha Salida</th>
+            <th class="center">FC ✓</th>
           </tr>
         </thead>
         <tbody>
-          ${tandasFC.map(t => `
-            <tr>
+          ${tandasFC.map(t => {
+            const facturada = isTandaFacturada(t);
+            return `
+            <tr${facturada ? ' class="row-facturada"' : ''}>
               <td class="fc-tanda tanda-clickable" data-tanda="${escapeHtml(t._key || t.tanda)}" onclick="showTandaDetail(this.dataset.tanda)">${escapeHtml(t.tanda)}</td>
               <td class="num">${t.m3.toFixed(1).replace(".", ",")}</td>
               <td class="center">${escapeHtml(t.fechaEntrega)}</td>
-            </tr>
-          `).join("")}
+              <td class="center" style="font-size:18px;color:#16a34a;font-weight:bold">${facturada ? "✅" : ""}</td>
+            </tr>`;
+          }).join("")}
         </tbody>
       </table>
     </div>
@@ -5007,6 +5288,18 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
         <div class="totales-col-fc">
           ${fcHtml}
           ${totalHtml}
+          <div class="monitor-charts-col">
+            <div id="prodChartPicking" class="monitor-chart-card">
+              <div class="monitor-chart-title">📊 Productividad Picking (m3/h)</div>
+              <div class="monitor-chart-canvas-wrap"><canvas id="prodCanvasPicking"></canvas></div>
+            </div>
+            <div id="prodChartPickingEmpty" class="monitor-chart-card monitor-chart-empty" style="display:none">Sin datos de picking en los últimos 7 días</div>
+            <div id="prodChartPedido" class="monitor-chart-card">
+              <div class="monitor-chart-title">📈 Productividad Pedido (m3/h)</div>
+              <div class="monitor-chart-canvas-wrap"><canvas id="prodCanvasPedido"></canvas></div>
+            </div>
+            <div id="prodChartPedidoEmpty" class="monitor-chart-card monitor-chart-empty" style="display:none">Sin datos de pedido en los últimos 7 días</div>
+          </div>
         </div>
         ${alertHtml}
       </div>
@@ -5016,6 +5309,14 @@ function renderMonitor(sheetMap, statusMap, alertasOffSheet, targetDates, emplea
   const countCurso = tandas.filter(t => t.ev.picking === "curso" || t.ev.separado === "curso").length;
   document.getElementById("monitorMeta").textContent =
     `${tandas.length} tanda(s) entrega ${targetLabel} · ${countCurso} en curso · ${tandasFC.length} a FC · eventos ${MONITOR_REFRESH_MS/1000}s · PPP ${PPP_TTL_MS/1000}s`;
+
+  // Charts de productividad — el innerHTML acaba de pisar los <canvas>, así
+  // que reinstancia Chart.js sobre los nuevos. La data está cacheada
+  // PROD_DATA_TTL_MS (25s) en fetchProductivityData → no hay fetch extra a
+  // Supabase en cada tick. Si Chart.js todavía no cargó (CDN slow), salta.
+  if (typeof Chart !== "undefined" && typeof refreshProductivityCharts === "function"){
+    refreshProductivityCharts();
+  }
 }
 
 async function refreshMonitor() {
@@ -5088,6 +5389,816 @@ async function refreshMonitor() {
       document.getElementById("monitorContent").innerHTML =
         `<div class="monitor-error">No se pudo cargar: ${escapeHtml(e.message)}</div>`;
     }
+  }
+}
+
+/* ============================================================
+   FACTURACIÓN — pantalla para 2do monitor (ventas).
+   Reusa fetchMonitorSheet() del monitor y _pppCache (PPP_TTL_MS).
+   Tick por NP persistido en Supabase tabla Facturacion_NP. Sincroniza
+   cross-PC (la PC de ventas tickea, el monitor Virgilio ve el ✅).
+   Reset diario implícito: NPs con cierre_id están "archivados" y no
+   aparecen más en pantalla; NPs sin cierre_id siguen pendientes.
+   ============================================================ */
+const FAC_REFRESH_MS = 5000;
+const FAC_NPS_TTL_MS = 4000;          // cache local del set de NPs facturados
+let _facIntervalId = null;
+let _facLastTandas = [];
+let _facToastTimer = null;
+// Set de NPs facturados pendientes de cierre (lo que se ve como tickeado).
+// Lo lee también el monitor Virgilio para marcar ✅ en "Tandas a FC".
+let _facNpsHoy        = new Set();
+let _facNpsHoyTs      = 0;
+let _facNpsInflight   = null;   // promesa para evitar fetch paralelo
+
+function facTodayKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+/* Trae NPs con cierre_id IS NULL (=pendientes de cierre) desde Supabase.
+   Cacheado FAC_NPS_TTL_MS para no martillar la DB. El monitor Virgilio
+   también llama acá → cache compartido. */
+async function fetchFacturadosHoy(force){
+  const now = Date.now();
+  if (!force && (now - _facNpsHoyTs) < FAC_NPS_TTL_MS) return _facNpsHoy;
+  if (_facNpsInflight) return _facNpsInflight;
+  _facNpsInflight = (async () => {
+    try{
+      const url = SUPABASE_FACTURACION_NP_ENDPOINT
+        + "?cierre_id=is.null&select=np&limit=5000";
+      const r = await fetch(url, {
+        headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      _facNpsHoy = new Set(data.map(x => String(x.np)));
+      _facNpsHoyTs = Date.now();
+      return _facNpsHoy;
+    } finally {
+      _facNpsInflight = null;
+    }
+  })();
+  return _facNpsInflight;
+}
+
+function openFacturacion(){
+  document.getElementById("facturacionModal").classList.add("show");
+  facTick();
+  if (_facIntervalId) clearInterval(_facIntervalId);
+  _facIntervalId = setInterval(facTick, FAC_REFRESH_MS);
+}
+function closeFacturacion(){
+  document.getElementById("facturacionModal").classList.remove("show");
+  if (_facIntervalId){ clearInterval(_facIntervalId); _facIntervalId = null; }
+}
+
+function facShowToast(msg){
+  const el = document.getElementById("facToast");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(_facToastTimer);
+  _facToastTimer = setTimeout(() => el.classList.remove("show"), 2500);
+}
+
+function facSetStatus(ok, txt){
+  const dot = document.getElementById("facDot");
+  if (dot) dot.className = "fac-dot " + (ok ? "ok" : "err");
+  const t = document.getElementById("facStatusTxt");
+  if (t) t.textContent = txt;
+}
+
+/* Determina qué tandas están en estado FC (picking + separado done).
+   Hace una query similar a fetchMonitorEvents pero acotada y simplificada:
+   solo necesitamos último EP/TP y último AP/TAP por tanda. */
+async function facFetchFcKeys(targetTandaKeys){
+  if (!targetTandaKeys.length) return new Set();
+  // Filtro texto=in.(...) con tandas target — evita el limit de 1000
+  const filter = targetTandaKeys.map(t => encodeURIComponent(t)).join(",");
+  const url = SUPABASE_TABLE_ENDPOINT
+    + "?opcion=in.(EP,TP,AP,TAP)"
+    + "&texto=in.(" + filter + ")"
+    + "&order=ts_cliente.asc"
+    + "&select=opcion,texto,ts_cliente"
+    + "&limit=2000";
+  const r = await fetch(url, {
+    headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+  });
+  if (!r.ok) throw new Error("Supabase HTTP " + r.status);
+  const data = await r.json();
+  const lastP = new Map(), lastA = new Map();
+  for (const ev of data){
+    const t = (ev.texto || "").trim().toUpperCase();
+    if (!t) continue;
+    if (ev.opcion === "EP" || ev.opcion === "TP"){
+      const cur = lastP.get(t);
+      if (!cur || ev.ts_cliente > cur.ts) lastP.set(t, { op: ev.opcion, ts: ev.ts_cliente });
+    } else if (ev.opcion === "AP" || ev.opcion === "TAP"){
+      const cur = lastA.get(t);
+      if (!cur || ev.ts_cliente > cur.ts) lastA.set(t, { op: ev.opcion, ts: ev.ts_cliente });
+    }
+  }
+  const fc = new Set();
+  for (const k of targetTandaKeys){
+    const p = lastP.get(k), a = lastA.get(k);
+    if (p && p.op === "TP" && a && a.op === "TAP") fc.add(k);
+  }
+  return fc;
+}
+
+function facRender(tandas){
+  // Aplanamos: una fila por NP pendiente, llevando tanda + fecha salida
+  // como cols (antes vivían en el header de cada grupo, ahora se repiten
+  // por fila). Permite ordenar/filtrar globalmente sin agrupación visual.
+  const filas = [];
+  const tandasVisibles = new Set();
+  for (const t of tandas){
+    for (const p of t.pedidos){
+      if (_facNpsHoy.has(p.np)) continue;
+      filas.push({
+        np: p.np,
+        cod: p.cod || "",
+        rs: p.razonSocial || "",
+        dir: p.direccion || "",
+        m3: p.m3,
+        barrio: p.barrio || "",
+        zona: p.zona || "",
+        tanda: t.tanda,
+        fechaSalida: t.fechaEntrega,
+        fechaEntregaRaw: t.fechaEntregaRaw || "",
+        _feRaw: t.fechaEntregaRaw || null
+      });
+      tandasVisibles.add(t.tanda);
+    }
+  }
+
+  // Orden: fecha salida ASC → tanda ASC → NP ASC
+  filas.sort((a,b) =>
+    (a.fechaEntregaRaw || "").localeCompare(b.fechaEntregaRaw || "")
+    || (a.tanda || "").localeCompare(b.tanda || "")
+    || (a.np || "").localeCompare(b.np || "")
+  );
+
+  document.getElementById("facCntTandas").textContent = tandasVisibles.size;
+  document.getElementById("facCntPend").textContent = filas.length;
+  document.getElementById("facCntDone").textContent = _facNpsHoy.size;
+  document.getElementById("facBtnCierre").disabled = _facNpsHoy.size === 0;
+  const btnRev = document.getElementById("facBtnRevertir");
+  if (btnRev) btnRev.disabled = _facNpsHoy.size === 0;
+
+  const container = document.getElementById("facContainer");
+  if (!filas.length){
+    container.innerHTML = `<div class="fac-empty">${tandas.length ? "✅ Todos los NPs facturados" : "⏳ Sin tandas listas para facturar"}</div>`;
+    return;
+  }
+
+  // Zebra por tanda: cada vez que cambia la tanda, flip de fondo. Reemplaza
+  // el header de grupo dando agrupamiento visual sin ocupar espacio.
+  let prevTanda = null;
+  let altFlag = false;
+  const rowsHtml = filas.map(f => {
+    if (f.tanda !== prevTanda){ altFlag = !altFlag; prevTanda = f.tanda; }
+    const args = JSON.stringify({
+      np: f.np, tanda: f.tanda, m3: f.m3 || 0,
+      rs: f.rs, cod: f.cod, feRaw: f._feRaw
+    })
+      .replace(/&/g, "&amp;")
+      .replace(/'/g, "&apos;")
+      .replace(/</g, "&lt;");
+    return `
+      <tr data-fac-np="${escapeHtml(f.np)}" class="${altFlag ? 'fac-tanda-alt' : ''}">
+        <td class="fac-tanda-col">${escapeHtml(f.tanda)}</td>
+        <td class="center">${escapeHtml(f.fechaSalida)}</td>
+        <td class="fac-np-cell">${escapeHtml(f.np)}</td>
+        <td class="fac-cod-cell">${escapeHtml(f.cod)}</td>
+        <td>${escapeHtml(f.rs)}</td>
+        <td class="fac-dir-cell">${escapeHtml(f.dir)}</td>
+        <td class="num">${f.m3 ? f.m3.toFixed(1).replace(".",",") : ""}</td>
+        <td>${escapeHtml(f.barrio)}</td>
+        <td>${escapeHtml(f.zona)}</td>
+        <td class="center"><button class="fac-btn-tick" data-args='${args}' onclick="facTickNP(this)">✓</button></td>
+      </tr>`;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="fac-table-wrap">
+      <table class="fac-np-tbl">
+        <thead>
+          <tr>
+            <th style="width:55px">Tanda</th>
+            <th class="center" style="width:60px">Salida</th>
+            <th style="width:60px">NP</th>
+            <th style="width:45px">Cod</th>
+            <th style="width:175px">Razón Social</th>
+            <th style="width:195px">Dirección</th>
+            <th class="num" style="width:40px">M3</th>
+            <th style="width:115px">Localidad</th>
+            <th style="width:135px">Zona</th>
+            <th class="center" style="width:75px">Acción</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+
+/* Tick por NP — POST a Supabase.
+   Resolución merge-duplicates por si ventas hace doble click. El UPSERT
+   no falla aunque el NP ya esté facturado. */
+window.facTickNP = async function(btn){
+  let args;
+  try { args = JSON.parse(btn.dataset.args); }
+  catch(e){ facShowToast("Error leyendo NP"); return; }
+  const { np, tanda, m3, rs, cod, feRaw } = args;
+  btn.disabled = true;
+
+  // Optimistic UI
+  _facNpsHoy.add(np);
+  const row = document.querySelector(`tr[data-fac-np="${CSS.escape(np)}"]`);
+  if (row) row.classList.add("fading");
+
+  try {
+    const r = await fetch(SUPABASE_FACTURACION_NP_ENDPOINT + "?on_conflict=np", {
+      method: "POST",
+      headers: {
+        "apikey":         SUPABASE_KEY,
+        "Authorization":  "Bearer " + SUPABASE_KEY,
+        "Content-Type":   "application/json",
+        "Prefer":         "resolution=merge-duplicates"
+      },
+      body: JSON.stringify({
+        np,
+        tanda,
+        m3: m3 || null,
+        razon_social: rs || null,
+        cod_cliente: cod || null,
+        fecha_salida: feRaw || null
+      })
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+  } catch (e) {
+    // Rollback optimista
+    _facNpsHoy.delete(np);
+    facShowToast("Error guardando: " + e.message);
+    facRender(_facLastTandas);
+    return;
+  }
+
+  // Si la tanda quedó 100% tickeada, avisar con toast distinto
+  const tandaObj = _facLastTandas.find(t => (t.tanda || "") === tanda);
+  if (tandaObj && tandaObj.pedidos.every(p => _facNpsHoy.has(p.np))){
+    facShowToast(`Tanda ${tanda} completa ✓`);
+  } else {
+    facShowToast(`NP ${np} facturado`);
+  }
+  setTimeout(() => facRender(_facLastTandas), 350);
+};
+
+/* Revertir: borra todos los ticks pendientes de cierre (cierre_id IS NULL).
+   Confirmación obligatoria — destructivo. Útil cuando ventas se equivoca
+   masivamente o se está testeando. */
+window.facRevertir = async function(){
+  if (!_facNpsHoy.size){ facShowToast("No hay nada que revertir"); return; }
+  const confirma = confirm(
+    `¿Borrar ${_facNpsHoy.size} ticks pendientes de cierre?\n\n` +
+    "Esto borra los NPs facturados de Supabase (los que aún no están en un cierre). " +
+    "El monitor Virgilio dejará de mostrar ✅. No afecta cierres pasados."
+  );
+  if (!confirma) return;
+
+  const btn = document.getElementById("facBtnRevertir");
+  if (btn) btn.disabled = true;
+
+  try {
+    const r = await fetch(SUPABASE_FACTURACION_NP_ENDPOINT + "?cierre_id=is.null", {
+      method: "DELETE",
+      headers: {
+        "apikey":        SUPABASE_KEY,
+        "Authorization": "Bearer " + SUPABASE_KEY,
+        "Prefer":        "return=minimal"
+      }
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    _facNpsHoy = new Set();
+    _facNpsHoyTs = Date.now();
+    facRender(_facLastTandas);
+    facShowToast("Ticks revertidos ✓");
+  } catch (e) {
+    facShowToast("Error: " + e.message);
+    if (btn) btn.disabled = false;
+  }
+};
+
+async function facTick(){
+  try{
+    // Reusa el cache de PPP del monitor (PPP_TTL_MS = 3s)
+    let sheetMap;
+    const nowMs = Date.now();
+    if (_pppCache && (nowMs - _pppCacheTs) < PPP_TTL_MS){
+      sheetMap = _pppCache;
+    } else {
+      sheetMap = await fetchMonitorSheet();
+      _pppCache = sheetMap;
+      _pppCacheTs = Date.now();
+    }
+
+    // Filtra a planificadas (Op=SI) con NPs
+    const tandasPlan = [...sheetMap.values()].filter(t => t.opIsSi && t.pedidos.length > 0);
+    const keys = tandasPlan.map(t => t._key || t.tanda.toUpperCase());
+
+    // Paralelo: tandas FC + NPs ya facturados
+    const [fcKeysResult, _] = await Promise.allSettled([
+      facFetchFcKeys(keys),
+      fetchFacturadosHoy(true)
+    ]);
+    const fcKeys = fcKeysResult.status === "fulfilled" ? fcKeysResult.value : new Set();
+    if (fcKeysResult.status !== "fulfilled") console.warn("[fac] FC keys:", fcKeysResult.reason);
+
+    let tandasFC = tandasPlan.filter(t => fcKeys.has(t._key || t.tanda.toUpperCase()));
+    let modoFallback = false;
+    if (!tandasFC.length && keys.length){
+      // Fallback dev: si no hay tandas con FC real, muestra todas las
+      // planificadas de hoy/futuro para que se vea la UI.
+      modoFallback = true;
+      const today = facTodayKey();
+      tandasFC = tandasPlan.filter(t => (t.fechaEntregaRaw || "") >= today);
+    }
+
+    tandasFC.sort((a,b) =>
+      (a.fechaEntregaRaw || "").localeCompare(b.fechaEntregaRaw || "")
+      || a.tanda.localeCompare(b.tanda)
+    );
+
+    _facLastTandas = tandasFC;
+    facRender(tandasFC);
+
+    const banner = document.getElementById("facBanner");
+    if (modoFallback){
+      facSetStatus(true, `Sin Tandas FC reales — mostrando ${tandasFC.length} planificadas`);
+      banner.innerHTML = "⚠ Modo desarrollo — mostrando TODAS las tandas planificadas (no hay picking+separado terminados aún). En operación normal solo aparecen Tandas a FC reales.";
+      banner.style.display = "block";
+    } else {
+      facSetStatus(true, `${tandasFC.length} tandas FC · ${_facNpsHoy.size} NPs facturados · refresh ${FAC_REFRESH_MS/1000}s`);
+      banner.style.display = "none";
+    }
+  } catch (e){
+    facSetStatus(false, "Error: " + e.message);
+    console.error("[fac]", e);
+  }
+}
+
+/* Cierre Marianela: crea row en Facturacion_Cierres → PATCH cierre_id en
+   todos los NPs facturados → genera PDF. Si algún paso falla, abortamos
+   y avisamos. Los NPs no quedan "huérfanos" porque el PATCH es atomico
+   por NP (PostgREST). */
+async function generateFacturacionPDF(){
+  if (!_facNpsHoy.size){ facShowToast("No hay NPs facturados"); return; }
+  if (!window.jspdf || !window.jspdf.jsPDF){
+    facShowToast("jsPDF no cargó — refrescá la página");
+    return;
+  }
+
+  const btn = document.getElementById("facBtnCierre");
+  btn.disabled = true;
+  btn.textContent = "Generando cierre…";
+
+  // 1) Junta filas (PPP × NPs facturados)
+  const filas = [];
+  for (const t of _facLastTandas){
+    for (const p of t.pedidos){
+      if (!_facNpsHoy.has(p.np)) continue;
+      filas.push({
+        np: p.np, cod: p.cod, rs: p.razonSocial, dir: p.direccion,
+        m3: p.m3, barrio: p.barrio, zona: p.zona,
+        tanda: t.tanda, feRaw: t.fechaEntregaRaw
+      });
+    }
+  }
+  if (!filas.length){
+    facShowToast("No hay NPs en PPP que coincidan");
+    btn.disabled = false; btn.textContent = "Terminé — Generar PDF";
+    return;
+  }
+
+  // Orden: zona → barrio (localidad) → tanda → NP
+  filas.sort((a,b) =>
+    (a.zona || "").localeCompare(b.zona || "")
+    || (a.barrio || "").localeCompare(b.barrio || "")
+    || (a.tanda || "").localeCompare(b.tanda || "")
+    || (a.np || "").localeCompare(b.np || "")
+  );
+
+  // Fecha de reparto = mañana (es lo que sale al día siguiente)
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  const fechaReparto = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+  const fechaCierreISO = facTodayKey();
+  const fechaRepartoISO = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+  // 2) INSERT cierre → recupera id
+  let cierreId = null;
+  try {
+    const rC = await fetch(SUPABASE_FACTURACION_CIERRES_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "apikey":         SUPABASE_KEY,
+        "Authorization":  "Bearer " + SUPABASE_KEY,
+        "Content-Type":   "application/json",
+        "Prefer":         "return=representation"
+      },
+      body: JSON.stringify({
+        fecha_cierre:  fechaCierreISO,
+        fecha_reparto: fechaRepartoISO,
+        cant_nps:      filas.length,
+        cant_tandas:   [...new Set(filas.map(f => f.tanda))].length
+      })
+    });
+    if (!rC.ok) throw new Error("HTTP " + rC.status);
+    const cierreRow = await rC.json();
+    cierreId = Array.isArray(cierreRow) ? cierreRow[0].id : cierreRow.id;
+  } catch (e) {
+    facShowToast("Error creando cierre: " + e.message);
+    btn.disabled = false; btn.textContent = "Terminé — Generar PDF";
+    return;
+  }
+
+  // 3) PATCH cierre_id en todos los NPs facturados pendientes
+  try {
+    const npsCsv = filas.map(f => encodeURIComponent(f.np)).join(",");
+    const rP = await fetch(
+      SUPABASE_FACTURACION_NP_ENDPOINT + "?np=in.(" + npsCsv + ")&cierre_id=is.null",
+      {
+        method: "PATCH",
+        headers: {
+          "apikey":         SUPABASE_KEY,
+          "Authorization":  "Bearer " + SUPABASE_KEY,
+          "Content-Type":   "application/json",
+          "Prefer":         "return=minimal"
+        },
+        body: JSON.stringify({ cierre_id: cierreId })
+      }
+    );
+    if (!rP.ok) throw new Error("HTTP " + rP.status);
+  } catch (e) {
+    facShowToast("Cierre creado pero error asociando NPs: " + e.message);
+    // No abortamos — igual generamos el PDF
+  }
+
+  // 4) Refresca set local (los NPs ahora tienen cierre_id → desaparecen)
+  _facNpsHoy = new Set();
+  _facNpsHoyTs = Date.now();
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+  // Tabla pegada al margen superior — sin título ni fecha porque el repartidor
+  // ya sabe de qué día es por el nombre del archivo.
+  doc.autoTable({
+    startY: 10,
+    head: [["NP", "Tanda", "Cod", "Razón Social", "M3", "Dirección", "Localidad", "Zona"]],
+    body: filas.map(f => [
+      f.np, f.tanda, f.cod, f.rs,
+      f.m3 ? f.m3.toFixed(1).replace(".", ",") : "",
+      f.dir, f.barrio, f.zona
+    ]),
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [30,107,214], textColor: 255, fontStyle: "bold" },
+    columnStyles: {
+      0: { cellWidth: 18, halign: "center" },                  // NP
+      1: { cellWidth: 18, halign: "center" },                  // Tanda
+      2: { cellWidth: 16, halign: "center" },                  // Cod
+      3: { cellWidth: 55 },                                    // Razón Social
+      4: { cellWidth: 14, halign: "right" },                   // M3
+      5: { cellWidth: 60 },                                    // Dirección
+      6: { cellWidth: 35 },                                    // Localidad
+      7: { cellWidth: 40 }                                     // Zona
+    },
+    didParseCell: function(data){
+      // Resalta filas donde cambia la zona — facilita lectura del repartidor.
+      // Zona es la última col → index 7 con el nuevo orden.
+      if (data.section === "body" && data.column.index === 7){
+        const prev = data.row.index > 0 ? filas[data.row.index - 1].zona : null;
+        if (data.row.raw[7] !== prev){
+          data.cell.styles.fillColor = [219, 234, 254];
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
+    }
+  });
+
+  doc.save(`Reparto_${fechaReparto.replace(/\//g, "-")}.pdf`);
+  facShowToast(`Cierre generado · ${filas.length} NPs ✓`);
+  btn.disabled = false; btn.textContent = "Terminé — Generar PDF";
+  facRender(_facLastTandas);
+}
+
+/* ============================================================
+   PRODUCTIVIDAD — gráficos picking + pedido (m3/h por operario).
+   - Eje X: últimos 7 días
+   - Eje Y: m3/hora, ticks cada 0.2
+   - 1 línea por operario activo (al menos 1 op en el rango)
+   - Marker rojo en y=0 los días que el operario no operó
+   Refresca cada 30s (no por tick de 1s del monitor — costoso).
+   ============================================================ */
+const PROD_DAYS_BACK     = 7;
+const PROD_REFRESH_MS    = 30 * 1000;
+const PROD_DATA_TTL_MS   = 25 * 1000;
+let _prodChartPicking    = null;
+let _prodChartPedido     = null;
+let _prodDataCache       = null;
+let _prodDataTs          = 0;
+let _prodInflight        = null;
+let _prodLastRenderTs    = 0;
+
+/* Paleta — 12 colores distinguibles para hasta 12 operarios. Si hay más,
+   loopea. Mismos colores para Picking y Pedido por operario (legajo). */
+const PROD_COLORS = [
+  "#1e6bd6","#16a34a","#f59e0b","#dc2626","#7c3aed","#0891b2",
+  "#ea580c","#65a30d","#db2777","#0284c7","#9333ea","#ca8a04"
+];
+function prodColorFor(legajo, idx){
+  // Hash determinista para que el color de un legajo no cambie entre renders
+  // si se agrega/quita un operario. Fallback al idx si el hash falla.
+  if (legajo){
+    let h = 0;
+    for (let i=0; i<legajo.length; i++) h = (h*31 + legajo.charCodeAt(i)) | 0;
+    return PROD_COLORS[Math.abs(h) % PROD_COLORS.length];
+  }
+  return PROD_COLORS[idx % PROD_COLORS.length];
+}
+
+/* Trae eventos EP/TP/AP/TAP de los últimos N días, parea EP↔TP y AP↔TAP
+   por (legajo,tanda), calcula m3/h por (operario, día, operación).
+   Cacheado PROD_DATA_TTL_MS para que renders sucesivos no martillen. */
+async function fetchProductivityData(daysBack){
+  daysBack = daysBack || PROD_DAYS_BACK;
+  const now = Date.now();
+  if (_prodDataCache && (now - _prodDataTs) < PROD_DATA_TTL_MS) return _prodDataCache;
+  if (_prodInflight) return _prodInflight;
+
+  _prodInflight = (async () => {
+    try {
+      // Rango de días: hoy hacia atrás
+      const today = new Date();
+      const dayKeys = [];
+      const dayLabels = [];
+      for (let i = daysBack - 1; i >= 0; i--){
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+        dayKeys.push(dk);
+        dayLabels.push(`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`);
+      }
+      const sinceDate = new Date(today);
+      sinceDate.setDate(sinceDate.getDate() - daysBack);
+      sinceDate.setHours(0, 0, 0, 0);
+      const sinceIso = sinceDate.toISOString();
+
+      // Eventos
+      const url = SUPABASE_TABLE_ENDPOINT
+        + "?opcion=in.(EP,TP,AP,TAP)"
+        + "&ts_cliente=gte." + encodeURIComponent(sinceIso)
+        + "&order=ts_cliente.asc"
+        + "&select=opcion,texto,legajo,ts_cliente"
+        + "&limit=5000";
+      const r = await fetch(url, {
+        headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+      });
+      if (!r.ok) throw new Error("Supabase HTTP " + r.status);
+      const events = await r.json();
+
+      // m3 por tanda: union PPP cache + Historico
+      const m3ByTanda = new Map();
+      if (_pppCache){
+        for (const [k, v] of _pppCache){
+          if (v && v.m3 > 0) m3ByTanda.set(k, v.m3);
+        }
+      }
+      try {
+        const hist = await getHistoricMap();
+        for (const [k, m] of hist){
+          if (m > 0 && !m3ByTanda.has(k)) m3ByTanda.set(k, m);
+        }
+      } catch(e){ /* sin histórico, seguimos con PPP */ }
+
+      // Empleados
+      let empleados = new Map();
+      try { empleados = await getEmpleadosNombres(); } catch(e){}
+
+      // Pareo EP/TP, AP/TAP por (legajo, tanda)
+      const openPicks = new Map();   // key legajo+"|"+tanda → ts
+      const openArms  = new Map();
+      // result: dayKey → legajo → {picking:{m3,ms}, pedido:{m3,ms}}
+      const result = new Map();
+      const getCell = (legajo, dayKey) => {
+        if (!result.has(dayKey)) result.set(dayKey, new Map());
+        const dm = result.get(dayKey);
+        if (!dm.has(legajo)) dm.set(legajo, {
+          picking: { m3: 0, ms: 0 },
+          pedido:  { m3: 0, ms: 0 }
+        });
+        return dm.get(legajo);
+      };
+
+      for (const ev of events){
+        const op    = ev.opcion;
+        const leg   = String(ev.legajo || "").trim();
+        const tanda = String(ev.texto || "").trim().toUpperCase();
+        if (!leg || !tanda) continue;
+        const ts = new Date(ev.ts_cliente).getTime();
+        const k = leg + "|" + tanda;
+
+        if (op === "EP"){
+          openPicks.set(k, ts);
+        } else if (op === "TP"){
+          const startTs = openPicks.get(k);
+          if (startTs == null) continue;
+          openPicks.delete(k);
+          const dur = ts - startTs;
+          if (dur <= 0) continue;
+          const m3 = m3ByTanda.get(tanda) || 0;
+          if (m3 <= 0) continue;
+          const dk = isoToDayKey(ts);
+          // Solo nos importan los días dentro del rango
+          if (!dayKeys.includes(dk)) continue;
+          const cell = getCell(leg, dk);
+          cell.picking.m3 += m3;
+          cell.picking.ms += dur;
+        } else if (op === "AP"){
+          openArms.set(k, ts);
+        } else if (op === "TAP"){
+          const startTs = openArms.get(k);
+          if (startTs == null) continue;
+          openArms.delete(k);
+          const dur = ts - startTs;
+          if (dur <= 0) continue;
+          const m3 = m3ByTanda.get(tanda) || 0;
+          if (m3 <= 0) continue;
+          const dk = isoToDayKey(ts);
+          if (!dayKeys.includes(dk)) continue;
+          const cell = getCell(leg, dk);
+          cell.pedido.m3 += m3;
+          cell.pedido.ms += dur;
+        }
+      }
+
+      // Construye series por operación
+      const buildSeries = (opKey) => {
+        const legActivos = new Set();
+        for (const dm of result.values()){
+          for (const [leg, cell] of dm){
+            if (cell[opKey].m3 > 0 && cell[opKey].ms > 0) legActivos.add(leg);
+          }
+        }
+        const series = [];
+        let idx = 0;
+        for (const leg of [...legActivos].sort()){
+          const data = dayKeys.map(dk => {
+            const dm = result.get(dk);
+            if (!dm) return 0;
+            const cell = dm.get(leg);
+            if (!cell) return 0;
+            const hours = cell[opKey].ms / (1000 * 60 * 60);
+            if (hours <= 0) return 0;
+            return +(cell[opKey].m3 / hours).toFixed(2);
+          });
+          series.push({
+            legajo: leg,
+            name: empleados.get(leg) || `Leg ${leg}`,
+            color: prodColorFor(leg, idx),
+            data
+          });
+          idx++;
+        }
+        return series;
+      };
+
+      const out = {
+        dayKeys,
+        dayLabels,
+        picking: buildSeries("picking"),
+        pedido:  buildSeries("pedido")
+      };
+      _prodDataCache = out;
+      _prodDataTs = Date.now();
+      return out;
+    } finally {
+      _prodInflight = null;
+    }
+  })();
+  return _prodInflight;
+}
+
+/* Renderiza un line chart Chart.js sobre un canvas dado.
+   - Línea por operario, color determinista por legajo
+   - Marker rojo (12px) en y=0 los días sin operación
+   - Marker normal del color de la línea en días con operación
+   - Eje Y empieza en 0, max auto, stepSize 0.2 */
+function renderProdChart(canvasId, labels, series, instanceRef){
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  // Destruir instancia previa si existe
+  if (instanceRef && instanceRef.chart){
+    try { instanceRef.chart.destroy(); } catch(e){}
+    instanceRef.chart = null;
+  }
+  if (!series.length){
+    return null;
+  }
+  const isTV = document.getElementById("monitorModal")?.classList.contains("tv");
+  const textColor = isTV ? "#cbd5e1" : "#475569";
+  const gridColor = isTV ? "rgba(148,163,184,0.18)" : "rgba(15,23,42,0.08)";
+  const datasets = series.map(s => ({
+    label: s.name,
+    data: s.data,
+    borderColor: s.color,
+    backgroundColor: s.color + "33",
+    pointBackgroundColor: s.data.map(v => v === 0 ? "#dc2626" : s.color),
+    pointBorderColor:     s.data.map(v => v === 0 ? "#7f1d1d" : s.color),
+    pointRadius:          s.data.map(v => v === 0 ? 5 : 3),
+    pointHoverRadius:     s.data.map(v => v === 0 ? 7 : 5),
+    borderWidth: 2,
+    tension: 0.2,
+    spanGaps: true
+  }));
+  const chart = new Chart(canvas, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: "nearest", intersect: false },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 6 }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.parsed.y;
+              return v === 0 ? `${ctx.dataset.label}: sin operación` : `${ctx.dataset.label}: ${v.toFixed(2)} m3/h`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: textColor, font: { size: 10 } },
+          grid:  { color: gridColor }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: textColor, font: { size: 10 }, stepSize: 0.2 },
+          grid:  { color: gridColor },
+          title: { display: true, text: "m3/h", color: textColor, font: { size: 11 } }
+        }
+      }
+    }
+  });
+  if (instanceRef) instanceRef.chart = chart;
+  return chart;
+}
+
+/* Refresca ambos charts. Llamado:
+   - Una vez al abrir el monitor (después del primer renderMonitor)
+   - Cada PROD_REFRESH_MS por su propio interval
+   - Cada vez que el DOM de monitor se recrea (renderMonitor pisa innerHTML
+     → canvases nuevos → hay que re-init Chart.js) */
+const _prodPickRef = { chart: null };
+const _prodPedRef  = { chart: null };
+async function refreshProductivityCharts(){
+  try {
+    const data = await fetchProductivityData();
+    const containerP = document.getElementById("prodChartPicking");
+    const containerA = document.getElementById("prodChartPedido");
+    if (!containerP || !containerA) return;
+    const emptyP = document.getElementById("prodChartPickingEmpty");
+    const emptyA = document.getElementById("prodChartPedidoEmpty");
+    // Picking
+    if (data.picking.length === 0){
+      if (emptyP) emptyP.style.display = "block";
+      containerP.style.display = "none";
+      if (_prodPickRef.chart){ try{_prodPickRef.chart.destroy();}catch(e){} _prodPickRef.chart = null; }
+    } else {
+      if (emptyP) emptyP.style.display = "none";
+      containerP.style.display = "block";
+      renderProdChart("prodCanvasPicking", data.dayLabels, data.picking, _prodPickRef);
+    }
+    // Pedido
+    if (data.pedido.length === 0){
+      if (emptyA) emptyA.style.display = "block";
+      containerA.style.display = "none";
+      if (_prodPedRef.chart){ try{_prodPedRef.chart.destroy();}catch(e){} _prodPedRef.chart = null; }
+    } else {
+      if (emptyA) emptyA.style.display = "none";
+      containerA.style.display = "block";
+      renderProdChart("prodCanvasPedido", data.dayLabels, data.pedido, _prodPedRef);
+    }
+    _prodLastRenderTs = Date.now();
+  } catch (e){
+    console.warn("[prod] refresh:", e.message);
   }
 }
 </script>
