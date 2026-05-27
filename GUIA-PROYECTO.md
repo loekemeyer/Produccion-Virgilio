@@ -4,11 +4,14 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-05-26 · Versión app al documentar: **v1.50**
+> Última actualización: 2026-05-26 · Versión app al documentar: **v1.51**
 >
 > Nota: v1.49 (de otra branch) agregó la **pantalla de Facturación** (botón 🧾,
-> tick por NP, tabla `Facturacion_NP`) y **gráficos de productividad** (Chart.js)
-> con export **PDF** (jsPDF) en el monitor. Pendiente documentarlos en detalle.
+> tick por NP, tabla `Facturacion_NP`) y **gráficos de productividad** (Chart.js:
+> m³/h por operario por día, picking y pedido) con export **PDF** (jsPDF) en el
+> monitor. En **v1.51**: los días sin datos ya no se grafican en 0 (quedan como
+> hueco) y al **tocar/click en un punto** se abre la composición de ese promedio
+> (las tandas con su m³ y tiempo que suman el m³/h). Resto pendiente de detallar.
 
 ---
 

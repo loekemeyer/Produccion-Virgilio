@@ -1659,7 +1659,7 @@ table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
 </div>
 
 <!-- Badge de versión + estado de cola (abajo a la izquierda) -->
-<div id="versionBadge">v1.50 ✓</div>
+<div id="versionBadge">v1.51 ✓</div>
 
 <!-- QR de fichada (TOTP rotativo) — abajo a la derecha. Genera tokens cada
      30s que apuntan a la app FichadaQR; los operarios escanean para fichar. -->
@@ -3370,7 +3370,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v1.50";
+const APP_VERSION = "v1.51";
 
 function updatePendingIndicator() {
   const el = document.getElementById("pendingIndicator");
@@ -6334,8 +6334,8 @@ async function fetchProductivityData(daysBack){
         if (!result.has(dayKey)) result.set(dayKey, new Map());
         const dm = result.get(dayKey);
         if (!dm.has(legajo)) dm.set(legajo, {
-          picking: { m3: 0, ms: 0 },
-          pedido:  { m3: 0, ms: 0 }
+          picking: { m3: 0, ms: 0, items: [] },
+          pedido:  { m3: 0, ms: 0, items: [] }
         });
         return dm.get(legajo);
       };
@@ -6364,6 +6364,7 @@ async function fetchProductivityData(daysBack){
           const cell = getCell(leg, dk);
           cell.picking.m3 += m3;
           cell.picking.ms += dur;
+          cell.picking.items.push({ tanda, m3, ms: dur });
         } else if (op === "AP"){
           openArms.set(k, ts);
         } else if (op === "TAP"){
@@ -6379,6 +6380,7 @@ async function fetchProductivityData(daysBack){
           const cell = getCell(leg, dk);
           cell.pedido.m3 += m3;
           cell.pedido.ms += dur;
+          cell.pedido.items.push({ tanda, m3, ms: dur });
         }
       }
 
@@ -6395,11 +6397,11 @@ async function fetchProductivityData(daysBack){
         for (const leg of [...legActivos].sort()){
           const data = dayKeys.map(dk => {
             const dm = result.get(dk);
-            if (!dm) return 0;
+            if (!dm) return null;
             const cell = dm.get(leg);
-            if (!cell) return 0;
+            if (!cell) return null;
             const hours = cell[opKey].ms / (1000 * 60 * 60);
-            if (hours <= 0) return 0;
+            if (hours <= 0) return null;
             return +(cell[opKey].m3 / hours).toFixed(2);
           });
           series.push({
@@ -6413,11 +6415,22 @@ async function fetchProductivityData(daysBack){
         return series;
       };
 
+      const buildDetail = (opKey) => {
+        const m = new Map();
+        for (const [dk, dm] of result){
+          for (const [leg, cell] of dm){
+            if (cell[opKey].items.length) m.set(leg + "|" + dk, cell[opKey]);
+          }
+        }
+        return m;
+      };
       const out = {
         dayKeys,
         dayLabels,
         picking: buildSeries("picking"),
-        pedido:  buildSeries("pedido")
+        pedido:  buildSeries("pedido"),
+        detailPicking: buildDetail("picking"),
+        detailPedido:  buildDetail("pedido")
       };
       _prodDataCache = out;
       _prodDataTs = Date.now();
@@ -6429,12 +6442,41 @@ async function fetchProductivityData(daysBack){
   return _prodInflight;
 }
 
+/* Muestra la composición del promedio m3/h de un operario en un día:
+   las tandas que hizo, con m3 y tiempo, que suman el promedio del punto.
+   Reusa el #tandaModal. */
+function showProdBreakdown(opLabel, name, dayLabel, detail){
+  const m = document.getElementById("tandaModal");
+  if (!m || !detail) return;
+  const items = (detail.items || []).slice().sort((a, b) => b.m3 - a.m3);
+  const totM3 = detail.m3 || 0;
+  const totH  = (detail.ms || 0) / 3600000;
+  const prom  = totH > 0 ? totM3 / totH : 0;
+  const fmt = (n, d = 2) => (n || 0).toFixed(d).replace(".", ",");
+  const rows = items.map(it => {
+    const h = it.ms / 3600000;
+    const mh = h > 0 ? it.m3 / h : 0;
+    return `<tr><td>${escapeHtml(it.tanda)}</td><td class="num">${fmt(it.m3, 3)}</td><td class="num">${Math.round(it.ms / 60000)} min</td><td class="num">${fmt(mh)}</td></tr>`;
+  }).join("");
+  m.querySelector(".tanda-modal-title").textContent = "Composición del promedio";
+  m.querySelector(".tanda-modal-body").innerHTML = `
+    <div style="font-size:14px;color:#475569;margin-bottom:10px;">
+      <b>${escapeHtml(name)}</b> · ${escapeHtml(opLabel)} · ${escapeHtml(dayLabel)}<br>
+      Promedio <b>${fmt(prom)} m3/h</b> = ${fmt(totM3, 3)} m3 ÷ ${fmt(totH)} h · ${items.length} tanda(s)
+    </div>
+    <table class="tanda-modal-table">
+      <thead><tr><th>Tanda</th><th class="num">m3</th><th class="num">Tiempo</th><th class="num">m3/h</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4">Sin detalle</td></tr>`}</tbody>
+    </table>`;
+  m.classList.add("show");
+}
+
 /* Renderiza un line chart Chart.js sobre un canvas dado.
    - Línea por operario, color determinista por legajo
    - Marker rojo (12px) en y=0 los días sin operación
    - Marker normal del color de la línea en días con operación
    - Eje Y empieza en 0, max auto, stepSize 0.2 */
-function renderProdChart(canvasId, labels, series, instanceRef){
+function renderProdChart(canvasId, labels, series, instanceRef, dayKeys, detailMap, opLabel){
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
   // Destruir instancia previa si existe
@@ -6453,13 +6495,13 @@ function renderProdChart(canvasId, labels, series, instanceRef){
     data: s.data,
     borderColor: s.color,
     backgroundColor: s.color + "33",
-    pointBackgroundColor: s.data.map(v => v === 0 ? "#dc2626" : s.color),
-    pointBorderColor:     s.data.map(v => v === 0 ? "#7f1d1d" : s.color),
-    pointRadius:          s.data.map(v => v === 0 ? 5 : 3),
-    pointHoverRadius:     s.data.map(v => v === 0 ? 7 : 5),
+    pointBackgroundColor: s.color,
+    pointBorderColor: s.color,
+    pointRadius: 3,
+    pointHoverRadius: 6,
     borderWidth: 2,
     tension: 0.2,
-    spanGaps: true
+    spanGaps: false
   }));
   const chart = new Chart(canvas, {
     type: "line",
@@ -6469,6 +6511,18 @@ function renderProdChart(canvasId, labels, series, instanceRef){
       maintainAspectRatio: false,
       animation: false,
       interaction: { mode: "nearest", intersect: false },
+      onClick: (evt, els) => {
+        if (!els || !els.length) return;
+        const el = els[0];
+        const s = series[el.datasetIndex];
+        if (!s || !dayKeys || !detailMap) return;
+        const detail = detailMap.get(s.legajo + "|" + dayKeys[el.index]);
+        if (detail) showProdBreakdown(opLabel || "", s.name, labels[el.index], detail);
+      },
+      onHover: (evt, els) => {
+        const c = evt && evt.native && evt.native.target;
+        if (c) c.style.cursor = (els && els.length) ? "pointer" : "default";
+      },
       plugins: {
         legend: {
           position: "bottom",
@@ -6478,7 +6532,7 @@ function renderProdChart(canvasId, labels, series, instanceRef){
           callbacks: {
             label: (ctx) => {
               const v = ctx.parsed.y;
-              return v === 0 ? `${ctx.dataset.label}: sin operación` : `${ctx.dataset.label}: ${v.toFixed(2)} m3/h`;
+              return (v == null) ? "" : `${ctx.dataset.label}: ${v.toFixed(2)} m3/h`;
             }
           }
         }
@@ -6524,7 +6578,7 @@ async function refreshProductivityCharts(){
     } else {
       if (emptyP) emptyP.style.display = "none";
       containerP.style.display = "block";
-      renderProdChart("prodCanvasPicking", data.dayLabels, data.picking, _prodPickRef);
+      renderProdChart("prodCanvasPicking", data.dayLabels, data.picking, _prodPickRef, data.dayKeys, data.detailPicking, "Picking");
     }
     // Pedido
     if (data.pedido.length === 0){
@@ -6534,7 +6588,7 @@ async function refreshProductivityCharts(){
     } else {
       if (emptyA) emptyA.style.display = "none";
       containerA.style.display = "block";
-      renderProdChart("prodCanvasPedido", data.dayLabels, data.pedido, _prodPedRef);
+      renderProdChart("prodCanvasPedido", data.dayLabels, data.pedido, _prodPedRef, data.dayKeys, data.detailPedido, "Pedido");
     }
     _prodLastRenderTs = Date.now();
   } catch (e){
