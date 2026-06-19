@@ -1,8 +1,8 @@
 {
   "id": "/Produccion-Virgilio/",
-  "name": "Producción Virgilio",
-  "short_name": "Virgilio",
-  "description": "Reportes de producción Virgilio",
+  "name": "Producción",
+  "short_name": "Producción",
+  "description": "Producción — Virgilio y Cervantes",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -28,12 +28,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }

@@ -13,6 +13,69 @@
   <link rel="icon" href="data:,">
   <link rel="manifest" href="manifest.json" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Anti-flash: la pantalla queda oculta hasta que el gate confirme sesión. -->
+  <style>#legajoScreen{visibility:hidden;}</style>
+  <!-- ===== GATE DE SESIÓN (v1.9.0) =====
+       El login es GLOBAL en la raíz. Cervantes no tiene login propio: levanta la
+       sesión compartida (mismo proyecto Supabase, storageKey default → mismo
+       origin). Si hay sesión Google autorizada o sesión por legajo del día,
+       entra (precargando el legajo). Si no, redirige a la raíz (login global). -->
+  <script>
+  (function cervGate() {
+    var SB_URL  = "https://hrxfctzncixxqmpfhskv.supabase.co";
+    var SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyeGZjdHpuY2l4eHFtcGZoc2t2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MjQyNjEsImV4cCI6MjA4ODMwMDI2MX0.4L6wguch8UZGhC2VpzrWcCjJGUV-IkYsl9JoCWrOLUs";
+    var SUPERVISOR_EMAILS = ["loekemeyer.n8n@gmail.com", "loekemeyer.logistica@gmail.com", "comexloekemeyer@gmail.com"];
+    var LEGAJO_KEY = "vir_legajo_auth"; // sesión por legajo compartida con la raíz
+    function todayBsAs() { var d = new Date(Date.now() - 3 * 3600 * 1000); return d.toISOString().slice(0, 10); }
+    function goLogin() { window.location.replace("../"); }
+    function reveal() { var s = document.getElementById("legajoScreen"); if (s) s.style.visibility = "visible"; }
+    // Operario ya logueado en la raíz: NO re-pedimos el legajo. Lo precargamos
+    // (oculto, para el resto del código) y mostramos un saludo, igual que Virgilio.
+    function prefill(legajo, nombre) {
+      var i = document.getElementById("legajoInput");
+      if (i && legajo) {
+        i.value = legajo;
+        i.style.display = "none";
+        try { i.dispatchEvent(new Event("input", { bubbles: true })); } catch (_e) {}
+      }
+      var ls = document.getElementById("legajoScreen");
+      var h1 = ls ? ls.querySelector("h1") : null;
+      if (h1) h1.textContent = nombre ? ("Hola, " + nombre) : ("Legajo " + legajo);
+      reveal();
+    }
+    function fetchEmpByEmail(email) {
+      return fetch(SB_URL + "/rest/v1/Empleados?email=eq." + encodeURIComponent(email.toLowerCase().trim()) + "&select=Legajo,Empleado&limit=1",
+        { headers: { apikey: SB_ANON, Authorization: "Bearer " + SB_ANON } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (Array.isArray(d) && d.length && d[0].Legajo != null) {
+            return { legajo: String(d[0].Legajo).trim(), nombre: String(d[0].Empleado || "").trim() };
+          }
+          return null;
+        })
+        .catch(function () { return null; });
+    }
+    function run() {
+      // 1) Sesión por legajo (sin Google), compartida con la raíz, válida el día.
+      try {
+        var raw = localStorage.getItem(LEGAJO_KEY);
+        if (raw) { var o = JSON.parse(raw); if (o && o.legajo && o.day === todayBsAs()) { prefill(o.legajo, o.nombre); return; } }
+      } catch (_e) {}
+      // 2) Sesión Google (mismo proyecto, storageKey default → compartida).
+      if (typeof supabase === "undefined") { goLogin(); return; }
+      var sbAuth = supabase.createClient(SB_URL, SB_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+      sbAuth.auth.getSession().then(function (res) {
+        var s = res && res.data ? res.data.session : null;
+        if (!s || !s.user || !s.user.email) { goLogin(); return; }
+        var email = s.user.email;
+        if (SUPERVISOR_EMAILS.indexOf(email.toLowerCase().trim()) !== -1) { reveal(); return; } // supervisor: tipea legajo
+        fetchEmpByEmail(email).then(function (emp) { if (emp) prefill(emp.legajo, emp.nombre); else goLogin(); });
+      }).catch(function () { goLogin(); });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run);
+    else run();
+  })();
+  </script>
 </head>
 <body>
 
@@ -21,7 +84,7 @@
   <!-- LEGAJO -->
   <div id="legajoScreen">
     <button id="btnHistDias" style="position:fixed;top:12px;right:12px;width:44px;height:44px;border-radius:50%;border:2px solid #cbd5e1;background:#f8fafc;font-size:20px;cursor:pointer;z-index:100;display:flex;align-items:center;justify-content:center;" title="Historial dias anteriores">📅</button>
-    <a href="../selector/" style="display:inline-block;margin:0 0 10px;padding:6px 12px;font-size:13px;font-weight:600;color:#0e7490;background:#ecfeff;border:1px solid #a5f0fc;border-radius:999px;text-decoration:none;">← Cambiar planta</a>
+    <a href="../" style="display:inline-block;margin:0 0 10px;padding:6px 12px;font-size:13px;font-weight:600;color:#0e7490;background:#ecfeff;border:1px solid #a5f0fc;border-radius:999px;text-decoration:none;">← Cambiar planta</a>
     <h1>Ingresa tu numero de Operario</h1>
     <input id="legajoInput" type="number" inputmode="numeric">
     <button id="btnContinuar" class="primary-btn">Continuar</button>

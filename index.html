@@ -8,7 +8,7 @@
 <!-- PWA: manifiesto + ícono. Permite "Agregar a pantalla de inicio" en Chrome
      Android y mejora la fiabilidad del Background Sync del Service Worker. -->
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <style>
@@ -2498,7 +2498,7 @@ table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
 
 <!-- ================= LEGAJO ================= -->
 <div id="legajoScreen">
-  <a href="selector/" style="display:inline-block;margin:0 0 10px;padding:6px 12px;font-size:13px;font-weight:600;color:#1e6bd6;background:#eaf1fb;border:1px solid #cfe0f7;border-radius:999px;text-decoration:none;">← Cambiar planta</a>
+  <a id="btnCambiarPlanta" href="javascript:void(0)" onclick="cambiarPlanta()" style="display:none;margin:0 0 10px;padding:6px 12px;font-size:13px;font-weight:600;color:#1e6bd6;background:#eaf1fb;border:1px solid #cfe0f7;border-radius:999px;text-decoration:none;">← Cambiar planta</a>
   <h1 id="legajoTitle">Producción Virgilio</h1>
 
   <!-- Login con Google (obligatorio). Visible mientras no haya sesión. -->
@@ -2541,6 +2541,50 @@ table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
       <button class="sup-action-btn" onclick="openFaltantes()"><span class="sup-ico">📦</span><span>Faltantes</span></button>
       <button class="sup-action-btn" onclick="openRecepcionAdmin()"><span class="sup-ico">🏭</span><span>Recepción (Admin)</span></button>
       <button class="sup-action-btn" onclick="openPlanimEditor()"><span class="sup-ico">🗺️</span><span>Editar Planimetría</span></button>
+    </div>
+    <div class="auth-logout-row">
+      <button class="auth-logout-btn" onclick="signOutGoogle()">Salir</button>
+    </div>
+  </div>
+
+  <!-- SELECTOR DE PLANTA: aparece tras login, antes de entrar a una planta.
+       Virgilio queda en esta misma página; Cervantes redirige a ./cervantes/
+       (sesión compartida, no re-pide login). -->
+  <style>
+    #plantSelector .ps-title { text-align:center; font-size:26px; font-weight:800; margin:6px 0 22px; }
+    .plant-cards { display:flex; flex-direction:column; gap:16px; max-width:460px; margin:0 auto; }
+    .plant-card {
+      width:100%; display:flex; align-items:center; gap:18px; min-height:104px;
+      padding:20px 22px; border:none; border-radius:20px; color:#fff; cursor:pointer;
+      text-align:left; box-shadow:0 10px 24px rgba(15,23,42,.16);
+      transition:transform .08s ease;
+    }
+    .plant-card:active { transform:scale(.985); }
+    .plant-card.plant-vir { background:#dc2626; }
+    .plant-card.plant-cer { background:#111111; }
+    .plant-badge {
+      flex:0 0 auto; width:64px; height:64px; border-radius:16px;
+      background:rgba(255,255,255,.16); border:2px solid rgba(255,255,255,.5);
+      display:flex; align-items:center; justify-content:center;
+      font-size:34px; font-weight:900; line-height:1;
+    }
+    .plant-name { flex:1; font-size:30px; font-weight:800; letter-spacing:-.01em; }
+    .plant-go { flex:0 0 auto; font-size:30px; opacity:.85; }
+    #plantSelector .auth-logout-row { margin-top:24px; }
+  </style>
+  <div id="plantSelector" class="hidden">
+    <h1 class="ps-title">¿Dónde vas a trabajar hoy?</h1>
+    <div class="plant-cards">
+      <button class="plant-card plant-vir" onclick="chooseVirgilio()">
+        <span class="plant-badge">V</span>
+        <span class="plant-name">Virgilio</span>
+        <span class="plant-go">›</span>
+      </button>
+      <button class="plant-card plant-cer" onclick="chooseCervantes()">
+        <span class="plant-badge">C</span>
+        <span class="plant-name">Cervantes</span>
+        <span class="plant-go">›</span>
+      </button>
     </div>
     <div class="auth-logout-row">
       <button class="auth-logout-btn" onclick="signOutGoogle()">Salir</button>
@@ -10225,25 +10269,58 @@ function setLegajoTitle(text) {
    el evento de signOut) la borraría y el aviso desaparecería al instante. */
 let rejectedMsg = null;
 
+/* Identidad resuelta tras login (Google o legajo) y si ya se eligió planta en
+   esta carga. El selector aparece tras login; al elegir Virgilio renderizamos
+   acá mismo, al elegir Cervantes redirigimos. __plantChosen evita que un
+   refresh de token (onAuthStateChange) rebote al operario de vuelta al selector. */
+let __identity = null;
+let __plantChosen = false;
+
+function _setCambiarPlanta(show) {
+  const b = $("btnCambiarPlanta");
+  if (b) b.style.display = show ? "inline-block" : "none";
+}
+
 function showLoggedOut() {
   window.__isSupervisor = false;
+  __identity = null; __plantChosen = false;
   $("authBlock").classList.remove("hidden");
   $("legajoEntry").classList.add("hidden");
   $("supervisorPanel").classList.add("hidden");
+  $("plantSelector").classList.add("hidden");
+  $("btnHistDias").classList.add("hidden");   // 📅 no aplica en el login (sin operario)
+  _setCambiarPlanta(false);
   setHistorySpace(true);
   setUserTag(null);
-  setLegajoTitle("Producción Virgilio");
+  setLegajoTitle("Producción");
   const btn = $("googleSignInBtn");
   if (btn) btn.disabled = false;
   if (rejectedMsg) setAuthStatus(rejectedMsg, true);
   else setAuthStatus("Iniciá sesión para continuar", false);
 }
 
+/* Pantalla 2: selector de planta. Se llega tras login y desde "Cambiar planta". */
+function showSelector() {
+  window.__isSupervisor = false;
+  __plantChosen = false;
+  $("authBlock").classList.add("hidden");
+  $("legajoEntry").classList.add("hidden");
+  $("supervisorPanel").classList.add("hidden");
+  $("plantSelector").classList.remove("hidden");
+  $("btnHistDias").classList.add("hidden");   // 📅 no aplica en el selector
+  _setCambiarPlanta(false);
+  setHistorySpace(false);
+  setLegajoTitle(null);
+  if (__identity) setUserTag(__identity.nombre || __identity.email || "");
+}
+
 function showSupervisor(email) {
   window.__isSupervisor = true;
   $("authBlock").classList.add("hidden");
   $("legajoEntry").classList.add("hidden");
+  $("plantSelector").classList.add("hidden");
   $("supervisorPanel").classList.remove("hidden");
+  _setCambiarPlanta(true);
   setHistorySpace(false);   // el "Resumen de hoy" no aplica al supervisor
   setUserTag(email);
   setLegajoTitle(null);
@@ -10255,9 +10332,12 @@ function showOperario(emp) {
   window.__isSupervisor = false;
   $("authBlock").classList.add("hidden");
   $("supervisorPanel").classList.add("hidden");
+  $("plantSelector").classList.add("hidden");
   // El operario aterriza en esta pantalla: saludo + "Continuar" + "Resumen de
   // hoy" (historial de sus acciones del día). Desde acá pasa a la grilla EP/TP.
   $("legajoEntry").classList.remove("hidden");
+  _setCambiarPlanta(true);
+  $("btnHistDias").classList.remove("hidden");   // 📅 disponible para el operario
   setHistorySpace(true);
   const nombre = emp.nombre || "";
   $("operarioGreeting").textContent = nombre ? ("Hola, " + nombre) : ("Legajo " + emp.legajo);
@@ -10273,13 +10353,34 @@ function showOperario(emp) {
   } catch (_e) {}
 }
 
+/* Renderiza la pantalla de la planta Virgilio según la identidad resuelta. */
+function _renderIdentity() {
+  if (!__identity) { showLoggedOut(); return; }
+  if (__identity.type === "supervisor") showSupervisor(__identity.email);
+  else showOperario(__identity.emp);
+}
+/* Tras autenticar: si es modo monitor (TV/supervisor con ?monitor=) o ya se
+   eligió planta en esta carga, vamos directo a Virgilio. Si no, al selector. */
+function _routeAfterAuth() {
+  if (window.__pendingMonitorParam || __plantChosen) { _renderIdentity(); return; }
+  showSelector();
+}
+
 async function showLoggedIn(user) {
   const email = user.email || "";
   // 1) Supervisor por email (no requiere estar en Empleados).
-  if (isSupervisorEmail(email)) { showSupervisor(email); return; }
+  if (isSupervisorEmail(email)) {
+    __identity = { type: "supervisor", email: email, nombre: email };
+    _routeAfterAuth();
+    return;
+  }
   // 2) Operario: debe estar en Empleados (allowlist).
   const emp = await resolveEmpleadoByEmail(email);
-  if (emp) { showOperario(emp); return; }
+  if (emp) {
+    __identity = { type: "operario", emp: emp, email: email, nombre: emp.nombre || ("Legajo " + emp.legajo) };
+    _routeAfterAuth();
+    return;
+  }
   // 3) No autorizado -> signOut inmediato (no le damos acceso usable) y dejamos
   //    la leyenda fija en la pantalla de login.
   rejectedMsg = "La cuenta " + email + " no está autorizada. " +
@@ -10287,6 +10388,20 @@ async function showLoggedIn(user) {
   try { await sb.auth.signOut(); } catch (_e) {}
   showLoggedOut();
 }
+
+/* Acciones del selector de planta. */
+window.chooseVirgilio = function () {
+  __plantChosen = true;
+  _renderIdentity();
+};
+window.chooseCervantes = function () {
+  // Cervantes vive en ./cervantes/ y levanta la misma sesión (mismo origin).
+  window.location.href = "./cervantes/";
+};
+window.cambiarPlanta = function () {
+  __plantChosen = false;
+  showSelector();
+};
 
 /* Día (BsAs) en que se aceptó la sesión. La sesión persiste todo el día
    (cerrar el navegador no desloguea), pero al cambiar de día se cierra y se
@@ -10340,7 +10455,8 @@ async function applyAuthState() {
   // Sin Google session: chequeo sesión iniciada con legajo. Vale el mismo día.
   const legSess = loadLegajoSession();
   if (legSess && today && legSess.day === today) {
-    showOperario({ legajo: legSess.legajo, nombre: legSess.nombre || "" });
+    __identity = { type: "operario", emp: { legajo: legSess.legajo, nombre: legSess.nombre || "" }, nombre: legSess.nombre || ("Legajo " + legSess.legajo) };
+    _routeAfterAuth();
     return;
   }
   if (legSess) clearLegajoSession();   // era de otro día — limpiar
@@ -10397,7 +10513,9 @@ window.loginWithLegajo = async function () {
     return;
   }
   saveLegajoSession(emp, todayKeyBsAs() || "");
-  showOperario({ legajo: emp.legajo, nombre: emp.nombre });
+  __identity = { type: "operario", emp: emp, nombre: emp.nombre || ("Legajo " + emp.legajo) };
+  __plantChosen = false;
+  _routeAfterAuth();
 };
 
 /* Token JWT del usuario logueado, para que el resto de la app pueda mandar

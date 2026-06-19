@@ -1,8 +1,8 @@
 {
   "packageId": "io.github.loekemeyer.virgilio",
   "host": "loekemeyer.github.io",
-  "name": "Producción Virgilio",
-  "launcherName": "Virgilio",
+  "name": "Producción",
+  "launcherName": "Producción",
   "display": "standalone",
   "orientation": "portrait",
   "themeColor": "#1e6bd6",
@@ -21,8 +21,8 @@
     "path": "./android.keystore",
     "alias": "virgilio"
   },
-  "appVersionName": "2.73",
-  "appVersionCode": 273,
+  "appVersionName": "2.90",
+  "appVersionCode": 290,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://loekemeyer.github.io/Produccion-Virgilio/manifest.json",
