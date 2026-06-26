@@ -1876,7 +1876,9 @@ INSERT` sobre `Registros_Produccion_Virgilio`, que llaman a `net.http_post` (ext
 **Miembros del grupo "Faltantes Virgilio"** (completar a mano — la API de bots no lista
 miembros y el sandbox no llega a Telegram):
 
-- _(pendiente de cargar)_
+- Thomy
+- Marianela — ventas
+- Alan — fabricación
 
 ---
 
