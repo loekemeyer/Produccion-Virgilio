@@ -1844,6 +1844,42 @@ lo excluye de horas/productividad (guard `opcion==="LT"` en
 
 ---
 
+## 4b. Notificaciones Telegram (alertas automáticas)
+
+Las alertas **NO salen de la app**: las dispara **Supabase** con triggers `AFTER`/`BEFORE
+INSERT` sobre `Registros_Produccion_Virgilio`, que llaman a `net.http_post` (extensión
+`pg_net`) contra la API del bot **`@Faltantes_Virgilio_bot`**.
+
+| Evento (`opcion`) | Trigger | Función | Mensaje |
+|---|---|---|---|
+| `PKC` (faltante: `real < esperadas`) | `trg_faltante_telegram` | `notificar_faltante_telegram` | ⚠ FALTANTE — Tanda… |
+| `PSP` (picking sin planimetría) | `trg_sin_planim_telegram` | `notificar_sin_planimetria_telegram` | 🗺 SIN PLANIMETRÍA… |
+| `CRA` (cargado sin controlar, vencido) | `trg_carga_sin_control_telegram` | `notificar_carga_sin_control_telegram` | 🚨 SIN CONTROLAR… |
+
+- **Destino**: supergrupo de Telegram **"Faltantes Virgilio"**, `chat_id = -1004379879565`.
+  Reciben **todos** los miembros del grupo. (Antes era un chat personal, `6282395816`.)
+- El **`bot_token`** y el **`chat_id`** están **hardcodeados** dentro de cada una de las 3
+  funciones. Para cambiar destinatarios: editar el `chat_id` en las 3 (`CREATE OR REPLACE
+  FUNCTION`).
+- ⚠ **Cuidado con el id de grupo**: un grupo "básico" tiene id corto (`-5438870268`); al
+  convertirse en **supergrupo** Telegram lo migra a formato `-100…` (`-1004379879565`) y los
+  envíos al id viejo devuelven `400 … migrate_to_chat_id`. Si vuelve a pasar, actualizar las 3.
+- **Verificar un envío**: el sandbox **no llega a `api.telegram.org`** (egress bloqueado, como
+  Google), pero **los triggers sí** (corren en Supabase). Mirar la respuesta en
+  `net._http_response` (`status_code = 200` y `content.ok = true` = enviado). Para forzar una
+  prueba: insertar un `PKC` con `real < esperadas` y **legajo `0`** (test/basura, excluido de
+  reportes) y borrarlo después.
+- **Sacar el id del grupo** (cuando no se puede desde el sandbox): abrir en un navegador
+  `https://api.telegram.org/bot<token>/getUpdates` con el bot ya dentro del grupo, o agregar un
+  bot de id (`@RawDataBot`/`@getidsbot`) y leer el `chat.id`.
+
+**Miembros del grupo "Faltantes Virgilio"** (completar a mano — la API de bots no lista
+miembros y el sandbox no llega a Telegram):
+
+- _(pendiente de cargar)_
+
+---
+
 ## 5. Cómo se registran los eventos (semántica clave)
 
 - **`ts_cliente`** = momento del evento. **`ts_inicio`** se completa **sólo cuando
