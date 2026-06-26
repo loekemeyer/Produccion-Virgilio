@@ -4,7 +4,18 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-06-25 · Versión app al documentar: **v3.99**
+> Última actualización: 2026-06-26 · Versión app al documentar: **v3.99**
+>
+> Nota: **2026-06-26 (config, sin bump)** — **Alertas Telegram → grupo en vez de chat personal**
+> (pedido del usuario). Las **3** funciones que avisan por `@Faltantes_Virgilio_bot`
+> (`notificar_faltante_telegram` = faltantes/PKC, `notificar_sin_planimetria_telegram` = PSP,
+> `notificar_carga_sin_control_telegram` = CRA) tenían el `chat_id` fijo `6282395816` (un chat
+> **personal**); ahora apuntan al **grupo** `-5438870268`, así reciben **todos** los del grupo. Cambio
+> 100% en Supabase (DDL `CREATE OR REPLACE FUNCTION`, migración `telegram_alertas_a_grupo`), nada en
+> el repo. ⚠ El `bot_token` y el `chat_id` están **hardcodeados** dentro de cada función. ⚠ Si el grupo
+> se convierte en **supergrupo** (se hace público, crece, etc.), el id cambia a formato `-100…` y hay
+> que volver a actualizarlo. El sandbox **no puede leer `api.telegram.org`** (bloqueado por egress,
+> como Google): el id del grupo se saca desde el navegador con `…/getUpdates` o un bot de id.
 >
 > Nota: **v3.99** — **Entregas en Supabase: UNA tabla persistente `Entregas_Virgilio` (no más vistas)**
 > (pedido del usuario: "una sola tabla, sin duplicar"). Se **borraron las vistas** `Entregas_Virgilio` y
