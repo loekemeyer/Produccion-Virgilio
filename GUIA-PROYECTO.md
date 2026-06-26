@@ -10,12 +10,16 @@
 > (pedido del usuario). Las **3** funciones que avisan por `@Faltantes_Virgilio_bot`
 > (`notificar_faltante_telegram` = faltantes/PKC, `notificar_sin_planimetria_telegram` = PSP,
 > `notificar_carga_sin_control_telegram` = CRA) tenían el `chat_id` fijo `6282395816` (un chat
-> **personal**); ahora apuntan al **grupo** `-5438870268`, así reciben **todos** los del grupo. Cambio
-> 100% en Supabase (DDL `CREATE OR REPLACE FUNCTION`, migración `telegram_alertas_a_grupo`), nada en
-> el repo. ⚠ El `bot_token` y el `chat_id` están **hardcodeados** dentro de cada función. ⚠ Si el grupo
-> se convierte en **supergrupo** (se hace público, crece, etc.), el id cambia a formato `-100…` y hay
-> que volver a actualizarlo. El sandbox **no puede leer `api.telegram.org`** (bloqueado por egress,
-> como Google): el id del grupo se saca desde el navegador con `…/getUpdates` o un bot de id.
+> **personal**); ahora apuntan al **supergrupo** `-1004379879565` ("Faltantes Virgilio"), así reciben
+> **todos** los del grupo. Cambio 100% en Supabase (DDL `CREATE OR REPLACE FUNCTION`, migraciones
+> `telegram_alertas_a_grupo` → `telegram_alertas_a_grupo_supergrupo`), nada en el repo. Probado con un
+> evento `PKC` de prueba (legajo 0) → Telegram respondió `200 ok`. ⚠ El `bot_token` y el `chat_id` están
+> **hardcodeados** dentro de cada función. ⚠ **Ojo con el id**: el grupo nació como básico (`-5438870268`)
+> y al convertirse en **supergrupo** el id pasó a formato `-100…` (`-1004379879565`); Telegram avisa con
+> `400 … migrate_to_chat_id` cuando pasa. El sandbox **no puede leer `api.telegram.org`** (bloqueado por
+> egress, como Google), pero **los triggers sí** (corren en Supabase): para verificar un envío, mirar
+> `net._http_response` (status 200 = ok). El id del grupo se saca desde el navegador con `…/getUpdates`
+> o un bot de id.
 >
 > Nota: **v3.99** — **Entregas en Supabase: UNA tabla persistente `Entregas_Virgilio` (no más vistas)**
 > (pedido del usuario: "una sola tabla, sin duplicar"). Se **borraron las vistas** `Entregas_Virgilio` y
