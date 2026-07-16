@@ -3009,6 +3009,7 @@ table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
       <button class="sup-action-btn" onclick="openRecepcionAdmin()"><span class="sup-ico">🏭</span><span>Carga Recepción Mercadería</span></button>
       <button class="sup-action-btn" onclick="showCPModal('0')"><span class="sup-ico">📦➕</span><span>Completar Pedido</span></button>
       <button class="sup-action-btn" onclick="openStockAdmin()"><span class="sup-ico">📦</span><span>Stock y Compras</span></button>
+      <button class="sup-action-btn" onclick="openImportadosAdmin()"><span class="sup-ico">🌏</span><span>Importados / OC</span></button>
       <button class="sup-action-btn" onclick="openRemitosAdmin()"><span class="sup-ico">🚚</span><span>Recepción Remitos (RR)</span></button>
     </div>
     <div class="sup-sec-label">Reportes y configuración</div>
@@ -5378,7 +5379,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v5.39";
+const APP_VERSION = "v5.40";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -8008,6 +8009,230 @@ function stkRender() {
   const body = document.getElementById("stkBody"); if (!body) return;
   _renderKeepFocus(body, _stk.tab === "proceso" ? stkBodyProceso() : _stk.tab === "conteo" ? stkBodyConteo() : _stk.tab === "capacidad" ? stkBodyCapacidad() : _stk.tab === "racks" ? stkBodyRacks() : _stk.tab === "ajustes" ? stkBodyAjustes() : stkBodyStocksTab());
 }
+
+/* ===================================================================
+   MÓDULO IMPORTADOS / OC (v5.40) — réplica del Excel "QUIEBRE de art importados"
+   Motor = hoja "Todos": por artículo importado
+     Máximo Determinado = Meses_objetivo (perilla global) × Est Madre
+     Total Stock        = Stock Actual (ROTATIVO) + Pedido en Curso
+     Genera Pedido      = máx(0, Máximo − Total Stock)
+     Meses de cobertura = Total Stock ÷ Est Madre   (bajo = quiebre)
+     Total FOB          = FOB_uni × (Pedido Manual si se cargó, si no Genera Pedido)
+   - Trabaja en UNIDADES. FOB por (código, proveedor) → multi-proveedor (filas alternas).
+   - Est Madre efectiva: override manual > (LK/Loke: proyeccion_madre live de PaginaLK) > seed Excel.
+   - Stock ROTATIVO event-sourced: tabla Importados_Mov_Stock (inicial/compra/ajuste);
+     las VENTAS se derivan solas del armado real (Entregas) en la vista v_importados_ordenes.
+   Lee la vista v_importados_ordenes (anon). Escribe con sesión de supervisor
+   (facAuthWriteHeaders → rol authenticated), igual que OCs / Planimetría. =================== */
+let _imp = null;
+const SUPABASE_IMP_VIEW    = SUPABASE_URL + "/rest/v1/v_importados_ordenes";
+const SUPABASE_IMP_ENDPOINT = SUPABASE_URL + "/rest/v1/Importados";
+const SUPABASE_IMPMOV_ENDPOINT = SUPABASE_URL + "/rest/v1/Importados_Mov_Stock";
+const SUPABASE_IMPCFG_ENDPOINT = SUPABASE_URL + "/rest/v1/Importados_Config";
+function _impNum(v) { return (v === null || v === undefined || v === "") ? null : Number(v); }
+function _impFmt(n) { if (n === null || n === undefined || isNaN(n)) return "—"; return Math.round(Number(n)).toLocaleString("es-AR"); }
+function _impUSD(n) { if (n === null || n === undefined || isNaN(n)) return "—"; return "u$ " + Number(n).toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+function _impFob(n) { if (n === null || n === undefined || isNaN(n)) return "—"; return Number(n).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 3 }); }
+async function openImportadosAdmin() {
+  if (!document.getElementById("impCss")) {
+    const s = document.createElement("style"); s.id = "impCss";
+    s.textContent = "#impAdminOverlay{display:none;position:fixed;inset:0;z-index:1282;background:rgba(2,6,23,.74);overflow:auto;padding:14px;}#impAdminOverlay.show{display:block;}.imp-card{background:#f8fafc;max-width:1180px;margin:0 auto;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);}.imp-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(90deg,#b45309,#7c2d12);color:#fff;}.imp-title{font-size:19px;font-weight:800;}.imp-close{background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer;width:auto;}.imp-body{padding:14px 16px;}.imp-loading,.imp-empty{padding:24px;text-align:center;color:#64748b;}.imp-tools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}.imp-btn{background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:8px 13px;font-size:13px;font-weight:800;cursor:pointer;width:auto;}.imp-btn.on{background:#b45309;color:#fff;border-color:#b45309;}.imp-btn.ok{background:#16a34a;color:#fff;border-color:#16a34a;}.imp-filtro{flex:1;min-width:150px;height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font-size:14px;}.imp-knob{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:5px 10px;font-size:13px;font-weight:700;color:#0f172a;}.imp-knob input{width:60px;height:30px;border:1px solid #cbd5e1;border-radius:7px;padding:0 6px;font-size:14px;text-align:center;font-weight:800;}.imp-info{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:9px;padding:9px 11px;margin-bottom:10px;font-size:12.5px;}.imp-meta{font-size:13px;color:#475569;margin-bottom:8px;}.imp-meta b{color:#0f172a;}.imp-grp-h{background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:7px 11px;font-weight:800;font-size:13.5px;color:#7c2d12;margin:12px 0 4px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}.imp-grp-tot{color:#b45309;}.imp-tblwrap{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;}.imp-tbl{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;}.imp-tbl th{background:#f1f5f9;color:#475569;text-align:left;padding:6px 8px;font-size:10.5px;text-transform:uppercase;border-bottom:1px solid #cbd5e1;position:sticky;top:0;}.imp-tbl th.num,.imp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}.imp-tbl td{padding:5px 8px;border-bottom:1px solid #eef2f7;}.imp-tbl tr.alt td{background:#fafafa;color:#94a3b8;}.imp-cod{font-family:Consolas,Menlo,monospace;font-weight:800;color:#b45309;}.imp-desc{max-width:220px;overflow:hidden;text-overflow:ellipsis;}.imp-mk{display:inline-block;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:800;}.imp-mk.LK{background:#dbeafe;color:#1e40af;}.imp-mk.Loke{background:#e0e7ff;color:#3730a3;}.imp-mk.CH{background:#fce7f3;color:#9d174d;}.imp-em{width:74px;height:30px;text-align:right;border:1px solid #cbd5e1;border-radius:7px;padding:0 6px;font-size:13px;font-weight:700;}.imp-pm{width:74px;height:30px;text-align:right;border:1px solid #cbd5e1;border-radius:7px;padding:0 6px;font-size:13px;}.imp-src{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:5px;vertical-align:middle;}.imp-src.live{background:#16a34a;}.imp-src.seed{background:#f59e0b;}.imp-src.override{background:#2563eb;}.imp-gen{font-weight:800;color:#b91c1c;}.imp-gen.z{color:#94a3b8;font-weight:600;}.imp-mes.red{color:#b91c1c;font-weight:800;}.imp-mes.amber{color:#b45309;font-weight:700;}.imp-mes.green{color:#15803d;}.imp-actb{background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:3px 7px;font-size:11px;font-weight:800;cursor:pointer;width:auto;}.imp-badge{display:inline-block;padding:1px 6px;border-radius:6px;font-size:9.5px;font-weight:800;background:#e2e8f0;color:#64748b;margin-left:5px;}.imp-legend{font-size:11.5px;color:#64748b;margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;}.imp-legend span{display:inline-flex;align-items:center;gap:5px;}";
+    document.head.appendChild(s);
+  }
+  let ov = document.getElementById("impAdminOverlay");
+  if (!ov) { ov = document.createElement("div"); ov.id = "impAdminOverlay"; document.body.appendChild(ov); }
+  ov.innerHTML = '<div class="imp-card"><div class="imp-head"><span class="imp-title">📦 Importados / OC</span><button class="imp-close" onclick="closeImportadosAdmin()">Cerrar</button></div><div class="imp-body" id="impBody"><div class="imp-loading">Cargando…</div></div></div>';
+  ov.classList.add("show");
+  _imp = { rows: [], mesesObj: 8, view: "todos", filtro: "", changed: {}, err: null };
+  try {
+    const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
+    const res = await Promise.all([
+      fetch(SUPABASE_IMP_VIEW + "?select=*&limit=20000", { headers: H, cache: "no-store" }),
+      fetch(SUPABASE_IMPCFG_ENDPOINT + "?select=meses_objetivo&id=eq.1", { headers: H, cache: "no-store" })
+    ]);
+    _imp.rows = res[0].ok ? await res[0].json() : [];
+    const cfg = res[1].ok ? await res[1].json() : [];
+    if (cfg && cfg.length && cfg[0].meses_objetivo != null) _imp.mesesObj = Number(cfg[0].meses_objetivo);
+  } catch (e) { _imp.err = String(e.message || e); }
+  impRender();
+}
+function closeImportadosAdmin() { const ov = document.getElementById("impAdminOverlay"); if (ov) ov.classList.remove("show"); _imp = null; }
+function impRender() { if (!_imp) return; const body = document.getElementById("impBody"); if (!body) return; _renderKeepFocus(body, impBody()); }
+function impView(v) { if (!_imp) return; _imp.view = v; impRender(); }
+function impSetMeses(v) { if (!_imp) return; const n = Number(v); if (!isNaN(n) && n > 0) { _imp.mesesObj = n; _imp.mesesDirty = true; impRender(); } }
+// Cálculo por fila (mismo motor que la hoja "Todos", reactivo a ediciones locales).
+function impCalc(r) {
+  const ed = _imp.changed[r.id] || {};
+  const isCH = String(r.marca || "").toUpperCase() === "CH";
+  const seed = _impNum(r.est_madre_seed);
+  const live = _impNum(r.est_madre_live);
+  const ovr = ("em" in ed) ? ed.em : r.est_madre_override;
+  const ovn = (ovr !== null && ovr !== undefined && ovr !== "" && !isNaN(Number(ovr))) ? Number(ovr) : null;
+  let em, src;
+  if (ovn !== null && ovn > 0) { em = ovn; src = "override"; }
+  else if (!isCH && live !== null) { em = live; src = "live"; }
+  else { em = (seed !== null ? seed : 0); src = "seed"; }
+  const mesesObj = Number(_imp.mesesObj) || 0;
+  const maximo = Math.ceil(mesesObj * em);
+  const stock = _impNum(r.stock_actual) || 0;
+  const pedCurso = _impNum(r.pedido_curso) || 0;
+  const totalStock = stock + pedCurso;
+  const genera = Math.max(0, maximo - totalStock);
+  const meses = em > 0 ? totalStock / em : null;
+  const pmv = ("pm" in ed) ? ed.pm : r.pedido_manual;
+  const pmn = (pmv !== null && pmv !== undefined && pmv !== "" && !isNaN(Number(pmv))) ? Number(pmv) : null;
+  const qty = (pmn !== null && pmn > 0) ? pmn : genera;
+  const fob = _impNum(r.fob_uni);
+  const totalFob = (fob !== null) ? fob * qty : null;
+  return { em: em, src: src, maximo: maximo, stock: stock, pedCurso: pedCurso, totalStock: totalStock, genera: genera, meses: meses, qty: qty, fob: fob, totalFob: totalFob, isCH: isCH };
+}
+function impMesesClass(m) { if (m === null) return ""; if (m < 1.5) return "red"; if (m < 3) return "amber"; return "green"; }
+function impEdit(id, field, val) {
+  if (!_imp) return;
+  if (!_imp.changed[id]) _imp.changed[id] = {};
+  _imp.changed[id][field] = val;
+  impRender();
+}
+function impBody() {
+  let h = "";
+  if (_imp.err) return '<div class="imp-empty" style="color:#b91c1c">Error: ' + escapeHtml(_imp.err) + '</div>';
+  const nChg = Object.keys(_imp.changed).length + (_imp.mesesDirty ? 1 : 0);
+  h += '<div class="imp-tools">';
+  h += '<button class="imp-btn' + (_imp.view === "todos" ? " on" : "") + '" onclick="impView(\'todos\')">Todos</button>';
+  h += '<button class="imp-btn' + (_imp.view === "quiebres" ? " on" : "") + '" onclick="impView(\'quiebres\')">Quiebres</button>';
+  h += '<span class="imp-knob">Meses objetivo <input type="number" min="0" step="0.5" value="' + _imp.mesesObj + '" oninput="impSetMeses(this.value)"></span>';
+  h += '<button class="imp-btn ok" onclick="impGuardar()">💾 Guardar' + (nChg ? " (" + nChg + ")" : "") + '</button>';
+  h += '<button class="imp-btn" onclick="impGenerarOC()">📑 Generar OC</button>';
+  h += '<input class="imp-filtro" type="search" placeholder="🔎 código / descripción / proveedor / marca" value="' + escapeHtml(_imp.filtro) + '" oninput="if(_imp){_imp.filtro=this.value;impRender();}">';
+  h += '</div>';
+  h += '<div class="imp-info"><b>Máximo = Meses objetivo × Est Madre</b> · <b>Total Stock = Stock rotativo + Pedido en curso</b> · <b>Genera = máx(0, Máximo − Total Stock)</b>. Est Madre: <b>override</b> > <b>live</b> (PaginaLK, LK/Loke) > <b>seed</b> (Excel). Stock rotativo = inicial ± compras/ajustes − ventas del armado real.</div>';
+  // filtro
+  const f = _imp.filtro.toLowerCase().trim();
+  let rows = _imp.rows.slice();
+  if (f) rows = rows.filter(function (r) { return (String(r.cod_art || "") + " " + String(r.descripcion || "") + " " + String(r.proveedor || "") + " " + String(r.marca || "")).toLowerCase().indexOf(f) >= 0; });
+  // quiebres: solo principales con genera>0
+  if (_imp.view === "quiebres") rows = rows.filter(function (r) { return r.principal && impCalc(r).genera > 0; });
+  if (!rows.length) return h + '<div class="imp-empty">Sin artículos para mostrar.</div>';
+  // agrupar por proveedor
+  const groups = {};
+  rows.forEach(function (r) { const k = String(r.proveedor || "(sin proveedor)").trim(); if (!groups[k]) groups[k] = []; groups[k].push(r); });
+  const keys = Object.keys(groups).sort(function (a, b) { return a.localeCompare(b, "es"); });
+  let granTot = 0, granGen = 0;
+  keys.forEach(function (k) {
+    const g = groups[k];
+    let subTot = 0;
+    g.sort(function (a, b) { return impCalc(b).genera - impCalc(a).genera; });
+    let body = "";
+    g.forEach(function (r) {
+      const c = impCalc(r);
+      if (r.principal && c.totalFob !== null) { subTot += c.totalFob; }
+      if (r.principal) { granGen += c.genera; }
+      const ed = _imp.changed[r.id] || {};
+      const emVal = ("em" in ed) ? ed.em : (r.est_madre_override != null ? r.est_madre_override : Math.round(c.em));
+      const pmVal = ("pm" in ed) ? ed.pm : (r.pedido_manual != null ? r.pedido_manual : "");
+      const mesTxt = c.meses === null ? "—" : c.meses.toFixed(1);
+      body += '<tr' + (r.principal ? "" : ' class="alt"') + '>';
+      body += '<td class="imp-cod">' + escapeHtml(r.cod_art) + (r.principal ? "" : '<span class="imp-badge">alt</span>') + '</td>';
+      body += '<td><span class="imp-mk ' + escapeHtml(String(r.marca || "")) + '">' + escapeHtml(String(r.marca || "")) + '</span></td>';
+      body += '<td class="imp-desc" title="' + escapeHtml(String(r.descripcion || "")) + '">' + escapeHtml(String(r.descripcion || "")) + '</td>';
+      body += '<td class="num"><input class="imp-em" type="number" min="0" inputmode="numeric" value="' + escapeHtml(String(emVal)) + '" onchange="impEdit(' + r.id + ',\'em\',this.value)"><span class="imp-src ' + c.src + '" title="' + c.src + '"></span></td>';
+      body += '<td class="num">' + _impFmt(c.maximo) + '</td>';
+      body += '<td class="num">' + _impFmt(c.stock) + '</td>';
+      body += '<td class="num">' + _impFmt(c.pedCurso) + '</td>';
+      body += '<td class="num">' + _impFmt(c.totalStock) + '</td>';
+      body += '<td class="num imp-mes ' + impMesesClass(c.meses) + '">' + mesTxt + '</td>';
+      body += '<td class="num imp-gen' + (c.genera > 0 ? "" : " z") + '">' + _impFmt(c.genera) + '</td>';
+      body += '<td class="num"><input class="imp-pm" type="number" min="0" inputmode="numeric" placeholder="auto" value="' + escapeHtml(String(pmVal)) + '" onchange="impEdit(' + r.id + ',\'pm\',this.value)"></td>';
+      body += '<td class="num">' + _impFob(c.fob) + '</td>';
+      body += '<td class="num">' + (c.totalFob === null ? "—" : _impUSD(c.totalFob)) + '</td>';
+      body += '<td><button class="imp-actb" onclick="impMov(' + r.id + ')" title="Cargar compra / ajuste de stock">± stk</button></td>';
+      body += '</tr>';
+    });
+    granTot += subTot;
+    h += '<div class="imp-grp-h"><span>' + escapeHtml(k) + ' · ' + g.length + ' art.</span><span class="imp-grp-tot">' + _impUSD(subTot) + '</span></div>';
+    h += '<div class="imp-tblwrap"><table class="imp-tbl"><thead><tr><th>Cód</th><th>Marca</th><th>Descripción</th><th class="num">Est Madre</th><th class="num">Máx</th><th class="num">Stock</th><th class="num">Curso</th><th class="num">Total</th><th class="num">Meses</th><th class="num">Genera</th><th class="num">Ped.Man.</th><th class="num">FOB u$</th><th class="num">Total u$</th><th></th></tr></thead><tbody>' + body + '</tbody></table></div>';
+  });
+  h = h.replace('<div class="imp-info">', '<div class="imp-meta"><b>' + rows.length + '</b> artículos · <b>' + keys.length + '</b> proveedor(es) · Total FOB a pedir <b>' + _impUSD(granTot) + '</b> · Genera total <b>' + _impFmt(granGen) + '</b> uni.</div><div class="imp-info">');
+  h += '<div class="imp-legend"><span><i class="imp-src live"></i> Est Madre live (PaginaLK)</span><span><i class="imp-src seed"></i> seed Excel</span><span><i class="imp-src override"></i> override manual</span><span>🟥 &lt;1,5 meses (quiebre) · 🟧 &lt;3 · 🟩 ok</span></div>';
+  return h;
+}
+async function impGuardar() {
+  if (!_imp) return;
+  const ids = Object.keys(_imp.changed);
+  if (!ids.length && !_imp.mesesDirty) { alert("No hay cambios para guardar."); return; }
+  const headers = await facAuthWriteHeaders({ "Prefer": "return=minimal", "Content-Type": "application/json" });
+  if (!headers) { alert(authNoSesionMsg("Para guardar cambios de importados necesitás iniciar sesión con Google (supervisor).")); return; }
+  try {
+    // meses objetivo global
+    if (_imp.mesesDirty) {
+      const rc = await fetch(SUPABASE_IMPCFG_ENDPOINT + "?id=eq.1", { method: "PATCH", headers: headers, body: JSON.stringify({ meses_objetivo: _imp.mesesObj, actualizado: new Date().toISOString() }) });
+      if (!rc.ok) throw new Error("config HTTP " + rc.status);
+    }
+    // ediciones por artículo
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i], ed = _imp.changed[id], patch = {};
+      if ("em" in ed) { const v = ed.em; patch.est_madre_override = (v === "" || v === null || isNaN(Number(v))) ? null : Number(v); }
+      if ("pm" in ed) { const v = ed.pm; patch.pedido_manual = (v === "" || v === null || isNaN(Number(v))) ? null : Number(v); }
+      patch.actualizado = new Date().toISOString();
+      const r = await fetch(SUPABASE_IMP_ENDPOINT + "?id=eq." + encodeURIComponent(id), { method: "PATCH", headers: headers, body: JSON.stringify(patch) });
+      if (!r.ok) throw new Error("art " + id + " HTTP " + r.status);
+    }
+    _imp.changed = {}; _imp.mesesDirty = false;
+    await impReload();
+    alert("✓ Cambios guardados.");
+  } catch (e) { alert("Error guardando: " + (e.message || e)); }
+}
+async function impReload() {
+  if (!_imp) return;
+  const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
+  try { const r = await fetch(SUPABASE_IMP_VIEW + "?select=*&limit=20000", { headers: H, cache: "no-store" }); _imp.rows = r.ok ? await r.json() : _imp.rows; } catch (_e) {}
+  impRender();
+}
+async function impMov(id) {
+  if (!_imp) return;
+  const r = _imp.rows.filter(function (x) { return x.id === id; })[0];
+  if (!r) return;
+  const tipo = prompt("Movimiento de stock para " + r.cod_art + " (" + r.marca + ")\nEscribí: COMPRA  o  AJUSTE", "COMPRA");
+  if (!tipo) return;
+  const t = tipo.toUpperCase().trim();
+  if (t !== "COMPRA" && t !== "AJUSTE") { alert("Tipo inválido. Usá COMPRA o AJUSTE."); return; }
+  const qs = prompt((t === "COMPRA" ? "Unidades recibidas (contenedor)" : "Ajuste en unidades (podés poner negativo)") + " para " + r.cod_art + ":", "");
+  if (qs === null) return;
+  const q = Number(qs);
+  if (isNaN(q) || (t === "COMPRA" && q <= 0)) { alert("Cantidad inválida."); return; }
+  const headers = await facAuthWriteHeaders({ "Prefer": "return=minimal", "Content-Type": "application/json" });
+  if (!headers) { alert(authNoSesionMsg("Para cargar stock de importados necesitás iniciar sesión con Google (supervisor).")); return; }
+  const row = { cod_art: r.cod_art, marca: r.marca, tipo: (t === "COMPRA" ? "compra" : "ajuste"), delta_uni: q, ref: (t === "COMPRA" ? "compra contenedor" : "ajuste manual") };
+  try {
+    const resp = await fetch(SUPABASE_IMPMOV_ENDPOINT, { method: "POST", headers: headers, body: JSON.stringify(row) });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    await impReload();
+    alert("✓ Movimiento cargado (" + row.tipo + " " + q + " uni).");
+  } catch (e) { alert("Error cargando movimiento: " + (e.message || e)); }
+}
+async function impGenerarOC() {
+  if (!_imp) return;
+  const rows = _imp.rows.filter(function (r) { return r.principal; }).map(function (r) { return { r: r, c: impCalc(r) }; }).filter(function (x) { return x.c.qty > 0; });
+  if (!rows.length) { alert("No hay artículos con pedido a generar."); return; }
+  const groups = {};
+  rows.forEach(function (x) { const k = String(x.r.proveedor || "(sin proveedor)").trim(); if (!groups[k]) groups[k] = []; groups[k].push(x); });
+  const nProv = Object.keys(groups).length;
+  if (!confirm("Vas a generar OCs de IMPORTADOS: " + rows.length + " ítem(s) en " + nProv + " proveedor(es), en Ordenes_Compra. ¿Seguro?")) return;
+  const headers = await facAuthWriteHeaders({ "Prefer": "return=minimal", "Content-Type": "application/json" });
+  if (!headers) { alert(authNoSesionMsg("Para generar las OCs necesitás iniciar sesión con Google (supervisor).")); return; }
+  const fecha = new Date().toISOString().slice(0, 10);
+  const payload = rows.map(function (x) { return { proveedor: x.r.proveedor || "(sin proveedor)", fecha: fecha, rubro: "Importado", codigo: x.r.cod_art, descripcion: x.r.descripcion || null, cantidad: Math.round(x.c.qty), cantidad_recibida: 0, unidad: "Unidades", estado: "pendiente" }; });
+  try {
+    const r = await fetch(SUPABASE_OC_ENDPOINT, { method: "POST", headers: headers, body: JSON.stringify(payload) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    alert("✓ Generadas " + payload.length + " línea(s) de OC de importados. Las ves en 📑 Órdenes de Compra.");
+  } catch (e) { alert("Error generando OCs: " + (e.message || e)); }
+}
+window.openImportadosAdmin = openImportadosAdmin;
+window.closeImportadosAdmin = closeImportadosAdmin;
+window.impView = impView; window.impSetMeses = impSetMeses; window.impEdit = impEdit;
+window.impGuardar = impGuardar; window.impMov = impMov; window.impGenerarOC = impGenerarOC;
+
 /* v4.52 — "🤖 Agentes": botón propio de admin (overlay aparte, ya NO solapa de
    Stocks). Reporte de cosas para mirar (stock negativo, errores de la app, Telegram
    trabado). Lee el snapshot curado `reporte_agentes` (lo genera un cron cada 2 h). */
