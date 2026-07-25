@@ -5549,7 +5549,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.23";
+const APP_VERSION = "v6.24";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -19328,6 +19328,37 @@ function psTestPrint(){
   const row = { np: "PRUEBA", tanda: "TEST", cod: "0000", rs: "Hoja de prueba — estación de impresión", salePpp: cpTodayAR(), fecha: cpTodayAR(), resumen: "A=999X1;B=999X1" };
   try { remitoPrintDoc(armadoRemitoInnerHtml(armadoRemitoData(row))); } catch (_e){}
 }
+
+/* =========================================================
+   v6.24 — Segundo disparador de impresión: al FACTURAR (tic de la operadora).
+   Igual que el auto-print al TAP, pero se dispara cuando la operadora marca la NP
+   como facturada (facTickNP). Toggle propio POR DISPOSITIVO (así solo imprime la PC
+   de la impresora, no los celulares) e independiente del toggle del TAP → se pueden
+   prender los dos, uno, o ninguno. Dedup propio por NP/día. Reusa el mismo remito
+   (armadoRemitoData → armadoRemitoInnerHtml → remitoPrintDoc) con el resumen de líos
+   que ya trae facFetchLios en _facResumen (sin fetch extra).
+   ========================================================= */
+var PS_AUTO_FAC_KEY = "ps_auto_fac_virgilio";
+function psIsAutoFac(){ try { return localStorage.getItem(PS_AUTO_FAC_KEY) === "1"; } catch (_e) { return false; } }
+function psSetAutoFac(on){ try { localStorage.setItem(PS_AUTO_FAC_KEY, on ? "1" : "0"); } catch (_e) {} try { psRender(); } catch (_e2) {} }
+function psToggleFac(){ psSetAutoFac(!psIsAutoFac()); }
+function psFacPrintedKey(){ return "ps_fac_printed_virgilio_" + cpTodayAR(); }
+function psFacGetPrinted(){ try { return new Set(JSON.parse(localStorage.getItem(psFacPrintedKey()) || "[]")); } catch (_e) { return new Set(); } }
+function psFacMarkPrinted(np){ try { const s = psFacGetPrinted(); s.add(String(np)); localStorage.setItem(psFacPrintedKey(), JSON.stringify(Array.from(s))); } catch (_e) {} }
+/* Imprime el remito NP/Líos al facturar, SOLO si este dispositivo tiene el toggle ON.
+   No corta ni afecta el flujo de facturación (todo dentro de try, best-effort). */
+function facPrintRemitoAlFacturar(np, tanda, cod, rs, feRaw){
+  try {
+    if (!psIsAutoFac()) return;
+    const npN = String(np).trim().replace(/\.0+$/, "");
+    if (psFacGetPrinted().has(npN)) return;                    // ya se imprimió hoy
+    const resumen = _facResumen.get(npN) || "";
+    if (!resumen) return;                                      // TAL sin resumen (viejo) → nada que imprimir
+    const row = { np: npN, tanda: tanda || "", cod: cod || "", rs: rs || "", salePpp: feRaw || "", fecha: feRaw || "", resumen: resumen };
+    psFacMarkPrinted(npN);                                     // marcar ANTES de imprimir (evita doble si hay 2 pestañas)
+    try { remitoPrintDoc(armadoRemitoInnerHtml(armadoRemitoData(row))); } catch (_e) {}
+  } catch (_e) {}
+}
 var PS_CSS =
   "#printStationModal{display:none;position:fixed;inset:0;background:#f1f5f9;z-index:210;overflow:auto;padding:14px;}" +
   "#printStationModal.show{display:block;}" +
@@ -19372,6 +19403,10 @@ function psRender(){
   h += '<div class="ps-toggle-card"><div class="ps-tc-top"><span class="ps-tc-t">🖨️ Auto-imprimir remitos al terminar armado</span>' +
     '<span class="sup-sw' + (on ? " on" : "") + '" onclick="psToggle()" role="switch"><span class="sup-sw-k"></span></span></div>' +
     '<div class="ps-status ' + (on ? "on" : "") + '">' + (on ? (running ? "🟢 Activo — escuchando pedidos terminados (cada 12 s)" : "🟢 Activo") : "⚪ Apagado — los remitos no se imprimen solos") + '</div></div>';
+  const onFac = psIsAutoFac();
+  h += '<div class="ps-toggle-card"><div class="ps-tc-top"><span class="ps-tc-t">🧾 Imprimir remito al FACTURAR (tic de la operadora)</span>' +
+    '<span class="sup-sw' + (onFac ? " on" : "") + '" onclick="psToggleFac()" role="switch"><span class="sup-sw-k"></span></span></div>' +
+    '<div class="ps-status ' + (onFac ? "on" : "") + '">' + (onFac ? "🟢 Activo — al tildar una NP como facturada, sale su remito" : "⚪ Apagado — no se imprime al facturar") + '</div></div>';
   h += '<div class="ps-help">Dejá <b>esta pantalla abierta</b> en la PC que está al lado de la impresora. Para que salga <b>sin diálogo</b>: abrí la app en <b>Chrome con <code>--kiosk-printing</code></b> y poné esa impresora como <b>predeterminada de Windows</b>. Probá con el botón de abajo antes de prender el automático.</div>';
   h += '<div class="ps-actions"><button class="ps-test" onclick="psTestPrint()">🖨️ Imprimir hoja de prueba</button></div>';
   const log = (_ps && _ps.log) || [];
@@ -19534,6 +19569,7 @@ async function facFetchFcKeys(targetTandaKeys){
    monitor de Facturación. Mismo parseo que Control Remitos (~línea 7154).
    Cache de 30s para no pegarle a Supabase en cada refresh del monitor. */
 let _facLios = new Map(); let _facLiosTs = 0;
+let _facResumen = new Map();   // v6.24: np → resumen de líos (TAL p[3]) → para imprimir el remito al facturar
 async function facFetchLios(){
   const now = Date.now();
   if (_facLiosTs && (now - _facLiosTs) < 30000) return _facLios;   // cache 30s
@@ -19541,9 +19577,9 @@ async function facFetchLios(){
     const since = new Date(now - 7 * 24 * 3600 * 1000).toISOString();
     const url = SUPABASE_TABLE_ENDPOINT + "?opcion=eq.TAL&ts_cliente=gte." + encodeURIComponent(since) + "&select=texto&limit=20000";
     const rows = await fetch(url, { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }, cache: "no-store" }).then(r => r.ok ? r.json() : []);
-    const m = new Map();
-    for (const ev of rows) { const p = String(ev.texto || "").split("|"); const np = p[0].trim().replace(/\.0+$/, ""); const v = parseInt(p[1], 10); if (np && !isNaN(v)) m.set(np, v); }
-    _facLios = m; _facLiosTs = now;
+    const m = new Map(); const rz = new Map();
+    for (const ev of rows) { const p = String(ev.texto || "").split("|"); const np = p[0].trim().replace(/\.0+$/, ""); const v = parseInt(p[1], 10); if (np && !isNaN(v)) m.set(np, v); if (np && p[3]) rz.set(np, p[3]); }
+    _facLios = m; _facResumen = rz; _facLiosTs = now;
   } catch (_e) { /* sin red: queda el último cache */ }
   return _facLios;
 }
@@ -20011,6 +20047,10 @@ window.facTickNP = async function(btn){
     facRender(_facLastTandas);
     return;
   }
+
+  // v6.24: si este dispositivo (la PC de la impresora) tiene el toggle "imprimir al
+  // facturar" ON, sacar el remito NP/Líos de esta NP. Best-effort, no frena nada.
+  try { facPrintRemitoAlFacturar(np, tanda, cod, rs, feRaw); } catch(_e){}
 
   // v5.95: drenar de "a facturar" los artículos de ESTA NP ya (no esperar al 100%).
   // Así una NP vacía o sin facturar no deja trabado el stock de las demás.

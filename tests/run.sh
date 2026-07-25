@@ -60,4 +60,7 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== fac-rec-popup (regresión v6.23: pop-up al entrar a Facturación si hay faltantes completables) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/fac-rec-popup.cjs
 
+echo "== fac-print-facturar (regresión v6.24: imprimir remito NP/Líos al tildar facturado) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/fac-print-facturar.cjs
+
 echo "== TODO OK =="
