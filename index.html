@@ -93,7 +93,7 @@ button {
 .sup-primary .sup-action-btn > span:last-child { min-height: 2.4em; display: flex; align-items: center; justify-content: center; }
 .sup-sec-label { max-width: min(1280px, 97vw); margin: 26px auto 6px; font-size: 12.5px; font-weight: 800;
   letter-spacing: .05em; text-transform: uppercase; color: #94a3b8; }
-.sup-actions.sup-secondary { grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 0; }
+.sup-actions.sup-secondary { grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 0; }
 .sup-secondary .sup-action-btn { min-height: 78px; padding: 9px 6px; font-size: 12.5px; gap: 5px;
   background: #51688f; border-radius: 11px; }
 .sup-secondary .sup-action-btn:hover { background: #44597a; }
@@ -2018,6 +2018,7 @@ tr.ppp-err-zona > td{ background:#fffbeb !important; }
 .cc-rs{ font-size: 13px; color: #64748b; margin-left: auto; text-align: right; }
 .cc-lios{ flex: 0 0 auto; font-size: 14px; font-weight: 800; color: #b45309; white-space: nowrap; }
 .cc-lios.cc-lios0{ color: #94a3b8; font-weight: 600; }
+.cc-ubic{ flex: 0 0 auto; font-size: 12.5px; font-weight: 800; color: #0d9488; white-space: nowrap; }   /* 📍 dónde quedó armado (AUB) — para ir a buscarlo al cargar */
 
 /* Control Remitos (CR): TABLA de los NP cargados al camión (CCN) pendientes de
    control. Columnas: NP · Cod Cliente · Razón Social · Líos · Controlado (tic).
@@ -2655,6 +2656,7 @@ table.fac-np-tbl td{ padding: 3px 8px; vertical-align: middle; overflow: hidden;
 table.fac-np-tbl td.num{ text-align: right; font-variant-numeric: tabular-nums; }
 table.fac-np-tbl td.center{ text-align: center; }
 .fac-np-cell{ font-family: monospace; font-weight: bold; color: #1e6bd6; font-size: 13px; }
+.fac-ubic-badge{ display: block; margin-top: 2px; font-size: 10px; font-weight: 800; color: #0d9488; white-space: nowrap; }   /* 📍 dónde quedó armado (AUB) */
 .fac-cod-cell{ font-family: monospace; color: #475569; font-size: 12px; }
 .fac-dir-cell{ color: #475569; font-size: 12px; }
 /* Razón Social: el nombre trunca en su renglón, pero los avisos (⚠ FALTA / 🧾
@@ -5584,7 +5586,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.28";
+const APP_VERSION = "v6.29";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -8397,7 +8399,7 @@ async function openStockAdmin(soloConteo) {
   const _solo = soloConteo === true;   // rol "solo conteo" (Giuliana): solo la solapa Conteo
   if (!document.getElementById("stkCss")) {
     const s = document.createElement("style"); s.id = "stkCss";
-    s.textContent = "#stockAdminOverlay{display:none;position:fixed;inset:0;z-index:1280;background:rgba(2,6,23,.74);overflow:auto;padding:14px;}#stockAdminOverlay.show{display:block;}.stk-card{background:#f8fafc;max-width:min(1500px,97vw);margin:0 auto;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);}.stk-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(90deg,#1e6bd6,#1e3a8a);color:#fff;}.stk-title{font-size:19px;font-weight:800;}.stk-close{background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer;width:auto;}.stk-body{padding:14px 16px;}.stk-loading,.stk-empty{padding:24px;text-align:center;color:#64748b;}.stk-cut{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:9px;padding:8px 11px;font-size:12.5px;font-weight:700;margin-bottom:10px;}.stk-filtro{flex:1;min-width:180px;height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font-size:14px;}.stk-btn{background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;width:auto;}.stk-btn.ok{background:#16a34a;color:#fff;border-color:#16a34a;}.stk-btn.danger{background:#fff;color:#b91c1c;border-color:#fca5a5;}.stk-tbl{width:100%;border-collapse:collapse;font-size:13.5px;}.stk-tbl.stk-tbl-fit{width:auto;max-width:100%;}.stk-tbl.stk-tbl-fit td.stk-desc{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.stk-tbl.stk-tbl-sect td.stk-desc{max-width:140px;}.stk-tbl.stk-tbl-fit th.num,.stk-tbl.stk-tbl-fit td.num{text-align:right;padding-left:9px;padding-right:9px;}.stk-tblwrap{overflow-x:auto;max-width:100%;}.stk-tbl.stk-tbl-fit th.num{vertical-align:bottom;line-height:1.15;}.stk-tbl th{background:#f1f5f9;color:#475569;text-align:left;padding:7px 9px;font-size:11px;text-transform:uppercase;border-bottom:1px solid #cbd5e1;}.stk-tbl td{padding:7px 9px;}.stk-tbl th.num,.stk-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}.stk-row{cursor:pointer;border-bottom:1px solid #eef2f7;}.stk-row:hover{background:#eff6ff;}.stk-row td{padding:7px 9px;}.stk-cod{font-family:Consolas,Menlo,monospace;font-weight:800;color:#1e6bd6;}.stk-desc{color:#475569;}.stk-neg{color:#b91c1c;font-weight:800;}.stk-pick-cell{cursor:pointer;color:#1e6bd6;font-weight:800;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}.stk-pick-cell:hover{background:#eff6ff;}.stk-caret{color:#94a3b8;}.stk-detrow td{padding:0 9px 9px;background:#f8fafc;}.stk-det{border-left:3px solid #cbd5e1;padding:6px 0 6px 10px;}.stk-mv{display:flex;gap:9px;font-size:12px;padding:3px 0;align-items:center;}.stk-mv-old{opacity:.45;}.stk-mv-ts{color:#64748b;min-width:96px;}.stk-mv-tipo{font-weight:800;min-width:78px;}.stk-mv-dep{color:#64748b;min-width:74px;}.stk-mv-d{font-weight:800;min-width:44px;text-align:right;}.stk-mv-d.pos{color:#15803d;}.stk-mv-d.neg{color:#b91c1c;}.stk-mv-ref{color:#94a3b8;}.stk-ini-txt{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px;font-family:Consolas,Menlo,monospace;font-size:14px;}.stk-ini-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}.stk-ini-warn{font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px;margin-top:10px;}.stk-tabs{display:flex;gap:4px;padding:8px 12px 0;background:#1e3a8a;flex-wrap:wrap;}.stk-tab{flex:0 1 auto;width:auto;white-space:nowrap;background:rgba(255,255,255,.12);color:#cbd5e1;border:none;border-radius:9px 9px 0 0;padding:9px 13px;font-size:12.5px;font-weight:800;cursor:pointer;}.stk-tab.on{background:#f8fafc;color:#1e3a8a;}.stk-seg{display:flex;gap:6px;margin-bottom:10px;}.stk-segb{flex:1;background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:7px;font-size:13px;font-weight:800;cursor:pointer;}.stk-segb.on{background:#1e6bd6;color:#fff;border-color:#1e6bd6;}.stk-grp{margin-bottom:10px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;}.stk-grp-h{background:#f1f5f9;padding:7px 10px;font-weight:800;font-size:13px;}.stk-grp-tot{color:#15803d;font-weight:800;margin-left:6px;}.stk-ing{display:flex;gap:9px;align-items:center;padding:5px 10px;border-top:1px solid #f1f5f9;font-size:12.5px;}.stk-ing-cod{font-family:Consolas,Menlo,monospace;font-weight:800;color:#1e6bd6;}.stk-ing-desc{flex:1;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.stk-ing-rto{color:#94a3b8;font-size:11px;}.stk-aj-sec{border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:12px;}.stk-aj-h{font-size:15px;font-weight:800;margin-bottom:6px;}.stk-aj-hint{font-size:12px;color:#64748b;margin-bottom:7px;}.stk-aj-form{display:flex;gap:7px;flex-wrap:wrap;}.stk-aj-inp{flex:1;min-width:90px;height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 10px;font-size:14px;text-align:center;}.cnt-in{height:32px;border:1px solid #cbd5e1;border-radius:7px;padding:0 6px;font-size:13px;box-sizing:border-box;margin:0;width:auto;}.stk-aj-dep{margin-bottom:12px;font-size:13px;font-weight:800;}.stk-aj-dep select{height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font-size:14px;font-weight:700;}.stk-rk-orden{background:#f1f5f9;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:10px;}.stk-rk-orden.pend{background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;}.stk-rk-baj{display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:11px;padding:9px 11px;margin-bottom:8px;background:#fff;}.stk-rk-baji{flex:1;min-width:0;}.stk-rk-q{font-size:12px;color:#1e6bd6;font-weight:700;margin-top:2px;}";
+    s.textContent = "#stockAdminOverlay{display:none;position:fixed;inset:0;z-index:1280;background:rgba(2,6,23,.74);overflow:auto;padding:14px;}#stockAdminOverlay.show{display:block;}.stk-card{background:#f8fafc;max-width:min(1500px,97vw);margin:0 auto;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);}.stk-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(90deg,#1e6bd6,#1e3a8a);color:#fff;}.stk-title{font-size:19px;font-weight:800;}.stk-close{background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer;width:auto;}.stk-body{padding:14px 16px;}.stk-loading,.stk-empty{padding:24px;text-align:center;color:#64748b;}.stk-cut{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:9px;padding:8px 11px;font-size:12.5px;font-weight:700;margin-bottom:10px;}.stk-filtro{flex:1;min-width:180px;height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font-size:14px;}.stk-btn{background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:800;cursor:pointer;width:auto;}.stk-btn.ok{background:#16a34a;color:#fff;border-color:#16a34a;}.stk-btn.danger{background:#fff;color:#b91c1c;border-color:#fca5a5;}.stk-tbl{width:100%;border-collapse:collapse;font-size:13.5px;}.stk-tbl.stk-tbl-fit{width:auto;max-width:100%;}.stk-tbl.stk-tbl-fit td.stk-desc{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.stk-tbl.stk-tbl-sect td.stk-desc{max-width:140px;}.stk-tbl.stk-tbl-fit th.num,.stk-tbl.stk-tbl-fit td.num{text-align:right;padding-left:9px;padding-right:9px;}.stk-tblwrap{overflow:auto;max-width:100%;max-height:calc(100dvh - 240px);}.stk-tbl.stk-tbl-fit th.num{vertical-align:bottom;line-height:1.15;}.stk-tbl th{background:#f1f5f9;color:#475569;text-align:left;padding:7px 9px;font-size:11px;text-transform:uppercase;border-bottom:1px solid #cbd5e1;position:sticky;top:0;z-index:1;}.stk-tbl td{padding:7px 9px;}.stk-tbl th.num,.stk-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}.stk-row{cursor:pointer;border-bottom:1px solid #eef2f7;}.stk-row:hover{background:#eff6ff;}.stk-row td{padding:7px 9px;}.stk-cod{font-family:Consolas,Menlo,monospace;font-weight:800;color:#1e6bd6;}.stk-desc{color:#475569;}.stk-neg{color:#b91c1c;font-weight:800;}.stk-pick-cell{cursor:pointer;color:#1e6bd6;font-weight:800;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}.stk-pick-cell:hover{background:#eff6ff;}.stk-caret{color:#94a3b8;}.stk-detrow td{padding:0 9px 9px;background:#f8fafc;}.stk-det{border-left:3px solid #cbd5e1;padding:6px 0 6px 10px;}.stk-mv{display:flex;gap:9px;font-size:12px;padding:3px 0;align-items:center;}.stk-mv-old{opacity:.45;}.stk-mv-ts{color:#64748b;min-width:96px;}.stk-mv-tipo{font-weight:800;min-width:78px;}.stk-mv-dep{color:#64748b;min-width:74px;}.stk-mv-d{font-weight:800;min-width:44px;text-align:right;}.stk-mv-d.pos{color:#15803d;}.stk-mv-d.neg{color:#b91c1c;}.stk-mv-ref{color:#94a3b8;}.stk-ini-txt{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px;font-family:Consolas,Menlo,monospace;font-size:14px;}.stk-ini-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}.stk-ini-warn{font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px;margin-top:10px;}.stk-tabs{display:flex;gap:4px;padding:8px 12px 0;background:#1e3a8a;flex-wrap:wrap;}.stk-tab{flex:0 1 auto;width:auto;white-space:nowrap;background:rgba(255,255,255,.12);color:#cbd5e1;border:none;border-radius:9px 9px 0 0;padding:9px 13px;font-size:12.5px;font-weight:800;cursor:pointer;}.stk-tab.on{background:#f8fafc;color:#1e3a8a;}.stk-seg{display:flex;gap:6px;margin-bottom:10px;}.stk-segb{flex:1;background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:7px;font-size:13px;font-weight:800;cursor:pointer;}.stk-segb.on{background:#1e6bd6;color:#fff;border-color:#1e6bd6;}.stk-grp{margin-bottom:10px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;}.stk-grp-h{background:#f1f5f9;padding:7px 10px;font-weight:800;font-size:13px;}.stk-grp-tot{color:#15803d;font-weight:800;margin-left:6px;}.stk-ing{display:flex;gap:9px;align-items:center;padding:5px 10px;border-top:1px solid #f1f5f9;font-size:12.5px;}.stk-ing-cod{font-family:Consolas,Menlo,monospace;font-weight:800;color:#1e6bd6;}.stk-ing-desc{flex:1;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.stk-ing-rto{color:#94a3b8;font-size:11px;}.stk-aj-sec{border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:12px;}.stk-aj-h{font-size:15px;font-weight:800;margin-bottom:6px;}.stk-aj-hint{font-size:12px;color:#64748b;margin-bottom:7px;}.stk-aj-form{display:flex;gap:7px;flex-wrap:wrap;}.stk-aj-inp{flex:1;min-width:90px;height:38px;border:1px solid #cbd5e1;border-radius:9px;padding:0 10px;font-size:14px;text-align:center;}.cnt-in{height:32px;border:1px solid #cbd5e1;border-radius:7px;padding:0 6px;font-size:13px;box-sizing:border-box;margin:0;width:auto;}.stk-aj-dep{margin-bottom:12px;font-size:13px;font-weight:800;}.stk-aj-dep select{height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font-size:14px;font-weight:700;}.stk-rk-orden{background:#f1f5f9;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:10px;}.stk-rk-orden.pend{background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;}.stk-rk-baj{display:flex;align-items:flex-start;gap:10px;border:1px solid #e2e8f0;border-radius:11px;padding:9px 11px;margin-bottom:8px;background:#fff;}.stk-rk-baji{flex:1;min-width:0;}.stk-rk-q{font-size:12px;color:#1e6bd6;font-weight:700;margin-top:2px;}";
     document.head.appendChild(s);
   }
   let ov = document.getElementById("stockAdminOverlay");
@@ -13036,6 +13038,19 @@ async function fetchCCData() {
   return items;
 }
 
+/* v6.29 — Ubicación donde quedó armado cada NP (evento AUB, por NP) → para saber
+   DÓNDE ir a buscar el pedido al cargar el camión. Última carga gana. Best-effort. */
+async function ccFetchUbics(nps) {
+  const m = {};
+  const clean = Array.from(new Set((nps || []).map(function (n) { return String(n).trim(); }).filter(Boolean)));
+  if (!clean.length) return m;
+  try {
+    const url = SUPABASE_TABLE_ENDPOINT + "?opcion=eq.AUB&texto=in.(" + clean.map(encodeURIComponent).join(",") + ")&select=texto,descripcion,ts_cliente&order=ts_cliente.asc&limit=8000";
+    const rows = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, cache: "no-store" }).then(function (r) { return r.ok ? r.json() : []; });
+    rows.forEach(function (x) { const n = String(x.texto || "").trim().replace(/\.0+$/, ""); const u = String(x.descripcion || "").trim(); if (n && u) m[n] = u; });
+  } catch (_e) {}
+  return m;
+}
 async function showCargaCamion(legajo) {
   const m = document.getElementById("tandaModal"); if (!m) return;
   const leg = String(legajo || "").trim();
@@ -13045,6 +13060,7 @@ async function showCargaCamion(legajo) {
   ccWakeLock();
   try {
     const items = await fetchCCData();
+    try { const _um = await ccFetchUbics(items.map(function (x) { return x.np; })); items.forEach(function (it) { it.ubic = _um[String(it.np).trim().replace(/\.0+$/, "")] || ""; }); } catch (_e) {}
     items.sort((a, b) => String(a.tanda).localeCompare(String(b.tanda)) || a.np.localeCompare(b.np));
     if (!items.length) {
       _cc = null; ccReleaseWakeLock();
@@ -13075,6 +13091,7 @@ function ccRender() {
       html += `<div class="cc-np${on ? " cc-on" : ""}" onclick="ccToggle('${String(it.np).replace(/[^0-9A-Za-z]/g, "")}')">` +
               `<span class="cc-chk">${on ? "✓" : ""}</span>` +
               `<span class="cc-npnum">${escapeHtml(it.np)}</span>` +
+              (it.ubic ? `<span class="cc-ubic" title="dónde quedó armado">📍 ${escapeHtml(it.ubic)}</span>` : "") +
               `<span class="cc-rs">${escapeHtml(it.rs)}</span>` +
               `<span class="cc-lios${liosCls}" title="líos">📦 ${liosTxt}</span></div>`;
     }
@@ -19631,6 +19648,22 @@ async function facFetchLios(){
   } catch (_e) { /* sin red: queda el último cache */ }
   return _facLios;
 }
+/* v6.29 — Ubicación donde quedó armado cada NP (evento AUB, descripcion=ubicación) → 📍
+   en la fila de Facturación (última carga gana). Mismo patrón que facFetchLios. */
+let _facUbic = new Map(); let _facUbicTs = 0;
+async function facFetchUbic(){
+  const now = Date.now();
+  if (_facUbicTs && (now - _facUbicTs) < 30000) return _facUbic;
+  try {
+    const since = new Date(now - 7 * 24 * 3600 * 1000).toISOString();
+    const url = SUPABASE_TABLE_ENDPOINT + "?opcion=eq.AUB&ts_cliente=gte." + encodeURIComponent(since) + "&select=texto,descripcion&order=ts_cliente.asc&limit=20000";
+    const rows = await fetch(url, { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }, cache: "no-store" }).then(r => r.ok ? r.json() : []);
+    const m = new Map();
+    for (const ev of rows) { const np = String(ev.texto || "").trim().replace(/\.0+$/, ""); const u = String(ev.descripcion || "").trim(); if (np && u) m.set(np, u); }
+    _facUbic = m; _facUbicTs = now;
+  } catch (_e) { /* sin red: queda el último cache */ }
+  return _facUbic;
+}
 /* Cajas por NP (suma de cajas_pedidas en Entregas_Virgilio). Para los SÚPER, la
    columna "Líos" muestra ESTO en vez de 0 (los súper van por etiqueta/cajas, no líos).
    supaFetchAll pagina (Entregas > 1000 filas). Cache 30s. v5.68. */
@@ -19884,7 +19917,7 @@ function facRender(tandas){
       <tr data-fac-np="${escapeHtml(f.np)}" class="${altFlag ? 'fac-tanda-alt' : ''}${_ft ? ' fac-en-progreso' : (_ff ? ' fac-has-falta' : '')}">
         <td class="fac-tanda-col">${escapeHtml(f.tanda)}</td>
         <td class="center">${escapeHtml(f.fechaSalida)}</td>
-        <td class="fac-np-cell">${escapeHtml(f.np)}</td>
+        <td class="fac-np-cell">${escapeHtml(f.np)}${(() => { const u = _facUbic.get(String(f.np).trim().replace(/\.0+$/, "")); return u ? '<span class="fac-ubic-badge" title="dónde quedó armado">📍 ' + escapeHtml(u) + '</span>' : ''; })()}</td>
         <td class="fac-cod-cell">${escapeHtml(f.cod)}</td>
         <td class="fac-rs-cell"><span class="fac-rs-name">${escapeHtml(f.rs)}</span>${(() => { const ea = _facEquiv.get(String(f.np).trim().replace(/\.0+$/, "")); return (ea && ea.length) ? '<div style="margin-top:3px;font-size:10.5px;font-weight:800;color:#9a3412;background:#fff7ed;border:1px solid #fdba74;border-radius:7px;padding:2px 6px;line-height:1.25;">🧾 Facturá ' + ea.map(function(e){ return '<b>' + escapeHtml(e.real) + '</b> (no ' + escapeHtml(e.cod) + ')'; }).join(', ') + '</div>' : ''; })()}${_ft ? facTareaBadge(f.np) : ''}</td>
         <td class="fac-falta-col">${facFaltDist(f.np)}</td>
@@ -20189,7 +20222,8 @@ async function facTick(){
       facFetchCajas().catch(function(){ return _facCajas; }),         // cajas por NP → la columna Líos muestra CAJAS para los súper (v5.68)
       facFetchTareas().catch(function(){ return _facTareas; }),       // tareas en progreso por NP → aviso ⏳ amarillo (v5.71)
       stockFetchSaldos().catch(function(){ return {}; }),             // v6.16: saldos → ocultar ⏳ si el faltante no tiene stock para completar
-      cpLoadGuardadoHoy().catch(function(){ return new Set(); })       // v6.18: guardados hoy → el ⏳ también aplica a lo guardado hoy
+      cpLoadGuardadoHoy().catch(function(){ return new Set(); }),      // v6.18: guardados hoy → el ⏳ también aplica a lo guardado hoy
+      facFetchUbic().catch(function(){ return _facUbic; })             // v6.29: ubicación por NP (AUB) → 📍 dónde quedó armado
     ]);
     const fcKeys = _facPar[0] || new Set();
     try { const _sal = _facPar[8] || {}; _facSaldosN = {}; Object.keys(_sal).forEach(function(k){ _facSaldosN[_cpNorm(k)] = _sal[k]; }); } catch(_e){ _facSaldosN = {}; }
