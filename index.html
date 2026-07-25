@@ -189,6 +189,30 @@ button {
 .box:active { transform: scale(.96); }
 .box-title { font-size: 18px; font-weight: bold; }
 .box-desc { font-size: 10.5px; margin-top: 3px; line-height: 1.2; overflow-wrap: break-word; word-break: normal; hyphens: none; }
+/* v6.28 — La botonera del operario SIEMPRE entra en una pantalla de celular, SIN scroll.
+   En celular (≤680px) #optionsScreen ocupa exactamente el alto visible (100dvh) como flex
+   column; las filas de botones se reparten el alto y se achican para entrar (incluso si
+   aparece el aviso "ayer sin cerrar" o la alarma de racks). overflow:hidden = jamás scrollea.
+   :not(.hidden) para no pisar el display:none cuando la pantalla está oculta. */
+@media (max-width: 680px){
+  #optionsScreen:not(.hidden){
+    height: calc(100vh - 24px); height: calc(100dvh - 24px);
+    display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box;
+  }
+  #optionsScreen .top-bar{ margin: 2px 0; flex: 0 0 auto; }
+  #optionsScreen .botonera-grp{ margin: 3px 2px 0; flex: 0 0 auto; }
+  #optionsScreen .botonera-grp + .row{ margin-top: 2px; }
+  #optionsScreen .botonera-sep{ margin: 3px 0 0; flex: 0 0 auto; }
+  #optionsScreen .botonera-sep + .row{ margin-top: 2px; }
+  #optionsScreen .row{ margin-top: 3px; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
+  #optionsScreen #row1, #optionsScreen #row2{ flex: 3 1 0; }
+  #optionsScreen #row3{ flex: 2 1 0; }
+  #optionsScreen #row4{ flex: 2 1 0; }
+  #optionsScreen #row5{ flex: 1.4 1 0; }
+  #optionsScreen #racksAlarma, #optionsScreen #pendingSuggestion{ flex: 0 0 auto; }
+  #optionsScreen .box{ display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3px 5px; min-height: 0; }
+  #optionsScreen .row-core .box{ padding: 4px 6px; }
+}
 
 .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .back-top { font-size: 28px; cursor: pointer; }
@@ -4655,7 +4679,7 @@ function showInstructivo() {
   const SEC = [
     { t: "🛒 Picking", c: "EP · TP", x: "EP = empecé a pickear (elegí la tanda). La app te guía artículo por artículo: <b>sector + código + cuántas</b>. Si no hay, tocás <b>Faltan</b>. TP = terminé." },
     { t: "🔨 Armado de pedidos", c: "AP · TAP", x: "AP = empecé a armar. Se abre el asistente en pasos: <b>1)</b> faltantes, <b>2)</b> clasificar cada pedido <b>Lío/Etiqueta/Nada</b>, <b>3)</b> separar la mesa por pedido, <b>4)</b> armar los líos. TAP = terminé." },
-    { t: "📦➕ Completar Pedido", c: "CP", x: "Si llegó una caja que <b>faltaba</b> en un pedido sin facturar: tocá CP → elegí el faltante → cuántas → de dónde sale → a qué lío va." },
+    { t: "🧩 Completar Pedido", c: "CP", x: "Si llegó una caja que <b>faltaba</b> en un pedido sin facturar: tocá CP → elegí el faltante → cuántas → de dónde sale → a qué lío va." },
     { t: "🏭 Recepción", c: "RT · RR", x: "RT = recibí mercadería (entra a <b>“a guardar”</b>). RR = controlar los remitos cargados al camión." },
     { t: "🚚 Carga y control", c: "CC · CR", x: "CC = inicio/fin de la carga del camión. CR = control de remitos." },
     { t: "📥 Guardar a góndola", c: "MG", x: "Lo que está en <b>“a guardar”</b> lo pasás a góndola. Si la góndola está llena, marcás <b>Excedente</b> y su ubicación." },
@@ -5560,7 +5584,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.27";
+const APP_VERSION = "v6.28";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
