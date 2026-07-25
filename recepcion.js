@@ -109,8 +109,12 @@ const RCP_CSS = `
 #rcpRoot .opPage{ position:fixed; inset:0; background:var(--bg); overflow:auto; display:none; z-index:1300; }
 #rcpRoot .opPage.open{ display:block; }
 #rcpRoot .opPageInner{ max-width:780px; margin:0 auto; padding:16px; min-height:100%; box-sizing:border-box; display:flex; flex-direction:column; }
-#rcpRoot .opHeader{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0 14px; margin-bottom:14px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:6; }
-#rcpRoot .opPageTitle{ flex:1; text-align:center; font-size:22px; font-weight:900; }
+#rcpRoot .opHeader{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:8px 0 14px; margin-bottom:14px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:6; }
+#rcpRoot .opHeader > #opBack{ grid-column:1; justify-self:start; }
+#rcpRoot .opHeader > #opTitle{ grid-column:2; }
+#rcpRoot .opHeader > #opClose{ grid-column:3; justify-self:end; }
+#rcpRoot .opPageTitle{ text-align:center; font-size:22px; font-weight:900; }
+@media (max-width:520px){ #rcpRoot .opNav{ padding:10px 12px; font-size:15px; } #rcpRoot .opPageTitle{ font-size:18px; } }   /* en celular achica nav+título para que el título entre centrado sin pisar "Salir" */
 #rcpRoot .opNav{ background:#fff; border:2px solid var(--border); border-radius:12px; padding:14px 20px; font-size:18px; font-weight:900; cursor:pointer; white-space:nowrap; }
 #rcpRoot .opPageBody{ flex:1; }
 #rcpRoot .opPageActions{ margin-top:18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:10px; position:sticky; bottom:0; background:var(--bg); padding:12px 0; }
@@ -121,7 +125,7 @@ const RCP_CSS = `
 #rcpRoot .modalCard{ background:#fff; border-radius:14px; padding:20px; width:100%; max-width:360px; max-height:90vh; display:flex; flex-direction:column; }
 #rcpRoot .modalHeader{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
 #rcpRoot .modalTitle{ font-size:22px; font-weight:900; }
-#rcpRoot .modalClose{ background:#fff; border:1px solid var(--border); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:14px; font-weight:900; }
+#rcpRoot .modalClose{ background:#fff; border:1px solid var(--border); width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center; line-height:1; border-radius:50%; cursor:pointer; font-size:14px; font-weight:900; }
 #rcpRoot .btnCancel{ padding:10px 16px; border-radius:10px; border:1px solid var(--border); background:#fff; font-weight:900; cursor:pointer; }
 #rcpRoot .btnSend{ padding:10px 16px; border-radius:10px; border:0; background:#111; color:#fff; font-weight:900; cursor:pointer; }
 /* Pendientes (Marianela) = TARJETAS verticales (sin scroll horizontal): tilde + No
