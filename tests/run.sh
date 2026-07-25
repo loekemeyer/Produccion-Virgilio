@@ -57,4 +57,7 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== cp-record-backup (regresión v6.22: cadena recordatorio 104 → backup 8 si Moncayo no vino) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/cp-record-backup.cjs
 
+echo "== fac-rec-popup (regresión v6.23: pop-up al entrar a Facturación si hay faltantes completables) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/fac-rec-popup.cjs
+
 echo "== TODO OK =="

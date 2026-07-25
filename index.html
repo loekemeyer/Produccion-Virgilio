@@ -5549,7 +5549,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.22";
+const APP_VERSION = "v6.23";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -12349,13 +12349,11 @@ function faltPollStart() {
 
    CADENA / ESCALADO (v6.22): el destinatario primario es Moncayo (104).
    Si Moncayo NO vino hoy (cero mensajes suyos en la tabla en el día AR),
-   el recordatorio le aparece al BACKUP, Farias (8). El respaldo final —
-   un aviso por Telegram si a las 16:15 AR TODAVÍA quedan faltantes que se
-   pueden completar (mismo criterio que el bloqueo de Facturación de v6.21:
-   hay stock en a_guardar / góndola / guardado hoy) — corre en el server
-   con pg_cron (job `cp-record-pendiente-telegram`), NO acá: no depende de
-   que ningún celular esté prendido y es accionable (mira lo que falta de
-   verdad, no quién vino).
+   el recordatorio le aparece al BACKUP, Farias (8). El respaldo final
+   (v6.23) ya NO es un aviso por Telegram: es un POP-UP dentro de
+   Facturación (facMaybeRecPopup/facShowRecPopup) que le avisa a la
+   operadora, al entrar al módulo, si todavía quedan pedidos con faltante
+   COMPLETABLE — y esas NP siguen trabadas en facTickNP (bloqueo v6.21).
    Para cambiar destinatarios/hora: editar las constantes de abajo.
    ============================================================ */
 const CP_RECORD_LEGAJO        = "104";       // primario: Jhonny Moncayo
@@ -19468,6 +19466,7 @@ async function fetchFacturadosTodos(force){
 function openFacturacion(){
   if (!requireSupervisor()) return;
   document.getElementById("facturacionModal").classList.add("show");
+  _facRecPopupShown = false;   // v6.23: el pop-up de faltantes completables se muestra 1 vez por apertura
   facTick();
   if (_facIntervalId) clearInterval(_facIntervalId);
   _facIntervalId = setInterval(facTick, FAC_REFRESH_MS);
@@ -19657,6 +19656,65 @@ function facTareaBadge(np){
 /* v5.70: alterna el filtro "ver solo NPs con faltante" y re-dibuja. */
 function facToggleSoloFalt(){ _facSoloFalt = !_facSoloFalt; if (typeof facRender === "function") facRender(_facLastTandas || []); }
 window.facToggleSoloFalt = facToggleSoloFalt;
+
+/* v6.23 — Pop-up al ENTRAR a Facturación si todavía quedan pedidos con faltante que
+   SE PUEDE COMPLETAR (mismo criterio "recuperable" que el bloqueo por NP de v6.21:
+   hay stock en "a guardar", en góndola o guardado hoy). Cerrable, pero NO desbloquea
+   nada: esas NP siguen trabadas en facTickNP. Reemplaza el aviso por Telegram — la
+   operadora se entera al entrar al módulo, sin depender de un mensaje externo. Se
+   muestra UNA sola vez por apertura del módulo (flag, reseteado en openFacturacion). */
+let _facRecPopupShown = false;
+function facShowRecPopup(nps){
+  try {
+    let ov = document.getElementById("facRecPopupOv");
+    if (!ov){
+      ov = document.createElement("div");
+      ov.id = "facRecPopupOv";
+      ov.style.cssText = "position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;";
+      const card = document.createElement("div");
+      card.style.cssText = "max-width:460px;width:100%;background:#1e293b;color:#f1f5f9;border:2px solid #f59e0b;border-radius:14px;padding:22px 20px;box-shadow:0 12px 44px rgba(0,0,0,.55);font-size:16px;line-height:1.45;";
+      card.innerHTML =
+        '<div style="font-size:20px;font-weight:800;margin-bottom:10px;">📦 Faltantes sin completar</div>' +
+        '<div id="facRecPopupMsg" style="margin-bottom:14px;"></div>' +
+        '<div id="facRecPopupList" style="font-size:14px;color:#cbd5e1;margin-bottom:16px;max-height:180px;overflow:auto;"></div>' +
+        '<button id="facRecPopupClose" style="width:100%;padding:12px;border:0;border-radius:10px;background:#f59e0b;color:#111827;font-weight:800;font-size:16px;cursor:pointer;">Entendido, cerrar</button>';
+      ov.appendChild(card);
+      document.body.appendChild(ov);
+      const close = function(){ ov.style.display = "none"; };
+      card.querySelector("#facRecPopupClose").addEventListener("click", close);
+      ov.addEventListener("click", function(e){ if (e.target === ov) close(); });
+    }
+    document.getElementById("facRecPopupMsg").textContent =
+      "Todavía no completaron los pedidos con lo que llegó hoy. Esas NP quedan trabadas hasta que se completen desde “Completar pedido” (CP).";
+    const list = document.getElementById("facRecPopupList");
+    if (nps && nps.length){
+      list.innerHTML = "Pendientes de completar:<br>" + nps.slice(0, 30).map(function(x){
+        return "• NP " + escapeHtml(String(x.np)) + " · " + escapeHtml(String(x.det || ""));
+      }).join("<br>") + (nps.length > 30 ? "<br>…y " + (nps.length - 30) + " más." : "");
+    } else { list.innerHTML = ""; }
+    ov.style.display = "flex";
+  } catch (_e) {}
+}
+/* Junta las NP visibles cuyo faltante es COMPLETABLE (recuperable) y, si hay y no se
+   mostró aún en esta apertura, dispara el pop-up. Reusa _facFaltRecuperables (v6.21). */
+function facMaybeRecPopup(filasFalt){
+  try {
+    if (_facRecPopupShown) return;
+    const rec = [];
+    (filasFalt || []).forEach(function(f){
+      const info = facFaltInfo(f.np);
+      if (info && Number(info.cajas) > 0){
+        const r = _facFaltRecuperables(info);
+        if (r.length){
+          const det = r.slice(0, 8).map(function(it){ return it.cod + "×" + it.falto; }).join(", ");
+          rec.push({ np: f.np, det: det });
+        }
+      }
+    });
+    if (rec.length){ _facRecPopupShown = true; facShowRecPopup(rec); }
+  } catch (_e) {}
+}
+
 function facRender(tandas){
   _facLastTandas = tandas || [];   // v5.70: el filtro "solo faltante" re-dibuja este mismo set
   // Aplanamos: una fila por NP pendiente, llevando tanda + fecha salida
@@ -19706,6 +19764,7 @@ function facRender(tandas){
   // fila; esto agrega un CONTADOR arriba y un clic para ver SOLO esos, así la
   // operadora los revisa antes de facturar (facturar por lo ENTREGADO).
   const filasFalt = filas.filter(function(f){ return !!facFaltInfo(f.np); });
+  facMaybeRecPopup(filasFalt);   // v6.23: pop-up si quedan faltantes completables (1 vez por apertura)
   if (_facSoloFalt && !filasFalt.length) _facSoloFalt = false;   // no quedar atrapada en un filtro vacío
   const _chipF = document.getElementById("facChipFalt");
   if (_chipF){
