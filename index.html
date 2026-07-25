@@ -2561,10 +2561,14 @@ tr.ppp-err-zona > td{ background:#fffbeb !important; }
   top: 0; left: 0; right: 0; bottom: 0;
   background: #f1f5f9;
   z-index: 200;
-  overflow: auto;
+  overflow: hidden;              /* la PÁGINA no scrollea: solo la tabla (adentro) scrollea vertical */
   padding: 12px;
+  flex-direction: column;
 }
-#facturacionModal.show{ display: block; }
+#facturacionModal.show{ display: flex; }
+/* header (fac-top), banner y footer (cierre) fijos; el contenedor de la tabla toma el resto */
+#facturacionModal > .fac-banner, #facturacionModal > .fac-top, #facturacionModal > .fac-cierre{ flex: 0 0 auto; }
+#facContainer{ flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .fac-banner,.fac-top,.fac-cierre,.fac-empty{
   max-width: 1400px;
   margin-left: auto;
@@ -2609,7 +2613,9 @@ tr.ppp-err-zona > td{ background:#fffbeb !important; }
 .fac-btn-revertir:disabled{ opacity: 0.45; cursor: not-allowed; }
 /* table-layout fixed: las cols mantienen el ancho que les asignamos —
    evita que Razón Social y Dirección se estiren al infinito. */
-table.fac-np-tbl{ width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; table-layout: fixed; line-height: 1.25; }
+table.fac-np-tbl{ width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; line-height: 1.25; }
+/* encabezado fijo mientras scrolleás las NPs (scroll interno de la tabla) */
+table.fac-np-tbl thead th{ position: sticky; top: 0; z-index: 2; }
 table.fac-np-tbl th{
   background: #f1f5f9; color: #475569; font-weight: bold; font-size: 11px;
   text-align: left; padding: 6px 8px; border-bottom: 1px solid #cbd5e1;
@@ -2640,7 +2646,8 @@ table.fac-np-tbl tbody tr.fac-tanda-alt td{ background: #f8fafc; }
 table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
 .fac-table-wrap{
   background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
-  overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 1400px; margin: 0 auto;
+  flex: 1 1 auto; min-height: 0; width: 100%;
+  overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; max-width: 1400px; margin: 0 auto;
 }
 .fac-btn-tick{
   background: #16a34a; color: #fff; border: none; border-radius: 4px;
@@ -5553,7 +5560,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.26";
+const APP_VERSION = "v6.27";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
