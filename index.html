@@ -12349,10 +12349,13 @@ function faltPollStart() {
 
    CADENA / ESCALADO (v6.22): el destinatario primario es Moncayo (104).
    Si Moncayo NO vino hoy (cero mensajes suyos en la tabla en el día AR),
-   el recordatorio le aparece al BACKUP, Farias (8). El tercer eslabón —
-   "no vino NINGUNO de los dos → avisar por Telegram" — NO puede vivir acá
-   (si ningún celular está prendido, ningún cliente lo dispara): corre en
-   el server con pg_cron (job `cp-record-nadie-telegram`, 15:45 AR).
+   el recordatorio le aparece al BACKUP, Farias (8). El respaldo final —
+   un aviso por Telegram si a las 16:15 AR TODAVÍA quedan faltantes que se
+   pueden completar (mismo criterio que el bloqueo de Facturación de v6.21:
+   hay stock en a_guardar / góndola / guardado hoy) — corre en el server
+   con pg_cron (job `cp-record-pendiente-telegram`), NO acá: no depende de
+   que ningún celular esté prendido y es accionable (mira lo que falta de
+   verdad, no quién vino).
    Para cambiar destinatarios/hora: editar las constantes de abajo.
    ============================================================ */
 const CP_RECORD_LEGAJO        = "104";       // primario: Jhonny Moncayo
