@@ -5549,7 +5549,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.21";
+const APP_VERSION = "v6.22";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -12337,18 +12337,26 @@ function faltPollStart() {
 }
 
 /* ============================================================
-   v6.20 — Recordatorio "Completar Pedido" para Moncayo (legajo 104).
-   Todos los días HÁBILES (lun-vie), a partir de las 15:30 AR, cuando
-   Moncayo esté en la botonera (es decir, NO en medio de una tarea),
+   v6.20 — Recordatorio "Completar Pedido" (con backup, v6.22).
+   Todos los días HÁBILES (lun-vie), a partir de las 15:30 AR, cuando el
+   destinatario esté en la botonera (es decir, NO en medio de una tarea),
    le avisa "es hora de completar los faltantes" y le abre directamente
    el módulo CP. Dispara UNA sola vez por día (dedup en localStorage por
    fecha). Si a las 15:30 está en medio de una tarea, NO lo interrumpe:
    espera a que vuelva a la botonera y recién ahí dispara. Corre en el
-   celular del operario (poll cada 25s); el chequeo se auto-limita al
-   legajo 104, así que es inofensivo para el resto.
-   Para cambiar destinatario/hora: editar CP_RECORD_LEGAJO / CP_RECORD_MIN.
+   celular del operario (poll cada 25s); el chequeo se auto-limita a los
+   legajos configurados, así que es inofensivo para el resto.
+
+   CADENA / ESCALADO (v6.22): el destinatario primario es Moncayo (104).
+   Si Moncayo NO vino hoy (cero mensajes suyos en la tabla en el día AR),
+   el recordatorio le aparece al BACKUP, Farias (8). El tercer eslabón —
+   "no vino NINGUNO de los dos → avisar por Telegram" — NO puede vivir acá
+   (si ningún celular está prendido, ningún cliente lo dispara): corre en
+   el server con pg_cron (job `cp-record-nadie-telegram`, 15:45 AR).
+   Para cambiar destinatarios/hora: editar las constantes de abajo.
    ============================================================ */
-const CP_RECORD_LEGAJO = "104";              // Jhonny Moncayo
+const CP_RECORD_LEGAJO        = "104";       // primario: Jhonny Moncayo
+const CP_RECORD_LEGAJO_BACKUP = "8";         // backup: Juan Farias (si Moncayo no vino)
 const CP_RECORD_MIN    = 15 * 60 + 30;       // 15:30 (minutos desde 00:00, hora AR)
 let _cpRecordTimer = null;
 function _cpRecordNowAR() {
@@ -12361,19 +12369,47 @@ function _cpRecordNowAR() {
     return { ymd: ymd, min: min, habil: ["Mon", "Tue", "Wed", "Thu", "Fri"].indexOf(wd) >= 0 };
   } catch (_e) { return null; }
 }
-function cpRecordCheck() {
+/* ¿El legajo mandó AL MENOS un mensaje hoy (día AR)? true / false / null(=no sé). */
+async function _cpLegajoTuvoMensajesHoy(legajo, ymd) {
+  try {
+    const desde = ymd + "T00:00:00-03:00";                         // arranque del día AR (UTC-3 fijo)
+    const url = SUPABASE_URL + "/rest/v1/Registros_Produccion_Virgilio"
+      + "?legajo=eq." + encodeURIComponent(legajo)
+      + "&ts_cliente=gte." + encodeURIComponent(desde)
+      + "&select=id&limit=1";
+    const r = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, cache: "no-store" });
+    if (!r.ok) return null;                                        // no sabemos
+    const a = await r.json();
+    return Array.isArray(a) && a.length > 0;
+  } catch (_e) { return null; }
+}
+async function cpRecordCheck() {
   try {
     const t = _cpRecordNowAR(); if (!t || !t.ymd) return;
     if (!t.habil || t.min < CP_RECORD_MIN) return;                 // solo días hábiles, de 15:30 en adelante
-    if (_faltMiLegajo() !== CP_RECORD_LEGAJO) return;              // solo Moncayo
+    const mine = _faltMiLegajo();
+    const esPrimario = (mine === CP_RECORD_LEGAJO);
+    const esBackup   = (mine === CP_RECORD_LEGAJO_BACKUP);
+    if (!esPrimario && !esBackup) return;                          // solo Moncayo o el backup (Farias)
     if (!_faltActivo()) return;                                    // en la botonera (no en medio de una tarea)
     const cpOpen = (function () { const m = document.getElementById("cpModal"); return !!(m && m.classList.contains("show")); })();
     if (cpOpen) return;                                            // ya está abierto
-    const key = "vir_cp_record_" + CP_RECORD_LEGAJO + "_" + t.ymd; // dedup: 1 vez por día
+    const key = "vir_cp_record_" + mine + "_" + t.ymd;            // dedup: 1 vez por día por legajo
     if (localStorage.getItem(key)) return;
+
+    // Backup (Farias): solo se le avisa si el PRIMARIO (Moncayo) NO vino hoy.
+    if (esBackup) {
+      const priKey = "vir_cp_record_pripresente_" + t.ymd;
+      if (localStorage.getItem(priKey)) return;                    // ya confirmamos que Moncayo vino → no escala
+      const priTuvo = await _cpLegajoTuvoMensajesHoy(CP_RECORD_LEGAJO, t.ymd);
+      if (priTuvo === null) return;                                // no sabemos → no molestamos, reintenta al próximo poll
+      if (priTuvo === true) { try { localStorage.setItem(priKey, "1"); } catch (_e) {} return; } // Moncayo vino → no escala
+      // priTuvo === false → Moncayo no vino → Farias es el backup: seguimos y avisamos.
+    }
+
     localStorage.setItem(key, "1");
     try { alert("⏰ Es hora de completar los faltantes."); } catch (_e) {}
-    try { showCPModal(CP_RECORD_LEGAJO); } catch (_e) {}
+    try { showCPModal(mine); } catch (_e) {}
   } catch (_e) {}
 }
 function cpRecordStart() {
