@@ -5549,7 +5549,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.24";
+const APP_VERSION = "v6.25";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -19346,14 +19346,25 @@ function psFacPrintedKey(){ return "ps_fac_printed_virgilio_" + cpTodayAR(); }
 function psFacGetPrinted(){ try { return new Set(JSON.parse(localStorage.getItem(psFacPrintedKey()) || "[]")); } catch (_e) { return new Set(); } }
 function psFacMarkPrinted(np){ try { const s = psFacGetPrinted(); s.add(String(np)); localStorage.setItem(psFacPrintedKey(), JSON.stringify(Array.from(s))); } catch (_e) {} }
 /* Imprime el remito NP/Líos al facturar, SOLO si este dispositivo tiene el toggle ON.
-   No corta ni afecta el flujo de facturación (todo dentro de try, best-effort). */
-function facPrintRemitoAlFacturar(np, tanda, cod, rs, feRaw){
+   Se imprime RECIÉN en el tic de facturar (nunca antes), y con la composición del
+   TAL MÁS RECIENTE de la NP → así refleja los faltantes que se hayan COMPLETADO por
+   CP después del armado (completar re-emite el TAL con el lío actualizado, ver
+   cpConfirm/liosSend). Si el fetch falla, cae al _facResumen ya cargado. Best-effort:
+   todo en try, no corta ni afecta la facturación. */
+async function facPrintRemitoAlFacturar(np, tanda, cod, rs, feRaw){
   try {
     if (!psIsAutoFac()) return;
     const npN = String(np).trim().replace(/\.0+$/, "");
     if (psFacGetPrinted().has(npN)) return;                    // ya se imprimió hoy
-    const resumen = _facResumen.get(npN) || "";
-    if (!resumen) return;                                      // TAL sin resumen (viejo) → nada que imprimir
+    // TAL más reciente de esta NP (incluye lo completado tras el armado).
+    let resumen = "";
+    try {
+      const url = SUPABASE_TABLE_ENDPOINT + "?opcion=eq.TAL&texto=like." + encodeURIComponent(npN + "|*") + "&select=texto&order=ts_cliente.desc&limit=1";
+      const rows = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, cache: "no-store" }).then(function (r){ return r.ok ? r.json() : []; });
+      if (rows && rows.length) resumen = String(rows[0].texto || "").split("|")[3] || "";
+    } catch (_e) {}
+    if (!resumen) resumen = _facResumen.get(npN) || "";        // fallback: lo cargado en el módulo
+    if (!resumen) return;                                      // TAL viejo sin resumen → nada que imprimir
     const row = { np: npN, tanda: tanda || "", cod: cod || "", rs: rs || "", salePpp: feRaw || "", fecha: feRaw || "", resumen: resumen };
     psFacMarkPrinted(npN);                                     // marcar ANTES de imprimir (evita doble si hay 2 pestañas)
     try { remitoPrintDoc(armadoRemitoInnerHtml(armadoRemitoData(row))); } catch (_e) {}
@@ -19575,7 +19586,9 @@ async function facFetchLios(){
   if (_facLiosTs && (now - _facLiosTs) < 30000) return _facLios;   // cache 30s
   try {
     const since = new Date(now - 7 * 24 * 3600 * 1000).toISOString();
-    const url = SUPABASE_TABLE_ENDPOINT + "?opcion=eq.TAL&ts_cliente=gte." + encodeURIComponent(since) + "&select=texto&limit=20000";
+    // order asc → si una NP tiene varios TAL (re-emitido al completar faltantes),
+    // el último que setea el Map es el MÁS RECIENTE (gana el nuevo).
+    const url = SUPABASE_TABLE_ENDPOINT + "?opcion=eq.TAL&ts_cliente=gte." + encodeURIComponent(since) + "&select=texto&order=ts_cliente.asc&limit=20000";
     const rows = await fetch(url, { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }, cache: "no-store" }).then(r => r.ok ? r.json() : []);
     const m = new Map(); const rz = new Map();
     for (const ev of rows) { const p = String(ev.texto || "").split("|"); const np = p[0].trim().replace(/\.0+$/, ""); const v = parseInt(p[1], 10); if (np && !isNaN(v)) m.set(np, v); if (np && p[3]) rz.set(np, p[3]); }
