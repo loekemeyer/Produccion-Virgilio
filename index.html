@@ -3129,6 +3129,7 @@ table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
       <button class="sup-action-btn" onclick="openInconsistencias()"><span class="sup-ico">⚠️</span><span>Inconsistencias</span></button>
       <button class="sup-action-btn" onclick="openFaltantes()"><span class="sup-ico">📦</span><span>Faltantes</span></button>
       <button class="sup-action-btn" onclick="openNpConsulta()"><span class="sup-ico">🔎</span><span>Consultar NP / Líos</span></button>
+      <button class="sup-action-btn" onclick="openLiosArt()"><span class="sup-ico">🧷</span><span>Líos por artículo</span></button>
       <button class="sup-action-btn" onclick="openPrintStation()"><span class="sup-ico">🖨️</span><span>Cola de impresión</span></button>
       <button class="sup-action-btn" onclick="openPlanimEditor()"><span class="sup-ico">🗺️</span><span>Editar Planimetría</span></button>
       <button class="sup-action-btn" onclick="openTallEditor()"><span class="sup-ico">👷</span><span>Talleristas de Recepción</span></button>
@@ -5586,7 +5587,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.29";
+const APP_VERSION = "v6.30";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -19160,6 +19161,124 @@ function npcRenderList(rows){
   }).join("");
   const nota = rows.length > MAX ? '<div class="fac-empty" style="padding:8px">Mostrando ' + MAX + ' de ' + rows.length + ' — afiná la búsqueda para ver el resto.</div>' : '';
   cont.innerHTML = html + nota;
+}
+
+/* =========================================================
+   v6.30 — ESTADÍSTICA: LÍOS POR ARTÍCULO (admin). Por cada artículo, CÓMO se arman
+   sus líos cuando va SOLO (no mezclado): distribución de tamaños (cajas por lío).
+   Cuando el lío mezcla ese artículo con otro(s) → se cuenta como "Mezcla" (no aporta
+   a la distribución porque ese lío no es puro de ese artículo). Fuente: eventos TAL
+   (resumen de líos, p[3]) de los últimos N días. Solo lectura, no toca nada.
+   ========================================================= */
+var LIOSART_CSS =
+  "#liosArtOverlay{display:none;position:fixed;inset:0;z-index:1290;background:rgba(2,6,23,.74);padding:14px;}" +
+  "#liosArtOverlay.show{display:flex;}" +
+  ".la-card{background:#f8fafc;max-width:min(1100px,97vw);width:100%;margin:auto;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);display:flex;flex-direction:column;max-height:calc(100dvh - 28px);}" +
+  ".la-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:linear-gradient(90deg,#1e6bd6,#1e3a8a);color:#fff;flex:0 0 auto;}" +
+  ".la-title{font-size:19px;font-weight:800;}" +
+  ".la-close{background:#dc2626;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer;width:auto;}" +
+  ".la-ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:11px 14px;flex:0 0 auto;border-bottom:1px solid #e2e8f0;background:#fff;}" +
+  ".la-seg{display:flex;gap:4px;}" +
+  ".la-segb{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:6px 11px;font-size:12.5px;font-weight:800;color:#334155;cursor:pointer;width:auto;margin:0;}" +
+  ".la-segb.on{background:#1e6bd6;color:#fff;border-color:#1e6bd6;}" +
+  ".la-inp{flex:1;min-width:130px;height:36px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font-size:14px;}" +
+  ".la-cnt{font-size:12.5px;color:#64748b;font-weight:700;}" +
+  ".la-hint{flex-basis:100%;font-size:11.5px;color:#64748b;line-height:1.4;}" +
+  ".la-wrap{overflow:auto;flex:1 1 auto;min-height:0;background:#fff;}" +
+  ".la-tbl{width:100%;border-collapse:collapse;font-size:13px;}" +
+  ".la-tbl th{position:sticky;top:0;z-index:1;background:#f1f5f9;color:#475569;text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;border-bottom:1px solid #cbd5e1;}" +
+  ".la-tbl th.num{text-align:right;}" +
+  ".la-tbl td{padding:7px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top;}" +
+  ".la-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:800;}" +
+  ".la-tbl tr:hover td{background:#f8fafc;}" +
+  ".la-cod{font-family:Consolas,Menlo,monospace;font-weight:800;color:#1e6bd6;}" +
+  ".la-desc{color:#475569;}" +
+  ".la-dist .d{display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:1px 7px;margin:1px 3px 1px 0;font-size:12px;font-weight:700;color:#1e40af;white-space:nowrap;}" +
+  ".la-dist .d.top{background:#dbeafe;border-color:#60a5fa;}" +
+  ".la-dist .d0{color:#94a3b8;font-weight:600;}" +
+  ".la-mez{font-weight:800;color:#b45309;}" +
+  ".la-mez0{color:#cbd5e1;font-weight:600;}" +
+  ".la-empty,.la-loading{padding:26px;text-align:center;color:#64748b;}";
+var _liosArt = null;   // { dias, rows:[{cod,desc,pureLios,dist:[[qty,count]],top,mezcla}], q }
+function openLiosArt(){
+  if (!requireSupervisor()) return;
+  if (!document.getElementById("liosArtCss")){ const s=document.createElement("style"); s.id="liosArtCss"; s.textContent=LIOSART_CSS; document.head.appendChild(s); }
+  let ov=document.getElementById("liosArtOverlay");
+  if(!ov){ ov=document.createElement("div"); ov.id="liosArtOverlay"; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="la-card">'+
+    '<div class="la-head"><span class="la-title">🧷 Líos por artículo</span><button class="la-close" onclick="closeLiosArt()">Cerrar</button></div>'+
+    '<div class="la-ctrl">'+
+      '<div class="la-seg" id="laSeg"></div>'+
+      '<input class="la-inp" id="laQ" placeholder="Buscar código o nombre…" oninput="liosArtApply()">'+
+      '<span class="la-cnt" id="laCnt"></span>'+
+      '<div class="la-hint"><b>Líos solos</b> = veces que ese artículo se armó en un lío <b>él solo</b> (distribución: cajas por lío × cuántas veces). <b>Mezcla</b> = veces que fue en un lío <b>junto a otro artículo</b>.</div>'+
+    '</div>'+
+    '<div class="la-wrap" id="laWrap"><div class="la-loading">Cargando…</div></div>'+
+  '</div>';
+  ov.classList.add("show");
+  liosArtLoad(30);
+}
+function closeLiosArt(){ const ov=document.getElementById("liosArtOverlay"); if(ov) ov.classList.remove("show"); }
+function _laSegHtml(dias){ return [30,60,90].map(function(d){ return '<button class="la-segb'+(d===dias?" on":"")+'" onclick="liosArtLoad('+d+')">'+d+' días</button>'; }).join(""); }
+async function liosArtLoad(dias){
+  const seg=document.getElementById("laSeg"); if(seg) seg.innerHTML=_laSegHtml(dias);
+  const wrap=document.getElementById("laWrap"); if(wrap) wrap.innerHTML='<div class="la-loading">Cargando líos de los últimos '+dias+' días…</div>';
+  try{
+    try{ await loadArtNombres(); }catch(_e){}
+    const since=new Date(Date.now()-dias*86400000).toISOString();
+    const rows=await supaFetchAll(SUPABASE_TABLE_ENDPOINT, "opcion=eq.TAL&ts_cliente=gte."+encodeURIComponent(since)+"&select=texto");
+    const agg={};
+    rows.forEach(function(r){
+      const lios=cpParseResumen(String(r.texto||"").split("|")[3]||"");
+      lios.forEach(function(l){
+        const items=(l.items||[]).filter(function(it){ return it && it.cod; });
+        // "puro" = un solo CÓDIGO distinto en el lío (aunque venga en varios tokens)
+        const codsDistintos={}; items.forEach(function(it){ codsDistintos[_cpNorm(it.cod)]=true; });
+        const nCods=Object.keys(codsDistintos).length;
+        if(nCods===1 && items.length){
+          const k=_cpNorm(items[0].cod); const q=items.reduce(function(s,it){ return s+(Number(it.qty)||0); },0);
+          if(!k || q<=0) return;
+          const a=agg[k]||(agg[k]={cod:items[0].cod,pure:{},pureLios:0,mezcla:0});
+          a.pure[q]=(a.pure[q]||0)+1; a.pureLios++;
+        } else if(nCods>1){
+          Object.keys(codsDistintos).forEach(function(k){ const a=agg[k]||(agg[k]={cod:k,pure:{},pureLios:0,mezcla:0}); a.mezcla++; });
+        }
+      });
+    });
+    const list=Object.keys(agg).map(function(k){
+      const a=agg[k];
+      const dist=Object.keys(a.pure).map(function(q){ return [parseInt(q,10), a.pure[q]]; }).sort(function(x,y){ return y[1]-x[1] || y[0]-x[0]; });
+      return { cod:a.cod, desc:artNombre(a.cod,"")||"", pureLios:a.pureLios, dist:dist, top:(dist[0]?dist[0][0]:0), mezcla:a.mezcla };
+    });
+    list.sort(function(x,y){ return (y.pureLios+y.mezcla)-(x.pureLios+x.mezcla) || _remitoCodKey(x.cod)-_remitoCodKey(y.cod); });
+    _liosArt={ dias:dias, rows:list, q:"" };
+    liosArtApply();
+  }catch(e){
+    const wrap2=document.getElementById("laWrap"); if(wrap2) wrap2.innerHTML='<div class="la-empty">No se pudo cargar ('+escapeHtml(e.message||"")+').</div>';
+  }
+}
+function liosArtApply(){
+  if(!_liosArt) return;
+  const q=String((document.getElementById("laQ")||{}).value||"").trim().toUpperCase();
+  _liosArt.q=q;
+  const rows=q? _liosArt.rows.filter(function(r){ return String(r.cod).toUpperCase().indexOf(q)>=0 || String(r.desc).toUpperCase().indexOf(q)>=0; }) : _liosArt.rows;
+  const cnt=document.getElementById("laCnt"); if(cnt) cnt.textContent=rows.length+" artículo(s) · últimos "+_liosArt.dias+" días";
+  const wrap=document.getElementById("laWrap"); if(!wrap) return;
+  if(!_liosArt.rows.length){ wrap.innerHTML='<div class="la-empty">No hay líos registrados en el período.</div>'; return; }
+  if(!rows.length){ wrap.innerHTML='<div class="la-empty">Sin resultados para “'+escapeHtml(q)+'”.</div>'; return; }
+  const body=rows.map(function(r){
+    const distHtml=r.dist.length? r.dist.map(function(d,i){ return '<span class="d'+(i===0?" top":"")+'"><b>'+d[0]+'</b> cj × '+d[1]+'</span>'; }).join("") : '<span class="d0">— nunca fue solo —</span>';
+    return '<tr>'+
+      '<td class="la-cod">'+escapeHtml(r.cod)+'</td>'+
+      '<td class="la-desc">'+escapeHtml(r.desc||"—")+'</td>'+
+      '<td class="num">'+r.pureLios+'</td>'+
+      '<td class="la-dist">'+distHtml+'</td>'+
+      '<td class="num '+(r.mezcla?"la-mez":"la-mez0")+'">'+r.mezcla+'</td>'+
+    '</tr>';
+  }).join("");
+  wrap.innerHTML='<table class="la-tbl"><thead><tr>'+
+    '<th>Cód</th><th>Artículo</th><th class="num">Líos solos</th><th>Cómo se arman (cajas/lío × veces)</th><th class="num">Mezcla</th>'+
+    '</tr></thead><tbody>'+body+'</tbody></table>';
 }
 
 /* =========================================================

@@ -63,4 +63,7 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== fac-print-facturar (regresión v6.24: imprimir remito NP/Líos al tildar facturado) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/fac-print-facturar.cjs
 
+echo "== lios-art (regresión v6.30: estadística de líos por artículo — puro vs mezcla) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/lios-art.cjs
+
 echo "== TODO OK =="
