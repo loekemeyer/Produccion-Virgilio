@@ -2814,6 +2814,7 @@ table.fac-np-tbl tbody tr.fac-tanda-alt:hover td{ background: #f1f5f9; }
     <div class="comp-head">
       <div class="comp-title">Completar</div>
       <div class="comp-tanda" id="compTanda"></div>
+      <div class="comp-obs" id="compObs" style="display:none;margin-top:8px;padding:8px;background:#f1f5f9;border-left:3px solid #0ea5e9;font-size:13px;color:#334155;"></div>
       <div class="comp-steps">
         <button class="comp-arrow" id="compBack" onclick="_compNav(-1)" title="Volver">←</button>
         <div class="comp-dots">
@@ -7644,6 +7645,7 @@ async function showCompletarWizard(legajo, codigo) {
       _comp = _savedC;
       _comp.pickUbic = _pickUbic; _comp.dirByNp = _dirByNp;
       const t0 = document.getElementById("compTanda"); if (t0) t0.textContent = "Tanda " + tanda + (_comp.nps[0] && _comp.nps[0].rs ? " · " + _comp.nps[0].rs : "");
+      const o0 = document.getElementById("compObs"); if (o0) { if (_comp.observaciones && _comp.observaciones.trim()) { o0.textContent = "📝 " + _comp.observaciones; o0.style.display = "block"; } else { o0.style.display = "none"; } }
       const d20 = document.getElementById("compD2"), ln0 = document.getElementById("compLine");
       if (d20) d20.style.display = ""; if (ln0) ln0.style.display = "";
       if (!_comp.nps[0] || !_comp.nps[0].codes) _compBuildLiosData();   // v4.90: si el avance se guardó en Paso 1 (sin codes), armar la data de líos para habilitar Terminar
@@ -7681,8 +7683,9 @@ async function showCompletarWizard(legajo, codigo) {
       }
     }
     const hayFalt = arts.some(a => a.nps.length);
-    _comp = { legajo: String(legajo || "").trim(), tanda: tanda, fecha: fecha, nps: nps, arts: arts, pedidoFull: pedidoFull, hayFalt: hayFalt, step: 1, pickUbic: _pickUbic, dirByNp: _dirByNp };
+    _comp = { legajo: String(legajo || "").trim(), tanda: tanda, fecha: fecha, nps: nps, arts: arts, pedidoFull: pedidoFull, hayFalt: hayFalt, step: 1, pickUbic: _pickUbic, dirByNp: _dirByNp, observaciones: String(entry && entry.observaciones || "") };
     const t = document.getElementById("compTanda"); if (t) t.textContent = "Tanda " + tanda + (nps[0] && nps[0].rs ? " · " + nps[0].rs : "");
+    const o = document.getElementById("compObs"); if (o) { const obs = String(_comp.observaciones || "").trim(); if (obs) { o.textContent = "📝 " + obs; o.style.display = "block"; } else { o.style.display = "none"; } }
     const d2 = document.getElementById("compD2"), ln = document.getElementById("compLine");
     if (d2) d2.style.display = "";   // Paso 2 = Líos: siempre presente
     if (ln) ln.style.display = "";
@@ -17959,7 +17962,7 @@ async function fetchMonitorSheet() {
    de texto y rompería un número real). v2.80. */
 async function fetchMonitorFromSupabase() {
   const rows = await supaFetchAll(SUPABASE_PPP_PROG_ENDPOINT,
-    "select=tanda,np,cod,razon_social,m3,direccion,barrio,op,fecha_entrega,zona");
+    "select=tanda,np,cod,razon_social,m3,direccion,barrio,op,fecha_entrega,zona,observaciones");
   const acc = new Map();
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]; if (!r) continue;
@@ -17978,11 +17981,12 @@ async function fetchMonitorFromSupabase() {
     if (!acc.has(mapKey)) acc.set(mapKey, {
       tanda: displayTanda, _key: mapKey, m3: 0,
       fechaEntrega: monitorFmtFecha(fe), fechaEntregaRaw: feRaw,
-      opIsSi: false, pedidos: []
+      opIsSi: false, observaciones: "", pedidos: []
     });
     const entry = acc.get(mapKey);
     entry.m3 += m3;
     if (op === "SI") entry.opIsSi = true;
+    if (!entry.observaciones && r.observaciones) entry.observaciones = String(r.observaciones).trim();
     entry.pedidos.push({
       np, m3, razonSocial: rs,
       cod:       (r.cod       == null ? "" : String(r.cod)).trim(),
