@@ -8590,6 +8590,30 @@ async function ocgFetchMaximos() {
 const SUPABASE_PROY_ENDPOINT = SUPABASE_URL + "/rest/v1/proyeccion_madre";
 const OCG_FACTOR_MAXIMO = 1.5;
 function _ocgNorm(c) { return String(c || "").toUpperCase().trim().replace(/^0+(?=.)/, ""); }
+/* v6.20: match flexible para códigos con variante (809E-QUESO vs 809E-PIZZA).
+   Si el búsqueda es "809E", matchea "809E", "809E-QUESO", "809E-PIZZA", etc.
+   Si la búsqueda es "809E-QUESO", solo matchea ese exactamente. */
+function _codMatch(coded, search) {
+  const c = _ocgNorm(coded), s = _ocgNorm(search);
+  if (c === s) return true;                              // match exacto
+  if (s.indexOf("-") < 0 && c.indexOf("-") >= 0) {      // search es base, coded tiene variante
+    return c.split("-")[0] === s;                        // match por código base
+  }
+  return false;
+}
+/* Busca flexible en diccionario de saldos: "809E" encuentra "809E", "809E-QUESO", etc. */
+function _getSaldoFlexible(dict, searchNorm) {
+  if (!dict) return null;
+  // 1) match exacto
+  if (dict[searchNorm]) return dict[searchNorm];
+  // 2) si no tiene guion, buscar todas las variantes
+  if (searchNorm.indexOf("-") < 0) {
+    for (const k in dict) {
+      if (_codMatch(k, searchNorm)) return dict[k];
+    }
+  }
+  return null;
+}
 async function ocgFetchProyeccion() {
   try {
     const r = await fetch(SUPABASE_PROY_ENDPOINT + "?select=cod,proy_cajas_mes&limit=20000", { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, cache: "no-store" });
@@ -12378,7 +12402,7 @@ async function showCPModal(legajo, _resume, focusNp) {
     const racksNoGon = await cpLoadRacksNoGondola(saldos);
     const today = cpTodayAR(), cut = today ? cpDateMinus(today, 21) : "";
     let fr = falt.filter(function (e) { const d = String(e.fecha_salida || "").slice(0, 10); return !d || !cut || d >= cut; });
-    fr.forEach(function (e) { e.desc = artNombre(e.cod_art, ""); e._saldo = sN[_cpNorm(e.cod_art)] || null; e._guardadoHoy = guardadoHoy.has(_cpNorm(e.cod_art)); });
+    fr.forEach(function (e) { e.desc = artNombre(e.cod_art, ""); e._saldo = _getSaldoFlexible(sN, _cpNorm(e.cod_art)) || null; e._guardadoHoy = guardadoHoy.has(_cpNorm(e.cod_art)); });
     // v6.18: el CP muestra un faltante si el artículo está EN "a guardar" (a_guardar>0) O se
     // GUARDÓ HOY (aunque ya esté en góndola) — lo que llegó/se guardó hoy es lo que se completa
     // en los pedidos ya armados. Si no está a guardar ni se guardó hoy, no figura (faltante de
@@ -12509,7 +12533,7 @@ async function cpReloadFaltantes() {
   const today = cpTodayAR(), cut = today ? cpDateMinus(today, 21) : "";
   let fr = falt.filter(function (e) { const d = String(e.fecha_salida || "").slice(0, 10); return !d || !cut || d >= cut; });
   const _gh = (_cp && _cp.guardadoHoy) || new Set();
-  fr.forEach(function (e) { e.desc = artNombre(e.cod_art, ""); e._saldo = (_cp.saldosN || {})[_cpNorm(e.cod_art)] || null; e._guardadoHoy = _gh.has(_cpNorm(e.cod_art)); });
+  fr.forEach(function (e) { e.desc = artNombre(e.cod_art, ""); e._saldo = _getSaldoFlexible(_cp.saldosN || {}, _cpNorm(e.cod_art)) || null; e._guardadoHoy = _gh.has(_cpNorm(e.cod_art)); });
   // v6.18: mismo filtro que showCPModal — a_guardar>0 O guardado hoy, salvo enfoque en una NP.
   if (_cp && !_cp.focusNp) fr = fr.filter(function (e) { return (Number((e._saldo || {}).a_guardar) || 0) > 0 || e._guardadoHoy; });
   try { const rsMap = await cpLoadRazonSocial(fr.map(function (e) { return e.np; })); fr.forEach(function (e) { e.rs = rsMap[String(e.np).trim().replace(/\.0+$/, "")] || ""; }); } catch (_e) {}
