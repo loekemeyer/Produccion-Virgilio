@@ -13500,6 +13500,8 @@ async function fetchCRData() {
   for (const ev of talR) { const p = String(ev.texto || "").split("|"); const np = p[0].trim().replace(/\.0+$/, ""); const v = parseInt(p[1], 10); if (np && !isNaN(v)) lios.set(np, v); }
   const controlled = new Set();// NP ya controladas (CRN)
   for (const ev of crnR) { const np = String(ev.texto || "").split("|")[0].trim().replace(/\.0+$/, ""); if (np) controlled.add(np); }
+  // v6.19: también excluir NPs marcadas como controladas localmente en RR
+  try { const locEntregados = JSON.parse(localStorage.getItem("vir_ppp_entregados") || "[]"); if (Array.isArray(locEntregados)) locEntregados.forEach(np => controlled.add(String(np))); } catch (_e) {}
   const meta = {};             // NP -> { cod, rs } desde el PPP del día
   for (const [, entry] of sheetMap) { if (!entry || !entry.pedidos) continue; for (const p of entry.pedidos) { for (const part of String(p.np || "").split(/[,/]/)) { const np = part.trim().replace(/\.0+$/, ""); if (np && /\d/.test(np) && !meta[np]) meta[np] = { cod: p.cod || "", rs: p.razonSocial || "" }; } } }
   // Arrastrados: NP cargados que ya NO están en la PPP del día → buscar el cliente en
