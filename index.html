@@ -15575,6 +15575,8 @@ function pppLoadEntregados() {
   _pppEntregados = new Set(Array.isArray(a) ? a.map(String) : []);
   // v6.19: Limpiar C98J del caché (PKC erróneo borrado de BD, necesita limpiarse local)
   _pppEntregados.delete("C98J");
+  // v6.19: Agregar NP 98242 (D11E) a entregados manualmente (ya tiene CRN en BD)
+  _pppEntregados.add("98242");
   return _pppEntregados;
 }
 function pppSaveEntregados() { try { localStorage.setItem(PPP_ENT_KEY, JSON.stringify(Array.from(pppLoadEntregados()))); } catch (_e) {} }
