@@ -15569,7 +15569,14 @@ let _pppTab = "prog";
 let _pppSearch = "";
 function _pppSearchStr(p) { return [p.np, p.cod, p.razon_social, p.tanda, p.localidad, p.zona, p.fecha, p.fecha_entrega, p.tipo].join(" ").toLowerCase(); }
 function pppSetSearch(v) { _pppSearch = String(v == null ? "" : v).trim(); pppRenderProg(); const el = document.getElementById("pppSearchInp"); if (el) { el.focus(); const n = el.value.length; try { el.setSelectionRange(n, n); } catch (_e) {} } }
-function pppLoadEntregados() { if (_pppEntregados) return _pppEntregados; let a = []; try { a = JSON.parse(localStorage.getItem(PPP_ENT_KEY) || "[]"); } catch (_e) {} _pppEntregados = new Set(Array.isArray(a) ? a.map(String) : []); return _pppEntregados; }
+function pppLoadEntregados() {
+  if (_pppEntregados) return _pppEntregados;
+  let a = []; try { a = JSON.parse(localStorage.getItem(PPP_ENT_KEY) || "[]"); } catch (_e) {}
+  _pppEntregados = new Set(Array.isArray(a) ? a.map(String) : []);
+  // v6.19: Limpiar C98J del caché (PKC erróneo borrado de BD, necesita limpiarse local)
+  _pppEntregados.delete("C98J");
+  return _pppEntregados;
+}
 function pppSaveEntregados() { try { localStorage.setItem(PPP_ENT_KEY, JSON.stringify(Array.from(pppLoadEntregados()))); } catch (_e) {} }
 function pppTab(t) { _pppTab = t; pppRenderProg(); if (t === "plan" || t === "ent" || t === "resumen") { pppRefreshArmado(); pppRefreshEntregado(); pppRefreshControlado(); } }
 /* "Controlado" (manual, lo marca la operadora) → recién ahí el pedido pasa a Pedidos
