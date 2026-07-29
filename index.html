@@ -15573,8 +15573,13 @@ function pppLoadEntregados() {
   if (_pppEntregados) return _pppEntregados;
   let a = []; try { a = JSON.parse(localStorage.getItem(PPP_ENT_KEY) || "[]"); } catch (_e) {}
   _pppEntregados = new Set(Array.isArray(a) ? a.map(String) : []);
-  // v6.19: Limpiar C98J del caché (PKC erróneo borrado de BD, necesita limpiarse local)
+  // v6.19: Limpiar C98J completamente del caché (PKC erróneo borrado de BD)
   _pppEntregados.delete("C98J");
+  // También limpiar de edits y otros storage
+  try {
+    const ed = JSON.parse(localStorage.getItem(PPP_EDITS_KEY) || "{}");
+    if (ed && ed["C98J"]) { delete ed["C98J"]; localStorage.setItem(PPP_EDITS_KEY, JSON.stringify(ed)); }
+  } catch (_e) {}
   // v6.19: Agregar NP 98242 (D11E) a entregados manualmente (ya tiene CRN en BD)
   _pppEntregados.add("98242");
   return _pppEntregados;
