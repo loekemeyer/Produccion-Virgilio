@@ -3,6 +3,13 @@
 > Estado: **EN PREPARACIÓN** — nada emite todavía. Este documento es la guía viva del
 > camino "la app emite desde un punto de venta nuevo, e Isis levanta de ARCA".
 > Ver también la nota de investigación en `GUIA-PROYECTO.md` (Isis vs 2º emisor).
+>
+> **Avance v6.41**: quedó armado el **esqueleto** (sin emitir): (1) la tabla
+> `Comprobantes_ARCA` **ya existe** en Supabase con RLS (anon solo lectura) — DDL versionado
+> en `sql/comprobantes_arca.sql`; (2) el **esqueleto de la Edge Function `arca-wsfe`** está en
+> el repo (`supabase/functions/arca-wsfe/index.ts`), responde `status` y **rechaza emitir**
+> hasta cargar los secrets y prender `ARCA_EMITIR=on`. Falta: certificado + PDV (§4), la
+> decisión del importe (§5) y el OK del contador.
 
 ## 1. Objetivo
 
@@ -80,7 +87,9 @@ Navegador (app)                 Supabase                         ARCA (ex AFIP)
 
 ## 6. Piezas a construir (cuando lleguen certificado + decisiones)
 
-- **Tabla `Comprobantes_ARCA`** (log de emitidos). DDL propuesto:
+- **Tabla `Comprobantes_ARCA`** (log de emitidos). ✅ **YA CREADA** (migración
+  `comprobantes_arca_skeleton`, DDL versionado en `sql/comprobantes_arca.sql`). RLS: anon
+  solo lectura, escritura vía service_role (verificado que anon no puede insertar). DDL:
   ```sql
   create table if not exists public."Comprobantes_ARCA" (
     id           bigint generated always as identity primary key,
@@ -106,6 +115,11 @@ Navegador (app)                 Supabase                         ARCA (ex AFIP)
   `node-forge` vía `npm:`) + cache del TA + `FECAESolicitar` + `FECompUltimoAutorizado` +
   guarda en `Comprobantes_ARCA`. Certificado como **secret** (`ARCA_CERT`, `ARCA_KEY`,
   `ARCA_CUIT`, `ARCA_PTO_VTA`, `ARCA_ENV`).
+  ✅ **Esqueleto en el repo**: `supabase/functions/arca-wsfe/index.ts`. Responde
+  `{action:"status"}` con qué secrets faltan y **rechaza `{action:"emitir"}`** (501) hasta
+  cargar los secrets y prender `ARCA_EMITIR=on`. La lógica WSAA/WSFE está marcada con `TODO`
+  (a propósito el esqueleto **no puede emitir**). Falta **deployarlo** (hoy sigue vivo solo
+  el `arca-wsfe-healthcheck`).
 - **Módulo frontend** dentro de **Facturación** (un botón "Facturar electrónicamente" /
   ticket aparte, NO el tilde actual): elige cliente + importe (o lo trae), llama a la
   función, muestra el CAE y permite imprimir. Se hace **al final**, después de que
