@@ -5564,7 +5564,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.40";
+const APP_VERSION = "v6.41";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -8377,6 +8377,35 @@ async function loadArtNombres() {
   _artNombres = m; return m;
 }
 function artNombre(cod, fb) { const n = _artNombres && _artNombres[_ocgNorm(cod)]; return n || fb || ""; }
+/* v6.41 — CÓDIGO CANÓNICO. En las hojas fuente (E.Madre LK / "Pedidos Talleristas-Prov")
+   un mismo artículo aparece con distinto relleno de ceros (ej. 27 / 027 / 0027). Todos
+   normalizan a la misma clave (_ocgNorm = sin ceros a la izq), pero al MOSTRARLOS conviene
+   uno solo. Fuente del canónico = OC_Maximos.cod (curado, 1 por clave; ahí el Colador es
+   "027"). Fallback si el artículo no está en OC_Maximos: dígitos puros → pad a 3; los
+   alfanuméricos se dejan tal cual (upper+trim). Colapsa variantes en display y dedup. */
+let _codCanon = null;
+function _padCod(cod) {
+  const s = String(cod == null ? "" : cod).toUpperCase().trim();
+  return /^[0-9]+$/.test(s) ? s.padStart(3, "0") : s;
+}
+async function loadCodCanon() {
+  if (_codCanon) return _codCanon;
+  const m = {};
+  try {
+    const r = await fetch(SUPABASE_OCMAX_ENDPOINT + "?select=cod&activo=eq.true&limit=20000", { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, cache: "no-store" });
+    if (r.ok) (await r.json()).forEach(function (x) {
+      const raw = String(x.cod == null ? "" : x.cod).toUpperCase().trim(); if (!raw) return;
+      const k = _ocgNorm(raw); if (!k) return;
+      // Si hay más de una variante para la clave, preferí la que trae ceros a la izq / la más larga.
+      const prev = m[k];
+      if (!prev || (raw[0] === "0" && prev[0] !== "0") || (raw[0] === "0" && prev[0] === "0" && raw.length > prev.length)) m[k] = raw;
+    });
+  } catch (_e) {}
+  _codCanon = m; return m;
+}
+/* Devuelve el código canónico para mostrar (027, no 27/0027). Usa el mapa de OC_Maximos
+   si ya se cargó; si no, cae al pad. Nunca rompe: siempre devuelve algo mostrable. */
+function codCanon(cod) { const k = _ocgNorm(cod); return (_codCanon && _codCanon[k]) || _padCod(cod); }
 async function openStockAdmin(soloConteo) {
   const _solo = soloConteo === true;   // rol "solo conteo" (Giuliana): solo la solapa Conteo
   if (!document.getElementById("stkCss")) {
@@ -8424,13 +8453,13 @@ async function openOCAdmin() {
   ov.classList.add("show");
   ov.innerHTML = '<div class="oc-card"><div class="oc-head"><span class="oc-title">📑 Órdenes de Compra</span><button class="oc-close" onclick="closeOCAdmin()">Cerrar</button></div><div class="oc-body" id="ocBody"><div class="oc-loading">Cargando…</div></div></div>';
   try {
-    const r2 = await Promise.all([ocFetchRows(), loadArtNombres()]);
+    const r2 = await Promise.all([ocFetchRows(), loadArtNombres(), loadCodCanon()]);
     _oc = { rows: r2[0], view: "list", openKey: null, filtro: "", nueva: { proveedor: "", fecha: "", rubro: "", unidad: "Cajas", items: [{ cod: "", desc: "", cant: "" }] } };
     ocRender();
   } catch (e) { const b = document.getElementById("ocBody"); if (b) b.innerHTML = '<div class="oc-loading">Error: ' + escapeHtml(e.message || String(e)) + '</div>'; }
 }
 function closeOCAdmin() { const ov = document.getElementById("ocAdminOverlay"); if (ov) ov.classList.remove("show"); _oc = null; }
-function ocRender() { if (!_oc) return; const body = document.getElementById("ocBody"); if (!body) return; _renderKeepFocus(body, _oc.view === "detail" ? ocBodyDetail() : _oc.view === "nueva" ? ocBodyNueva() : _oc.view === "gen" ? ocBodyGen() : _oc.view === "indices" ? ocBodyIndices() : _oc.view === "entregas" ? ocBodyEntregas() : ocBodyList()); }
+function ocRender() { if (!_oc) return; const body = document.getElementById("ocBody"); if (!body) return; _renderKeepFocus(body, _oc.view === "detail" ? ocBodyDetail() : _oc.view === "nueva" ? ocBodyNueva() : _oc.view === "gen" ? ocBodyGen() : _oc.view === "indices" ? ocBodyIndices() : _oc.view === "entregas" ? ocBodyEntregas() : _oc.view === "trazar" ? ocBodyTrazar() : ocBodyList()); }
 /* v4.40 — % DE ENTREGAS: cruza lo PEDIDO (Ordenes_Compra.cantidad) contra lo
    ENTREGADO (cantidad_recibida) por artículo y global. Detalle del cumplimiento
    de los proveedores. (Ordenes_Compra retiene el histórico de OCs.) */
@@ -8441,9 +8470,9 @@ function ocBodyEntregas() {
   if (!rows.length) return h + '<div class="oc-empty">No hay OCs cargadas todavía. El % de entregas aparece cuando se cargan/generan OCs y se marca lo recibido.</div>';
   const byArt = {}; let totP = 0, totE = 0;
   rows.forEach(function (r) {
-    const k = String(r.codigo || "").toUpperCase().trim(); if (!k) return;
+    const k = _ocgNorm(r.codigo); if (!k) return;   // dedup por clave normalizada: 27/027/0027 = mismo artículo
     const ped = Number(r.cantidad) || 0, ent = Number(r.cantidad_recibida) || 0;
-    if (!byArt[k]) byArt[k] = { cod: r.codigo, desc: r.descripcion || "", prov: r.proveedor || "", ped: 0, ent: 0 };
+    if (!byArt[k]) byArt[k] = { cod: codCanon(r.codigo), desc: r.descripcion || "", prov: r.proveedor || "", ped: 0, ent: 0 };
     byArt[k].ped += ped; byArt[k].ent += ent; totP += ped; totE += ent;
   });
   const pct = function (e, p) { return p > 0 ? Math.round(e / p * 1000) / 10 : 0; };
@@ -8466,6 +8495,55 @@ function ocGroups() {
   (_oc.rows || []).forEach(function (r) { const k = _ocGroupKey(r); if (!g[k]) g[k] = { key: k, proveedor: r.proveedor || "", fecha: r.fecha || "", rubro: r.rubro || "", rows: [] }; g[k].rows.push(r); });
   return g;
 }
+/* v6.41 — TRAZABILIDAD PUNTA A PUNTA por artículo. Cruza por código canónico:
+   Config (OC_Maximos: máximo objetivo, proveedor, índice) → Órdenes (Ordenes_Compra:
+   cada línea con pedido/recibido/estado) → Totales (pedido, recibido, % de entrega).
+   Deja seguir un ítem de la config hasta la recepción, en una sola pantalla. */
+async function ocTrazar() {
+  if (!_oc) return;
+  _oc.view = "trazar"; _oc.trazaCod = _oc.trazaCod || ""; ocRender();
+  if (!_oc.max) { try { _oc.max = await ocgFetchMaximos(); } catch (_e) { _oc.max = []; } ocRender(); }
+}
+function ocBodyTrazar() {
+  let h = '<div class="oc-tools"><button class="oc-btn" onclick="ocBack()">← Volver</button><input class="oc-filtro" type="search" placeholder="🔎 Código o descripción del artículo" value="' + escapeHtml(_oc.trazaCod || "") + '" oninput="if(_oc){_oc.trazaCod=this.value;ocRender();}"></div>';
+  if (!_oc.max) return h + '<div class="oc-loading">Cargando config de artículos…</div>';
+  const q = (_oc.trazaCod || "").trim();
+  if (!q) return h + '<div class="oc-empty">Escribí un código (ej. <b>027</b>) o parte de la descripción para trazar el artículo de punta a punta.</div>';
+  const qn = _ocgNorm(q), ql = q.toLowerCase();
+  // Config: fila de OC_Maximos que matchea por clave normalizada o por descripción.
+  const cfg = (_oc.max || []).filter(function (m) { return _ocgNorm(m.cod) === qn || String(m.descripcion || "").toLowerCase().indexOf(ql) >= 0; });
+  // Órdenes: líneas de Ordenes_Compra del mismo artículo (por clave normalizada de los cfg o del query).
+  const claves = {}; cfg.forEach(function (m) { claves[_ocgNorm(m.cod)] = true; }); if (qn) claves[qn] = true;
+  const ordenes = (_oc.rows || []).filter(function (r) { return claves[_ocgNorm(r.codigo)]; });
+  if (!cfg.length && !ordenes.length) return h + '<div class="oc-empty">No encontré ese artículo ni en la config (OC_Maximos) ni en las órdenes.</div>';
+  const cod0 = cfg.length ? codCanon(cfg[0].cod) : codCanon(q);
+  const nombre = artNombre(cod0, cfg.length ? cfg[0].descripcion : (ordenes[0] && ordenes[0].descripcion) || "");
+  h += '<div class="oc-meta" style="font-size:15px">Artículo <b class="oc-cod" style="font-size:15px">' + escapeHtml(cod0) + '</b> — ' + escapeHtml(nombre || "(sin nombre)") + '</div>';
+  // 1) CONFIG
+  h += '<div class="oc-meta" style="margin-top:10px"><b>① Config (OC_Maximos)</b></div>';
+  if (!cfg.length) h += '<div class="oc-empty" style="padding:10px">No está en OC_Maximos (no se autogenera; puede venir de carga manual).</div>';
+  else {
+    h += '<div class="oc-tblwrap"><table class="oc-tbl"><thead><tr><th>Código</th><th>Proveedor</th><th class="num">Máx (obj.)</th><th class="num">Índice</th><th class="num">Uni/Caja</th></tr></thead><tbody>';
+    cfg.forEach(function (m) { h += '<tr><td class="oc-cod">' + escapeHtml(codCanon(m.cod)) + '</td><td>' + escapeHtml(m.proveedor || "—") + '</td><td class="num">' + (m.max_cajas != null ? m.max_cajas : "—") + '</td><td class="num">' + (m.indice != null ? m.indice : "—") + '</td><td class="num">' + (m.uni_x_caja != null ? m.uni_x_caja : "—") + '</td></tr>'; });
+    h += '</tbody></table></div>';
+  }
+  // 2) ÓRDENES + 3) TOTALES
+  let tp = 0, tr = 0;
+  h += '<div class="oc-meta" style="margin-top:12px"><b>② Órdenes (Ordenes_Compra)</b></div>';
+  if (!ordenes.length) h += '<div class="oc-empty" style="padding:10px">Todavía no se pidió este artículo en ninguna OC.</div>';
+  else {
+    h += '<div class="oc-tblwrap"><table class="oc-tbl"><thead><tr><th>Fecha</th><th>Proveedor</th><th class="num">Pedido</th><th class="num">Recibido</th><th class="num">Falta</th><th>Estado</th></tr></thead><tbody>';
+    ordenes.slice().sort(function (a, b) { return (b.fecha || "").localeCompare(a.fecha || ""); }).forEach(function (r) {
+      const ped = Number(r.cantidad) || 0, rec = Number(r.cantidad_recibida) || 0, falt = ped - rec; tp += ped; tr += rec;
+      h += '<tr><td>' + escapeHtml(r.fecha || "—") + '</td><td>' + escapeHtml(r.proveedor || "—") + '</td><td class="num">' + ped + '</td><td class="num">' + rec + '</td><td class="num ' + (falt > 0 ? "oc-falt" : "oc-ok") + '">' + (falt !== 0 ? falt : "0") + '</td><td><span class="oc-pill ' + escapeHtml(r.estado || "pendiente") + '">' + escapeHtml(r.estado || "pendiente") + '</span></td></tr>';
+    });
+    h += '</tbody></table></div>';
+    const pct = tp > 0 ? Math.round(tr / tp * 1000) / 10 : 0;
+    const col = pct >= 100 ? "#166534" : (pct >= 80 ? "#b45309" : "#b91c1c");
+    h += '<div class="oc-meta" style="margin-top:10px"><b>③ Total</b> — Pedido <b>' + tp + '</b> · Recibido <b>' + tr + '</b> · Entrega <b style="color:' + col + '">' + pct + '%</b> · Falta <b class="oc-falt">' + Math.max(0, tp - tr) + '</b></div>';
+  }
+  return h;
+}
 function ocGroupStats(grp) {
   let ped = 0, rec = 0, allRecibida = true;
   grp.rows.forEach(function (r) { ped += Number(r.cantidad) || 0; rec += Number(r.cantidad_recibida) || 0; if (String(r.estado || "") !== "recibida") allRecibida = false; });
@@ -8473,7 +8551,7 @@ function ocGroupStats(grp) {
   return { ped: ped, rec: rec, falta: ped - rec, estado: estado };
 }
 function ocBodyList() {
-  let h = '<div class="oc-tools"><button class="oc-btn ok" onclick="ocNueva()">+ Nueva OC (carga manual)</button><button class="oc-btn" onclick="ocgEnter()">⚙ Generar OCs</button><button class="oc-btn" onclick="ocEntregas()">📊 % Entregas</button><input class="oc-filtro" type="search" placeholder="🔎 Buscar proveedor / rubro / fecha" value="' + escapeHtml(_oc.filtro) + '" oninput="if(_oc){_oc.filtro=this.value;ocRender();}"></div>';
+  let h = '<div class="oc-tools"><button class="oc-btn ok" onclick="ocNueva()">+ Nueva OC (carga manual)</button><button class="oc-btn" onclick="ocgEnter()">⚙ Generar OCs</button><button class="oc-btn" onclick="ocEntregas()">📊 % Entregas</button><button class="oc-btn" onclick="ocTrazar()">🔎 Trazar artículo</button><input class="oc-filtro" type="search" placeholder="🔎 Buscar proveedor / rubro / fecha" value="' + escapeHtml(_oc.filtro) + '" oninput="if(_oc){_oc.filtro=this.value;ocRender();}"></div>';
   const g = ocGroups();
   let keys = Object.keys(g);
   const f = (_oc.filtro || "").toLowerCase().trim();
@@ -8498,16 +8576,43 @@ function ocBodyDetail() {
   h += '<button class="oc-btn ok" onclick="ocGuardarRecibido()">💾 Guardar recibido</button>';
   if (st.estado !== "recibida") h += '<button class="oc-btn" onclick="ocMarcar(\'recibida\')">✓ Marcar recibida</button>';
   else h += '<button class="oc-btn" onclick="ocMarcar(\'pendiente\')">↩ Reabrir</button>';
+  h += '<button class="oc-btn" onclick="ocPrintDetalle()">🖨 Imprimir OC</button>';
   h += '</div>';
   h += '<div class="oc-meta">Proveedor <b>' + escapeHtml(x.proveedor || "—") + '</b> · Fecha <b>' + escapeHtml(x.fecha || "—") + '</b> · Rubro <b>' + escapeHtml(x.rubro || "—") + '</b> · Pedido <b>' + st.ped + '</b> · Falta <b>' + (st.falta > 0 ? st.falta : 0) + '</b></div>';
   h += '<div class="oc-tblwrap"><table class="oc-tbl"><thead><tr><th>Código</th><th>Descripción</th><th>Unidad</th><th class="num">Pedido</th><th class="num">Recibido</th><th class="num">Falta</th></tr></thead><tbody>';
   x.rows.forEach(function (r) {
     const ped = Number(r.cantidad) || 0, rec = Number(r.cantidad_recibida) || 0, falt = ped - rec;
-    h += '<tr><td class="oc-cod">' + escapeHtml(r.codigo || "—") + '</td><td>' + escapeHtml(r.descripcion || "") + '</td><td>' + escapeHtml(r.unidad || "") + '</td><td class="num">' + ped + '</td><td class="num"><input class="oc-rinp" type="number" min="0" inputmode="numeric" data-id="' + r.id + '" value="' + rec + '" oninput="ocLiveFalt(' + r.id + ',' + ped + ',this.value)"></td><td class="num ' + (falt > 0 ? "oc-falt" : "oc-ok") + '" id="ocfalt_' + r.id + '">' + (falt !== 0 ? falt : "0") + '</td></tr>';
+    h += '<tr><td class="oc-cod">' + escapeHtml(codCanon(r.codigo) || "—") + '</td><td>' + escapeHtml(r.descripcion || "") + '</td><td>' + escapeHtml(r.unidad || "") + '</td><td class="num">' + ped + '</td><td class="num"><input class="oc-rinp" type="number" min="0" inputmode="numeric" data-id="' + r.id + '" value="' + rec + '" oninput="ocLiveFalt(' + r.id + ',' + ped + ',this.value)"></td><td class="num ' + (falt > 0 ? "oc-falt" : "oc-ok") + '" id="ocfalt_' + r.id + '">' + (falt !== 0 ? falt : "0") + '</td></tr>';
   });
   return h + "</tbody></table></div>";
 }
 function ocLiveFalt(id, ped, v) { const c = document.getElementById("ocfalt_" + id); if (!c) return; const falt = ped - (parseInt(v, 10) || 0); c.textContent = falt !== 0 ? falt : "0"; c.className = "num " + (falt > 0 ? "oc-falt" : "oc-ok"); }
+/* v6.41 — IMPRIMIR OC: hoja print-friendly de la OC abierta (1 proveedor · fecha · rubro).
+   Reusa el patrón de pppPrintSug (window.open + document.write + auto-print). Muestra
+   encabezado, ítems (código canónico, descripción, unidad, cantidad), total y pie de firma. */
+const _OC_PRINT_CSS = "body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;margin:20px;} h2{font-size:20px;margin:0 0 2px;} .oc-p-sub{font-size:12.5px;color:#475569;margin-bottom:14px;} .oc-p-meta{font-size:13px;margin:2px 0;} .oc-p-meta b{color:#0f172a;} table{width:100%;border-collapse:collapse;margin:12px 0 10px;font-size:12.5px;} th,td{border:1px solid #cbd5e1;padding:6px 9px;text-align:left;} th{background:#0f766e;color:#fff;font-size:12px;text-transform:uppercase;} td.num,th.num{text-align:right;} tfoot td{font-weight:bold;background:#f1f5f9;} .oc-p-firma{margin-top:44px;display:flex;justify-content:space-between;font-size:12px;color:#475569;} .oc-p-firma span{border-top:1px solid #94a3b8;padding-top:5px;width:44%;text-align:center;}";
+function ocPrintHtml(x) {
+  let tot = 0;
+  let rows = "";
+  x.rows.forEach(function (r) {
+    const ped = Number(r.cantidad) || 0; tot += ped;
+    rows += '<tr><td>' + escapeHtml(codCanon(r.codigo) || "—") + '</td><td>' + escapeHtml(artNombre(r.codigo, r.descripcion) || "") + '</td><td>' + escapeHtml(r.unidad || "") + '</td><td class="num">' + ped + '</td></tr>';
+  });
+  return '<h2>Orden de Compra</h2><div class="oc-p-sub">Producción Virgilio</div>' +
+    '<div class="oc-p-meta">Proveedor: <b>' + escapeHtml(x.proveedor || "—") + '</b></div>' +
+    '<div class="oc-p-meta">Fecha: <b>' + escapeHtml(x.fecha || "—") + '</b> · Rubro: <b>' + escapeHtml(x.rubro || "—") + '</b> · Ítems: <b>' + x.rows.length + '</b></div>' +
+    '<table><thead><tr><th>Código</th><th>Descripción</th><th>Unidad</th><th class="num">Cantidad</th></tr></thead><tbody>' + rows +
+    '</tbody><tfoot><tr><td colspan="3">Total</td><td class="num">' + tot + '</td></tr></tfoot></table>' +
+    '<div class="oc-p-firma"><span>Firma proveedor</span><span>Firma responsable</span></div>';
+}
+function ocPrintDetalle() {
+  if (!_oc || !_oc.openKey) return;
+  const g = ocGroups(), x = g[_oc.openKey]; if (!x || !x.rows.length) { alert("No hay ítems para imprimir."); return; }
+  const w = window.open("", "_blank");
+  if (!w) { alert("El navegador bloqueó la ventana de impresión. Permití los pop-ups y reintentá."); return; }
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>OC ' + escapeHtml(x.proveedor || "") + ' ' + escapeHtml(x.fecha || "") + '</title><style>' + _OC_PRINT_CSS + '</style></head><body>' + ocPrintHtml(x) + '<scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print();},150);};</scr' + 'ipt></body></html>');
+  w.document.close();
+}
 function _ocCollectRecibido() {
   const out = [];
   document.querySelectorAll('#ocBody .oc-rinp').forEach(function (el) { out.push({ id: el.getAttribute("data-id"), val: Math.max(0, parseInt(el.value, 10) || 0) }); });
@@ -8555,7 +8660,7 @@ async function ocNuevaCrear() {
   if (!items.length) { alert("Cargá al menos un ítem con código y cantidad."); return; }
   const headers = await facAuthWriteHeaders({ "Prefer": "return=minimal" });
   if (!headers) { alert(authNoSesionMsg("Para crear una OC necesitás iniciar sesión con Google (supervisor).")); return; }
-  const rows = items.map(function (it) { return { proveedor: n.proveedor.trim() || null, fecha: n.fecha || null, rubro: n.rubro.trim() || null, codigo: String(it.cod).trim() || null, descripcion: String(it.desc).trim() || null, cantidad: Math.max(0, parseInt(it.cant, 10) || 0), cantidad_recibida: 0, unidad: n.unidad.trim() || null, estado: "pendiente" }; });
+  const rows = items.map(function (it) { return { proveedor: n.proveedor.trim() || null, fecha: n.fecha || null, rubro: n.rubro.trim() || null, codigo: (String(it.cod).trim() ? codCanon(it.cod) : null), descripcion: String(it.desc).trim() || null, cantidad: Math.max(0, parseInt(it.cant, 10) || 0), cantidad_recibida: 0, unidad: n.unidad.trim() || null, estado: "pendiente" }; });
   try {
     const r = await fetch(SUPABASE_OC_ENDPOINT, { method: "POST", headers: headers, body: JSON.stringify(rows) });
     if (!r.ok) throw new Error("HTTP " + r.status);
@@ -8682,7 +8787,7 @@ function ocBodyGen() {
     x.items.sort(function (a, b) { return b.falta - a.falta; }).forEach(function (it) {
       const proyTxt = (it.fuente === "proy") ? (Math.round(it.proy) + "") : '<span style="color:#b45309" title="sin proyección: usa objetivo Excel">xls</span>';
       const maxTxt = it.max + (it.capped ? ' <span style="color:#b45309;font-weight:800" title="Topado a la capacidad de góndola (' + it.cap + ' cajas) — proy×índice daba más">⤓</span>' : '');
-      h += '<tr><td class="oc-cod">' + escapeHtml(it.cod) + '</td><td>' + escapeHtml(artNombre(it.cod, it.desc)) + '</td><td class="num">' + proyTxt + '</td><td class="num">' + it.indice + '</td><td class="num">' + maxTxt + '</td><td class="num">' + it.demanda + '</td><td class="num">' + it.stock + '</td><td class="num oc-falt">' + it.falta + '</td></tr>';
+      h += '<tr><td class="oc-cod">' + escapeHtml(codCanon(it.cod)) + '</td><td>' + escapeHtml(artNombre(it.cod, it.desc)) + '</td><td class="num">' + proyTxt + '</td><td class="num">' + it.indice + '</td><td class="num">' + maxTxt + '</td><td class="num">' + it.demanda + '</td><td class="num">' + it.stock + '</td><td class="num oc-falt">' + it.falta + '</td></tr>';
     });
     h += '</tbody></table></div>';
   });
@@ -8692,7 +8797,7 @@ async function ocgGenerar() {
   if (!_oc || !_oc.gen) return;
   const g = ocgGroups();
   const rows = [];
-  Object.keys(g).forEach(function (k) { if (g[k].interno) return; g[k].items.forEach(function (it) { rows.push({ proveedor: it.prov, fecha: _oc.gen.fecha, rubro: "Art Term", codigo: it.cod, descripcion: it.desc || null, cantidad: it.falta, cantidad_recibida: 0, unidad: "Cajas", estado: "pendiente" }); }); });
+  Object.keys(g).forEach(function (k) { if (g[k].interno) return; g[k].items.forEach(function (it) { rows.push({ proveedor: it.prov, fecha: _oc.gen.fecha, rubro: "Art Term", codigo: codCanon(it.cod), descripcion: it.desc || null, cantidad: it.falta, cantidad_recibida: 0, unidad: "Cajas", estado: "pendiente" }); }); });
   if (!rows.length) { alert("No hay OCs externas para generar."); return; }
   if (!confirm("Vas a generar " + rows.length + " línea(s) de OC (proveedores externos) en Ordenes_Compra. ¿Seguro?")) return;
   const headers = await facAuthWriteHeaders({ "Prefer": "return=minimal" });
