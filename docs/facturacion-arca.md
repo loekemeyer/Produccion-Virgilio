@@ -115,11 +115,14 @@ Navegador (app)                 Supabase                         ARCA (ex AFIP)
   `node-forge` vía `npm:`) + cache del TA + `FECAESolicitar` + `FECompUltimoAutorizado` +
   guarda en `Comprobantes_ARCA`. Certificado como **secret** (`ARCA_CERT`, `ARCA_KEY`,
   `ARCA_CUIT`, `ARCA_PTO_VTA`, `ARCA_ENV`).
-  ✅ **Esqueleto en el repo**: `supabase/functions/arca-wsfe/index.ts`. Responde
-  `{action:"status"}` con qué secrets faltan y **rechaza `{action:"emitir"}`** (501) hasta
-  cargar los secrets y prender `ARCA_EMITIR=on`. La lógica WSAA/WSFE está marcada con `TODO`
-  (a propósito el esqueleto **no puede emitir**). Falta **deployarlo** (hoy sigue vivo solo
-  el `arca-wsfe-healthcheck`).
+  ✅ **Esqueleto en el repo y DEPLOYADO**: `supabase/functions/arca-wsfe/index.ts`,
+  desplegada (`verify_jwt=off`, temporal como el healthcheck). Responde `status` con qué
+  secrets faltan y **rechaza `emitir`** (501) hasta cargar los secrets y prender
+  `ARCA_EMITIR=on`. La lógica WSAA/WSFE está marcada con `TODO` (a propósito el esqueleto
+  **no puede emitir**). Test:
+  `https://hrxfctzncixxqmpfhskv.supabase.co/functions/v1/arca-wsfe` (abrir desde el
+  navegador; el sandbox de Claude no llega — proxy 403). Al implementar la emisión real,
+  poner `verify_jwt=on`.
 - **Módulo frontend** dentro de **Facturación** (un botón "Facturar electrónicamente" /
   ticket aparte, NO el tilde actual): elige cliente + importe (o lo trae), llama a la
   función, muestra el CAE y permite imprimir. Se hace **al final**, después de que
