@@ -5566,7 +5566,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.49";
+const APP_VERSION = "v6.50";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -8927,7 +8927,15 @@ function stkRender() {
    sola cuando el operario marca la NP en Carga Camión (CCN). ===== */
 async function stkFcsLoad() {
   if (!_stk) return;
-  _stk.tab = "fcs"; _stk.filtro = ""; _stk.fcs = null; stkRender();   // muestra "cargando…"
+  _stk.tab = "fcs"; _stk.filtro = ""; _stk.fcs = null; _stk.fcsLoaded = false; stkRender();   // muestra "cargando…"
+  await stkFcsFetch();
+}
+/* v6.50 — fetch de FC s/Salida separado de la solapa: también lo dispara la solapa
+   Stocks (columna FC s/Salida por código) sin cambiar de pestaña. */
+async function stkFcsFetch() {
+  if (!_stk || _stk.fcsLoading) return;
+  const st = _stk;   // si cierran el overlay mientras carga, no tocar el _stk nuevo
+  st.fcsLoading = true;
   try {
     const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
     const res = await Promise.all([
@@ -8953,9 +8961,18 @@ async function stkFcsLoad() {
       porArt[k].cajas += cj; porArt[k].nps.push({ np: np, cajas: cj });
       pend[np].cajas += cj;
     });
-    _stk.fcs = { pend: pend, porArt: porArt };
-    _stk.fcsLoaded = true;
-  } catch (e) { _stk.fcs = { error: String(e.message || e) }; }
+    st.fcs = { pend: pend, porArt: porArt };
+    st.fcsLoaded = true;
+  } catch (e) { st.fcs = { error: String(e.message || e) }; }
+  st.fcsLoading = false;
+  if (_stk === st) stkRender();
+}
+/* v6.50 — click en la columna FC s/Salida de Stocks: va a la solapa FC s/Salida
+   ya filtrada por ese código (ahí se ve el detalle por NP). */
+function stkOpenFcsArt(codEnc) {
+  if (!_stk) return;
+  _stk.tab = "fcs"; _stk.filtro = decodeURIComponent(codEnc); _stk.openArt = null;
+  if (!_stk.fcsLoaded && !_stk.fcsLoading) stkFcsFetch();
   stkRender();
 }
 function stkBodyFcs() {
@@ -9740,6 +9757,14 @@ function stkBodyStocks() {
   // (un artículo puede estar en varias celdas; ej. el 506 = total de cajas que entran).
   const capByCod = {};
   (_stk.cap || []).forEach(function (r) { const k = _ocgNorm(r.cod); if (!k) return; capByCod[k] = (capByCod[k] || 0) + (Number(r.cajas_max) || 0); });
+  // v6.50 — FC s/Salida por código (columna entre A facturar y A guardar). Usa los
+  // mismos datos que la solapa FC s/Salida (stkFcsFetch); la primera vez se cargan
+  // en segundo plano y la tabla se re-renderiza sola ("…" mientras tanto). Siempre
+  // muestra el estado ACTUAL: no es un depósito de Movimientos_Stock, así que no
+  // respeta el corte ni "a esa fecha/hora".
+  if (!_stk.fcsLoaded && !_stk.fcsLoading) stkFcsFetch();
+  const fcsBy = (_stk.fcsLoaded && _stk.fcs && _stk.fcs.porArt) ? _stk.fcs.porArt : null;
+  const fcsDe = function (cod) { return fcsBy ? (Number((fcsBy[_ocgNorm(cod)] || {}).cajas) || 0) : null; };
   const arts = Object.keys(saldos).map(function (k) { return saldos[k]; });
   // v5.48: sumar artículos que tienen CAJAS PEDIDAS (demanda del PPP) aunque no tengan stock cargado.
   const _seenN = {}; arts.forEach(function (a) { _seenN[_ocgNorm(a.cod)] = true; });
@@ -9752,7 +9777,7 @@ function stkBodyStocks() {
   const SECTKEYS = ["terminado", "excedente", "separar_pedidos", "a_facturar", "a_guardar", "racks"];
   const shown = f
     ? arts.filter(function (a) { return (a.cod + " " + a.desc).toLowerCase().indexOf(f) >= 0; })
-    : arts.filter(function (a) { return SECTKEYS.some(function (k) { return (Number(a[k]) || 0) !== 0; }) || (Number(dem[_ocgNorm(a.cod)]) || 0) > 0; });
+    : arts.filter(function (a) { return SECTKEYS.some(function (k) { return (Number(a[k]) || 0) !== 0; }) || (Number(dem[_ocgNorm(a.cod)]) || 0) > 0 || (fcsDe(a.cod) || 0) > 0; });
   // v4.23: "cuánto hay en cada sector". Totales por depósito (GLOBAL, no filtrado)
   // para la tira de arriba; columnas por sector en la tabla (góndola y a guardar
   // siempre; racks / a separar / a facturar solo si tienen algo).
@@ -9773,6 +9798,12 @@ function stkBodyStocks() {
     h += '<span onclick="stkSectDetail(\'' + s.key + '\')" title="Ver el detalle por código y sector" style="cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;min-width:78px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:6px 10px;">' +
       '<span style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:.02em;">' + s.label + '</span>' +
       '<span style="font-size:17px;font-weight:800;color:' + ((totals[s.key] || 0) < 0 ? "#b91c1c" : "#1e3a8a") + ';font-variant-numeric:tabular-nums;">' + fmtCajas(totals[s.key]) + '</span></span>';
+    if (s.key === "a_facturar") {   // v6.50 — chip FC s/Salida entre A facturar y A guardar
+      var _fcsTot = 0; if (fcsBy) Object.keys(fcsBy).forEach(function (k) { _fcsTot += Number(fcsBy[k].cajas) || 0; });
+      h += '<span onclick="stkTab(\'fcs\')" title="Facturado pero todavía sin cargar al camión (siempre estado actual) — tocá para abrir la solapa FC s/Salida" style="cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;min-width:78px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:6px 10px;">' +
+        '<span style="font-size:10px;text-transform:uppercase;color:#1e40af;font-weight:700;letter-spacing:.02em;">FC s/Salida</span>' +
+        '<span style="font-size:17px;font-weight:800;color:#1e40af;font-variant-numeric:tabular-nums;">' + (fcsBy ? fmtCajas(_fcsTot) : "…") + '</span></span>';
+    }
   });
   var totDem = Object.keys(dem).reduce(function (s, k) { return s + (Number(dem[k]) || 0); }, 0);
   h += '<span title="Suma de cajas pedidas — SOLO NP programadas en el PPP y no facturadas (no incluye NP sin programar; las facturadas están descontadas)" style="display:inline-flex;flex-direction:column;align-items:center;min-width:78px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:6px 10px;">' +
@@ -9812,9 +9843,12 @@ function stkBodyStocks() {
     '</div>';
   // Columnas FIJAS: todos los sectores (menos insumos, que va en su sección).
   const cols = SECT.filter(function (s) { return s.key !== "insumos"; });
-  const ncol = 5 + cols.length + 1;
+  const ncol = 5 + cols.length + 2;   // v6.50: +1 por la columna FC s/Salida
   let th = '<th>Código</th><th>Descripción</th><th class="num" style="background:#eef2ff;color:#1e3a8a;">Total<br>Stock</th><th class="num" style="background:#fef3c7;color:#92400e;" title="Cajas pedidas SOLO de NP programadas en el PPP y todavía NO facturadas (lo que falta pickear). Las NP ya facturadas (ver solapa FC s/Salida) están descontadas. El detalle al tocar el número muestra solo PENDIENTES, pero incluye también NP sin programar — puede dar algo más que la columna.">Cajas<br>Pedidas</th><th class="num" style="background:#dcfce7;color:#166534;">Capacidad<br>góndola</th>';
-  cols.forEach(function (c) { th += '<th class="num">' + c.label.replace(" ", "<br>") + '</th>'; });
+  cols.forEach(function (c) {
+    th += '<th class="num">' + c.label.replace(" ", "<br>") + '</th>';
+    if (c.key === "a_facturar") th += '<th class="num" style="background:#eff6ff;color:#1e40af;" title="Cajas facturadas por la operadora (Facturación) que todavía no se cargaron al camión (Carga Camión). Siempre estado actual — no respeta el corte ni \'a esa fecha/hora\'. Tocá el número para ver las NPs.">FC<br>s/Salida</th>';
+  });
   h += '<div class="stk-tblwrap"><table class="stk-tbl stk-tbl-fit"><thead><tr>' + th + '<th></th></tr></thead><tbody>';
   if (!shown.length) h += '<tr><td colspan="' + ncol + '" class="stk-empty">Sin stock todavía.</td></tr>';
   shown.forEach(function (a) {
@@ -9839,6 +9873,12 @@ function stkBodyStocks() {
         tds += '<td class="num stk-pick-cell" onclick="event.stopPropagation();' + _clk + '" title="Ver detalle (NPs / ubicación)">' + fmtCajas(v) + '</td>';
       } else {
         tds += '<td class="num ' + (v < 0 ? "stk-neg" : "") + '">' + (c.key === "terminado" ? '<b>' + fmtCajas(v) + '</b>' : fmtCajas(v)) + '</td>';
+      }
+      if (c.key === "a_facturar") {   // v6.50 — columna FC s/Salida (después de A facturar)
+        const _fv = fcsDe(a.cod);
+        if (_fv === null) tds += '<td class="num" style="background:#eff6ff;color:#94a3b8">…</td>';
+        else if (_fv > 0.05) tds += '<td class="num stk-pick-cell" style="background:#eff6ff;color:#1e40af" onclick="event.stopPropagation();stkOpenFcsArt(\'' + encodeURIComponent(a.cod) + '\')" title="Facturado sin cargar al camión — tocá para ver las NPs"><b>' + fmtCajas(_fv) + '</b></td>';
+        else tds += '<td class="num" style="background:#eff6ff;color:#1e40af">' + fmtCajas(_fv) + '</td>';
       }
     });
     tds += '<td class="stk-caret">' + (_stk.openArt === a.cod ? "▾" : "✚") + '</td>';

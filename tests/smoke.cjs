@@ -40,6 +40,7 @@ catch (_e) {
       "showIngresoRacksModal", "irRender", "irCargar", "irEmitEvent", "irFetchCxM", "irSetCod", "irSetM", "irSetSec", "irSetEmp",
       "irRevisar", "irRenderConfirm", "irVolver",
       "stkOpenPedidos", "stkOpenGondola", "stkGondRender", "_stkPopAgg", "_stkFetchNpsByTanda", "stkCapSort",
+      "stkFcsLoad", "stkFcsFetch", "stkOpenFcsArt", "stkBodyFcs",
       "askPickUbicacion", "emitPickUbic", "askArmadoUbicaciones", "emitArmadoUbic",
       "pkForzarGondola", "pkEmitRetiroGondola",
       "pkNpEsLoeke", "pkDualBreakdown", "opDraftSaveQuiet",
