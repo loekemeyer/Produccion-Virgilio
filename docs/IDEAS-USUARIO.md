@@ -16,6 +16,16 @@ hasta que el usuario la active**, y se mergea a `main` cuando el usuario dice el
 
 ## Ideas
 
+- [ ] **6650** (2026-07-30) — **PPP sin Excel**: que la programación y la base de pedidos
+  no dependan del hook Excel→Apps Script→Sheet, y se puedan **cargar directo en la app**.
+  Etapas: (0) carga directa del .xlsx desde la app a Supabase; (1) PK natural `np` + upsert
+  + `origen`/`actualizado_en`; (2) subir a Supabase el estado que hoy vive en `localStorage`
+  (`vir_ppp_edits`, alias de barrio, override de zona); (3) alta manual de NP en la app;
+  (4) `PPP_Base_Pedidos` desde la app; (5) matar `PPP_Pedidos_Entregados` →
+  `vista_ppp_pedidos_entregados`. — _pendiente_ · **avance**: v6.66 agregó el botón
+  🧪 *PRUEBA* Exportar Excel sugerido (Sugerir tandas → .xlsx importable por la PPP), que
+  cierra a mano el ida y vuelta app→Excel→app sin tipear.
+
 <!-- Nuevas entradas se agregan ARRIBA de esta línea, formato:
 - [ ] **CÓDIGO** (AAAA-MM-DD) — texto de la idea — _estado_
 -->
