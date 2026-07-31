@@ -1824,6 +1824,10 @@ button {
 .ppp-toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin:6px 0 4px; }
 .ppp-sug-btn{ padding:9px 16px; font-size:14px; font-weight:800; border:none; border-radius:10px; background:#7c3aed; color:#fff; cursor:pointer; }
 .ppp-sug-btn:hover{ background:#6d28d9; }
+/* v6.66 — "*PRUEBA* Exportar Excel sugerido": mismo botón pero en verde Excel y
+   marcado como experimental (va debajo del Exportar PDF). */
+.ppp-sug-xls{ background:#0f766e; }
+.ppp-sug-xls:hover{ background:#115e59; }
 .ppp-confirm-btn{ padding:9px 16px; font-size:14px; font-weight:800; border:none; border-radius:10px; background:#16a34a; color:#fff; cursor:pointer; }
 .ppp-confirm-btn:hover{ background:#15803d; }
 /* Sugerencia: agregar un pedido de A Programar a una tanda YA en Programación (mismo cliente). */
@@ -5703,7 +5707,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v6.65";
+const APP_VERSION = "v6.66";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -16047,6 +16051,9 @@ function _pppRowFromSupa(r) {
     fecha: _pppSupaFecha(r.fecha_recep), cod: _pppS(r.cod), razon_social: _pppS(r.razon_social),
     m3: (r.m3 == null || r.m3 === "" ? null : Number(r.m3)),
     localidad: (_pppS(r.barrio) || _pppS(r.direccion)), fecha_entrega: fe, zona: _pppS(r.zona),
+    // v6.66: la dirección REAL aparte del barrio. El render no la usa (muestra localidad),
+    // pero el Excel sugerido (pppExportSugExcel) la necesita para llenar su columna.
+    direccion: _pppS(r.direccion),
     programmed: ((!!tanda && tanda !== "—") || !!fe), _supa: true
   };
 }
@@ -16494,6 +16501,9 @@ function pppSugerirInline() {
   el.innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 6px;">' +
     '<button class="ppp-sug-btn" onclick="pppPrintSug()">📄 Exportar PDF</button>' +
     '<button class="ppp-tool-clear" onclick="pppSugInlineClose()">✕ ocultar</button></div>' +
+    // v6.66 — abajo del PDF: la misma sugerencia como .xlsx importable por la PPP.
+    '<div style="margin:0 0 8px;"><button class="ppp-sug-btn ppp-sug-xls" onclick="pppExportSugExcel()">🧪 <b>*PRUEBA*</b> Exportar Excel sugerido</button>' +
+    '<div class="ppp-sug-hint" style="margin-top:4px;">Baja la sugerencia como <b>.xlsx</b> con el formato que importa esta misma PPP (hoja “Programacion Diaria”). La carga sigue siendo manual — es para chequear el ida y vuelta.</div></div>' +
     '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff;">' + _pppSugHtml(s) + '</div>';
   try { el.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (_e) {}
 }
@@ -16506,6 +16516,75 @@ function pppPrintSug() {
   if (!w) { alert("El navegador bloqueó la ventana de impresión. Permití los pop-ups y reintentá."); return; }
   w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Sugerencia de tandas</title><style>' + _PPP_SUG_PRINT_CSS + '</style></head><body>' + _pppSugHtml(_pppSugCache) + '<scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print();},150);};</scr' + 'ipt></body></html>');
   w.document.close();
+}
+/* ===== v6.66 — *PRUEBA* Exportar Excel sugerido (idea 6650, "PPP sin Excel") =====
+   Hoy la sugerencia de tandas se IMPRIME y la operadora la tipea a mano en el Excel.
+   Este botón baja la MISMA sugerencia como .xlsx con el layout que entiende el
+   importador de la PPP, así el ida-y-vuelta se puede probar de punta a punta sin
+   tipear: bajar → (cargar al Excel / importar de nuevo acá) → comparar.
+
+   Layout = el de "PPP completa" que lee pppLoadProgCompleta (15 columnas POR POSICIÓN,
+   con títulos de sección en la col A):
+     Tanda0 · Tipo1 · NP2 · FechaRecep3 · Cod4 · Razon5 · M3·6 · V7 · Direccion8
+     · Barrio9 · Op10 · FechaEntrega11 · FechaFc12 · Zona13 · Obs14
+   Detalles que importan para que el re-import lo reconozca:
+   · la hoja se llama "Programacion Diaria" → pppHandleFile la busca por /programaci/i;
+   · pppEsPPPCompleta exige ≥2 títulos de sección en las PRIMERAS 160 filas, por eso el
+     encabezado del documento y "Programacion" van los dos arriba de todo (si dejáramos
+     los otros títulos para el final, con +160 pedidos no llegaría a contarlos);
+   · la fila de encabezado arranca con "Tanda" → pppLoadProgCompleta la saltea sola.
+   ⚠ V / Op / Fecha FC / Observaciones salen VACÍAS: la PPP no las lee de Supabase, así
+   que la app no las tiene. Por eso el botón dice *PRUEBA*. ===== */
+const _PPP_SUG_XLS_HEAD = ["Tanda", "Tipo", "N° Pedido", "Fecha Recep", "Cod", "Razon Social", "M3", "V", "Direccion", "Localidad/Barrio Entrega", "Op", "Fecha Entrega", "Fecha FC", "Zona", "Observaciones"];
+function _pppSugXlsFila(p, tanda) {
+  return [
+    tanda || "", _pppS(p.tipo), String(p.np), _pppS(p.fecha), _pppS(p.cod), _pppS(p.razon_social),
+    (p.m3 == null || p.m3 === "" ? "" : Number(p.m3)), "", _pppS(p.direccion), _pppS(p.localidad),
+    "", _pppS(p.fecha_entrega), "", _pppS(p.zona), ""
+  ];
+}
+async function pppExportSugExcel() {
+  if (!_pppSugCache) { alert("Primero tocá 🪄 Sugerir tandas."); return; }
+  const s = _pppSugCache;
+  try {
+    pppSetStatus("Generando el Excel sugerido…");
+    const XLSX = await pppLoadXlsx();
+    const hoy = new Date(), p2 = function (n) { return String(n).padStart(2, "0"); };
+    const fechaTxt = p2(hoy.getDate()) + "/" + p2(hoy.getMonth() + 1) + "/" + hoy.getFullYear();
+    const aoa = [];
+    // Cabecera del documento: ya cuenta como 1º título de sección para pppEsPPPCompleta.
+    aoa.push(["Programacion Diaria — SUGERENCIA generada por la app el " + fechaTxt + " (PRUEBA)"]);
+    aoa.push([]);
+    const seccion = function (titulo, filas) {
+      aoa.push([titulo]);
+      aoa.push(_PPP_SUG_XLS_HEAD.slice());
+      filas.forEach(function (f) { aoa.push(f); });
+      aoa.push([]);
+    };
+    const normales = [], supers = [];
+    for (const t of s.tandas) {
+      const dest = t.sup ? supers : normales;
+      for (const p of t.pedidos) dest.push(_pppSugXlsFila(p, t.code));
+    }
+    // Las 3 secciones van SIEMPRE (aunque vayan vacías): son las que hacen que el
+    // importador reconozca el archivo como "PPP completa".
+    seccion("Programacion", normales);
+    seccion("Super Programados", supers);
+    seccion("Pedidos a Programar", (s.sinZona || []).map(function (p) { return _pppSugXlsFila(p, ""); }));
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wch: 8 }, { wch: 10 }, { wch: 11 }, { wch: 12 }, { wch: 8 }, { wch: 30 }, { wch: 8 }, { wch: 5 }, { wch: 28 }, { wch: 22 }, { wch: 5 }, { wch: 13 }, { wch: 11 }, { wch: 20 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Programacion Diaria");
+    const fname = "PPP_sugerencia_" + hoy.toISOString().slice(0, 10) + ".xlsx";
+    XLSX.writeFile(wb, fname);
+    const nPed = normales.length + supers.length;
+    pppSetStatus("✓ " + fname + ": " + s.tandas.length + " tanda(s) · " + nPed + " pedido(s)" +
+      ((s.sinZona && s.sinZona.length) ? " + " + s.sinZona.length + " sin zona (van a 'Pedidos a Programar')" : "") +
+      ". PRUEBA: V / Op / Fecha FC / Observaciones salen vacías.", true);
+  } catch (e) {
+    pppSetStatus("No pude generar el Excel sugerido: " + (e.message || e), false);
+  }
 }
 /* ===== Confirmar separación de tandas → Programación =====
    Pasa las tandas armadas (en "A Programar") a "Programación" asignándoles una Fecha de

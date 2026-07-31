@@ -4,7 +4,37 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-07-30 · Versión app al documentar: **v6.65**
+> Última actualización: 2026-07-31 · Versión app al documentar: **v6.66**
+>
+> Nota: **v6.66 — Sugerir tandas: botón "🧪 *PRUEBA* Exportar Excel sugerido"** (pedido del
+> usuario, primer paso concreto de la idea **6650 "PPP sin Excel"**). Contexto: hoy la app
+> **ya arma las tandas sola** (`_pppComputeSugerencia`) pero la sugerencia solo se
+> **imprime** (`pppPrintSug`) y la operadora la **tipea a mano en el Excel**, que después
+> vuelve a Supabase por el hook del Apps Script. Este botón —debajo de "📄 Exportar PDF",
+> dentro de la sugerencia inline (`pppSugerirInline`, la vista viva en modo
+> `PPP_READONLY`)— baja la **misma** sugerencia como **.xlsx** con el layout que entiende
+> el propio importador de la PPP, para poder probar el ida y vuelta sin tipear. **La carga
+> sigue siendo manual**: esto NO escribe en Supabase. Función nueva `pppExportSugExcel()`
+> (+ helpers `_PPP_SUG_XLS_HEAD` / `_pppSugXlsFila`, CSS `.ppp-sug-xls`), usa el SheetJS
+> que ya carga `pppLoadXlsx()`. **Formato** = el de "PPP completa" que lee
+> `pppLoadProgCompleta`: 15 columnas **por posición** (Tanda0 · Tipo1 · NP2 · FechaRecep3 ·
+> Cod4 · Razon5 · M3·6 · V7 · Direccion8 · Barrio9 · Op10 · FechaEntrega11 · FechaFc12 ·
+> Zona13 · Obs14) y **3 secciones** en la col A: `Programacion` (tandas normales),
+> `Super Programados` (súper), `Pedidos a Programar` (los que quedaron **sin zona**). Tres
+> detalles que hacen que el re-import lo reconozca: la hoja se llama **"Programacion
+> Diaria"** (`pppHandleFile` la busca por `/programaci/i`); el **encabezado del documento**
+> y `Programacion` van los dos **arriba de todo** porque `pppEsPPPCompleta` exige ≥2
+> títulos de sección en las **primeras 160 filas** (con +160 pedidos, títulos al final no
+> se contarían); y la fila de encabezado arranca con `Tanda`, que `pppLoadProgCompleta`
+> saltea sola. ⚠ **V / Op / Fecha FC / Observaciones salen VACÍAS** — la PPP no las lee de
+> Supabase, así que la app no las tiene (por eso dice *PRUEBA*); el `status` lo avisa.
+> Cambio de apoyo: **`_pppRowFromSupa` ahora expone `direccion`** aparte de `localidad`
+> (el render sigue usando `localidad`, pero el Excel necesita su columna). Test nuevo
+> **`tests/sug-xls.cjs`** (agregado a `tests/run.sh`): stubea SheetJS para capturar la
+> matriz y se la pasa a `pppEsPPPCompleta` + `pppLoadProgCompleta` — verifica que el
+> importador lo reconozca, que vuelvan los 5 pedidos con su tanda, que el encabezado no
+> entre como pedido, que los de `Programacion`/`Super` queden programados y que el sin-zona
+> vuelva sin tanda. Bump `APP_VERSION` + `SW_VERSION` `v6.66`.
 >
 > Nota: **idea 7382 — Saldo de insumos SEPARADO por unidad**. El saldo de insumos
 > (`vista_saldos_stock.insumos`) sumaba `delta` mezclando unidades heterogéneas (kg, Uni,
