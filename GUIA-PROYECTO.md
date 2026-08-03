@@ -3436,6 +3436,9 @@ de pedidos de un Google Sheet.
 | `twa-manifest.json` | Config de Bubblewrap para empaquetar la TWA (Play Store). |
 | `.well-known/assetlinks.json` | Plantilla de Digital Asset Links (verificación de la TWA). |
 | `PLAY-STORE.md` | Guía paso a paso para generar el `.aab` y publicar en Google Play. |
+| `docs/manual/index.html` | **Manual de uso** para la gente del depósito: cómo se usa la app paso a paso, separado en **operarios** (celular) y **administración** (PC), con capturas. Se publica solo con Pages: `…/Produccion-Virgilio/docs/manual/`. |
+| `docs/manual/img/` | Las capturas del manual. **No se sacan a mano**: las genera `tools/manual-shots.cjs`. |
+| `tools/manual-shots.cjs` | Generador de las capturas del manual (Playwright headless). Abre `index.html` sirviéndolo en `127.0.0.1:8899` (hace falta http: `recepcion.js` es un módulo ESM y no carga por `file://`), **corta toda la red** (Supabase → `[]`, y a `recepcion.js` le inyecta un stub ESM de supabase-js), siembra el estado mock en los mismos globals que usa la app (`_pk`, `_comp`, `_mg`, `_cc`, `_cr`, `_stk`…), llama a la función de render y saca el PNG. Correr `node tools/manual-shots.cjs` (o con filtro: `node tools/manual-shots.cjs picking`) **cuando cambie una pantalla** para que el manual no quede viejo. |
 
 ---
 
@@ -4059,3 +4062,7 @@ tanda — se guardan como par open/close y el motor descuenta el `close` (la dur
   versión del encabezado de esta guía.
 - Si se agrega una pantalla/pestaña (p. ej. la **hoja de inconsistencias**),
   documentarla en § 2 y sus reglas en § 12.
+- Si cambia una **pantalla que sale en el manual de uso** (`docs/manual/`),
+  regenerar las capturas con `node tools/manual-shots.cjs` y ajustar el texto del
+  paso si hace falta. El manual es lo que lee la gente del depósito: una captura
+  vieja confunde más que no tenerla.
