@@ -4,7 +4,21 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-08-03 · Versión app al documentar: **v6.90**
+> Última actualización: 2026-08-03 · Versión app al documentar: **v6.91**
+>
+> Nota: **v6.91 — Botón "⚠ Negativos" en el módulo de Stock**. Pedido del usuario: poder ver
+> de una los artículos con saldo negativo, que antes había que cazar columna por columna. Un
+> negativo es **físicamente imposible**: siempre es un error de carga o del pipeline (picking
+> que sacó lo que no había, doble descuento, ajuste con `ref` que no netea). El botón va junto
+> a *Pedidos por estadio / Movimientos de góndola / Historial* y muestra **el contador siempre**
+> (`⚠ Negativos (N)`), así el `0` también informa. Al tocarlo filtra la tabla a esos artículos
+> (`_stk.soloNeg` + `_stkNegBtn()` + `stkToggleNeg()`). Se mide sobre las **mismas 6 columnas**
+> que muestra la tabla (`SECTKEYS`; **insumos queda afuera**, tiene su propia sección), con
+> epsilon `−0.05` como el resto del módulo. Prenderlo **limpia la búsqueda de texto**: si no, la
+> intersección puede dar vacío y parece que no hay negativos cuando sí los hay. Vacío con el
+> filtro puesto dice "✅ No hay ningún saldo negativo" (no el "Sin stock todavía" genérico). Se
+> resetea al cambiar de solapa (`stkTab`). Smoke nuevo `tests/stk-negativos.cjs`. Suite OK.
+> Bump **v6.91**.
 >
 > Nota: **(server-side, sin bump) — La ETAPA 1 del pipeline corre YA al apretar TP** (idea
 > **9781** del usuario). Antes la baja góndola → *Pickeados* la escribía **sólo** el cron
