@@ -14,7 +14,8 @@ try { ({ chromium } = require("/opt/node22/lib/node_modules/playwright")); }
 catch (_e) { ({ chromium } = require("playwright")); }
 
 const ROOT = path.join(__dirname, "..");
-const OUT = path.join(ROOT, "docs", "manual", "img");
+const OUT = process.env.MANUAL_OUT || path.join(ROOT, "docs", "manual", "img");
+const SCALE = Number(process.env.MANUAL_SCALE || 2);   // 1 = versión liviana (para embeber)
 const only = process.argv.slice(2);
 
 const MOBILE = { width: 430, height: 900 };
@@ -391,7 +392,7 @@ function serve() {
   const errs = [];
   for (const s of shots) {
     if (only.length && !only.some((o) => s.name.includes(o))) continue;
-    const ctx = await b.newContext({ viewport: s.opts.viewport || MOBILE, deviceScaleFactor: 2 });
+    const ctx = await b.newContext({ viewport: s.opts.viewport || MOBILE, deviceScaleFactor: SCALE });
     const p = await ctx.newPage();
     p.on("pageerror", (e) => errs.push(s.name + ": " + e.message));
     // Nada de red: Supabase y cualquier host externo devuelven vacío.
