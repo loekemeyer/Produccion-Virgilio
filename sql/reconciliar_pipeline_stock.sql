@@ -108,6 +108,38 @@
 --    ahora incluye `etapa4=N`. Backlog: al aplicar la migración se corrió una vez a mano
 --    → drenó los 13 casos colgados (incluido el 534).
 --
+--  2026-08-03 — LA ETAPA 1 CORRE YA AL TP (idea 9781 del usuario).
+--    Problema: la baja góndola → Pickeados la escribía SOLO este cron (*/10), así que
+--    después del TP la góndola seguía mostrando cajas que ya no estaban hasta 10 min
+--    más (caso real: D01F, TP 11:38:09 → movimientos 11:40:00). No esperaba ningún
+--    dato — al TP la info ya está completa; era puro calendario.
+--    FIX (migración `pipeline_etapa1_al_tp_trigger`):
+--     (a) La ETAPA 1 se extrajo VERBATIM a `reconciliar_pipeline_stock_etapa1()`
+--         (returns int = filas insertadas). `reconciliar_pipeline_stock()` ahora la
+--         LLAMA (`n1 := ...`) en vez de tener su propia copia → una sola fuente del
+--         SQL, no puede driftar. Etapas 2/3/4 sin tocar.
+--     (b) Trigger `trg_tp_reconciliar_stock` AFTER INSERT ON Registros_Produccion_Virgilio
+--         FOR EACH ROW WHEN (new.opcion='TP' AND btrim(new.texto)<>'') →
+--         `trg_tp_reconciliar_etapa1()`, que hace `perform` de la etapa dentro de su
+--         PROPIO bloque de excepción: si falla NUNCA aborta el insert del TP (el
+--         operario no pierde el cierre) y el cron lo recupera en ≤10 min.
+--    Por qué SOLO la etapa 1: medido, E1=52 ms, E2=16 ms, E3=186 ms, E4≈20 ms. La 3 es
+--    la lenta (anti-join con OR sobre dos formas de `ref`, no usa índice) y no tiene
+--    nada que ver con el picking. Costo real del trigger: insert TP 3,2 ms → 59,1 ms.
+--    Por qué NO duplica: el índice único parcial `mov_stock_pipeline_dedup` (v5.76)
+--    mata la race a nivel DB. Verificado con tandas sintéticas y rollback: TP ×2 +
+--    cron después = 2 filas, no 6. Ojo, esto NO es el bug de v5.76: ahí el CLIENTE
+--    insertaba filas propias en paralelo al cron con un guard no atómico; acá el
+--    cliente no escribe nada y el único escritor sigue siendo el server.
+--    Por qué trigger y no RPC desde la app: no hace falta `grant execute` a `anon`, no
+--    hay que tocar index.html ni esperar el refresh del SW en los celulares, y funciona
+--    cuando el TP llega TARDE desde la cola offline — que es justo cuando un RPC del
+--    cliente no dispararía.
+--    ⚠ PENDIENTE (idea 8314): la ventana LARGA sigue abierta. Durante toda la tanda en
+--    curso la góndola miente igual, porque la ETAPA 1 exige TP. Falta mover la baja al
+--    PKC (ver notas de la 8314 sobre el dedup por ref=tanda, que hoy no soporta
+--    descuentos incrementales).
+--
 --  La definición viva de la función está en la migración homónima en Supabase.
 --  Este archivo es la documentación del diseño (convención de sql/).
 -- =====================================================================

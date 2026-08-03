@@ -4,7 +4,28 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-08-01 · Versión app al documentar: **v6.90**
+> Última actualización: 2026-08-03 · Versión app al documentar: **v6.90**
+>
+> Nota: **(server-side, sin bump) — La ETAPA 1 del pipeline corre YA al apretar TP** (idea
+> **9781** del usuario). Antes la baja góndola → *Pickeados* la escribía **sólo** el cron
+> `reconciliar-pipeline-stock` (jobid 22, `*/10`), así que después del TP la góndola seguía
+> mostrando cajas que ya no estaban **hasta 10 min más** (caso real: D01F, TP 11:38:09 →
+> movimientos 11:40:00). Eso no esperaba ningún dato: al TP la info ya está completa, era
+> puro calendario. **Fix** (migración `pipeline_etapa1_al_tp_trigger`): (1) la ETAPA 1 se
+> extrajo **verbatim** a `reconciliar_pipeline_stock_etapa1()` (returns int) y la función
+> grande ahora la **llama** — una sola copia del SQL, no se duplica; (2) trigger
+> `trg_tp_reconciliar_stock` `AFTER INSERT ... WHEN (new.opcion='TP' and texto<>'')` →
+> `trg_tp_reconciliar_etapa1()`, que hace `perform` de la etapa dentro de su **propio bloque
+> de excepción**: si algo falla **nunca aborta el TP del operario** y el cron lo recupera en
+> ≤10 min. Corre **sólo la ETAPA 1** (~56 ms medidos: insert TP 3,2 ms → 59,1 ms); las etapas
+> 2/3/4 siguen en el cron porque la 3 sola tarda ~186 ms (anti-join con `OR` sobre dos formas
+> de `ref`, sin índice) y no tiene nada que ver con el picking. **No duplica**: el índice único
+> parcial `mov_stock_pipeline_dedup` mata la race a nivel DB (verificado: TP ×2 + cron después
+> = 2 filas, no 6). **Sin cambio de cliente**, sin `grant` a `anon` (el trigger corre como
+> definer) → también funciona cuando el TP llega tarde desde la cola offline, que es donde un
+> RPC del cliente no serviría. ⚠ **Sigue abierta la ventana larga**: durante toda la tanda en
+> curso la góndola miente igual, porque la ETAPA 1 exige TP. Mover la baja al `PKC` es la idea
+> **8314**. Detalle en `sql/reconciliar_pipeline_stock.sql`.
 >
 > Nota: **v6.90 — El switch de etiquetas de lío pasa a ser GLOBAL, en el módulo de la operadora**.
 > Pedido del dueño: el switch va en el **Print Station** (módulo de la operadora, la PC al lado de
