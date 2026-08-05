@@ -4,7 +4,18 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-08-05 · Versión app al documentar: **v7.70**
+> Última actualización: 2026-08-05 · Versión app al documentar: **v7.71**
+>
+> Nota: **v7.71 — Guardar a Góndola ordenado por % lleno + máximo MCs**
+> (pedido del usuario, cierra la idea **4926**). Items ordenados automáticamente por % de llenado
+> = **`(stock - demanda_día) / proyección`** ascendente, para **guardar primero lo que corre
+> más riesgo** (los artículos que se están vaciando). Cada item muestra **"Máx X MC"** (máximo
+> número de **master cartons** que caben sin pasarse de la **capacidad máxima** de góndola):
+> `floor((capacidad_máxima - gondola_actual) / cajas_por_MC)`. Fuentes: `demanda_día` =
+> `ocgDemanda()`; `proyección` = `proyeccion_madre.proy_cajas_mes` (tabla); `capacidad_máxima` =
+> suma de `Capacidad_Sector.cajas_max` por código; `cajas_por_MC` = `Racks_Planimetria` (vía
+> `rkbFetchCxM`, como en Racks Bajar). Hint actualizado. CSS: new class `.mg-pct` (verde bold
+> para el máximo). Fetches resilientes (try-catch en Promise.all). Bump **v7.71**.
 >
 > Nota: **v7.70 — Aviso URGENTE por Telegram: faltó en el picking pero HABÍA stock en góndola**
 > (pedido del usuario). Nuevo evento **`FGU`**. Al **TERMINAR el picking** (`stockBajaPicking`, TP),
