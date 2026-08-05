@@ -61,8 +61,18 @@ catch (_e) {
     localStorage.clear();
     window.loadArtNombres = async function () { return {}; };
     window.stockFetchSaldos = async function () { return { "502": { cod: "502", desc: "X", a_guardar: 10, terminado: 0 } }; };
+    // v7.71: mock las nuevas fetches que ocgDemanda, rkbFetchCxM, proyeccion_madre, Capacidad_Sector
+    window.ocgDemanda = async function () { return {}; };
+    window.rkbFetchCxM = async function () { return { cxm: {}, locs: {} }; };
+    const origFetch = window.fetch;
+    window.fetch = async function (url) {
+      if (url.includes("proyeccion_madre") || url.includes("Capacidad_Sector")) {
+        return Promise.resolve({ ok: true, json: async function () { return []; } });
+      }
+      return origFetch.apply(this, arguments);
+    };
     showMGModal("77");
-    await new Promise(function (res) { setTimeout(res, 60); });
+    await new Promise(function (res) { setTimeout(res, 200); });  // más tiempo para las nuevas fetches async
     out.draftAntes = !!opDraftLoad("77");            // false: sin progreso todavía
     mgSet(0, 5);                                     // cargar 5 (dispara mgRender → auto-save)
     await new Promise(function (res) { setTimeout(res, 20); });
