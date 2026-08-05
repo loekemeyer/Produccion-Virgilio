@@ -4,7 +4,18 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-08-05 · Versión app al documentar: **v7.71**
+> Última actualización: 2026-08-05 · Versión app al documentar: **v7.72**
+>
+> Nota: **v7.72 — Completar Pedido: notificación cuando Guardar a Góndola completa un faltante**
+> (pedido del usuario, cierra idea **6497**). Cuando el MG confirma un guardado, se registran los
+> códigos guardados en un buffer de localStorage (_mgCompletedCodesBuffer). Si esa tanda ya tiene
+> **faltantes pendientes** (PKC events con `real < esp`), **se muestra una notificación en el CP**
+> (Paso 1/Faltantes) diciendo qué códigos fueron completados recientemente ("✓ Códigos completados
+> por Guardar a Góndola: 100 (5cj), 200 (3cj)"). Cartel azul con borde (`.comp-mg-aviso`). **Además
+> se envía una alerta Telegram** vía evento **`CPR`** (Completar Pedido Resuelto), que el trigger
+> **`trg_completar_pedido_telegram`** reenvía. El buffer se limpia 1h después o al consultar (para
+> no repetir notificaciones). Implementación: `mgRecordCompletedCodes()` + `mgGetCompletedForTanda()`
+> + `emitCompletarPedidoResuelto()`. Regresión `tests/cp-mg-completado.cjs`. Bump **v7.72**.
 >
 > Nota: **v7.71 — Guardar a Góndola ordenado por % lleno + máximo MCs**
 > (pedido del usuario, cierra la idea **4926**). Items ordenados automáticamente por % de llenado

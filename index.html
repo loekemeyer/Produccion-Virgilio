@@ -2300,6 +2300,12 @@ tr.ppp-err-zona > td{ background:#fffbeb !important; }
 .comp-okttl{ font-size:18px; font-weight:800; color:#15803d; }
 .comp-oksub{ font-size:13px; color:#64748b; margin-top:6px; }
 .comp-oksub b{ color:#1e6bd6; }
+/* v7.72: cartel de faltantes completados por MG */
+.comp-mg-aviso{ display:flex; gap:12px; background:#dbeafe; border-left:4px solid #0ea5e9; border-radius:8px; padding:12px 14px; margin-bottom:14px; align-items:flex-start; }
+.comp-mg-ico{ font-size:20px; flex:0 0 auto; }
+.comp-mg-txt{ flex:1; min-width:0; }
+.comp-mg-ttl{ font-size:13px; font-weight:800; color:#0369a1; margin-bottom:2px; }
+.comp-mg-cod{ font-size:12.5px; color:#0c4a6e; font-family:Consolas,Menlo,monospace; word-break:break-word; }
 .comp-info{ flex:1; min-width:0; }
 .comp-np{ font-weight:800; font-size:16px; color:#0f172a; }
 .comp-cli{ font-size:12.5px; color:#64748b; }
@@ -6054,7 +6060,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v7.71";
+const APP_VERSION = "v7.72";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -8405,6 +8411,8 @@ async function showCompletarWizard(legajo, codigo) {
     if (!nps.length) return;   // sin pedidos en el PPP → no abre (no rompe el TAP)
     let falt = []; try { falt = await faltantesDeTanda(tanda); } catch (_e) {}
     if (falt.length && enr) { try { await faltEnsureBase(enr, [tanda]); } catch (_e) {} }
+    // v7.72: chequear si algún código guardado recientemente resuelve un faltante
+    let completedByMg = []; try { completedByMg = await mgGetCompletedForTanda(tanda); } catch (_e) {}
     const arts = [];
     if (falt.length && pickBase) {
       for (const f of falt) {
@@ -8422,8 +8430,12 @@ async function showCompletarWizard(legajo, codigo) {
       }
     }
     const hayFalt = arts.some(a => a.nps.length);
-    _comp = { legajo: String(legajo || "").trim(), tanda: tanda, fecha: fecha, nps: nps, arts: arts, pedidoFull: pedidoFull, hayFalt: hayFalt, step: 1, pickUbic: _pickUbic, dirByNp: _dirByNp };
+    _comp = { legajo: String(legajo || "").trim(), tanda: tanda, fecha: fecha, nps: nps, arts: arts, pedidoFull: pedidoFull, hayFalt: hayFalt, step: 1, pickUbic: _pickUbic, dirByNp: _dirByNp, completedByMg: completedByMg };
     try { etlLoadGlobal(); } catch (_e) {}   // idea 5290: traer el ajuste GLOBAL de etiquetas de lío para este armado
+    // v7.72: si hay códigos completados por MG, enviar alerta y mostrar cartel
+    if (completedByMg && completedByMg.length) {
+      try { emitCompletarPedidoResuelto(tanda, completedByMg); } catch (_e) {}
+    }
     const t = document.getElementById("compTanda"); if (t) t.textContent = "Tanda " + tanda + (nps[0] && nps[0].rs ? " · " + nps[0].rs : "");
     const d2 = document.getElementById("compD2"), ln = document.getElementById("compLine");
     if (d2) d2.style.display = "";   // Paso 2 = Líos: siempre presente
@@ -9005,7 +9017,13 @@ function _compDifHtml() {
 }
 function _compRenderFalt() {
   const el = document.getElementById("compStep1"); if (!el || !_comp) return;
-  if (!_comp.hayFalt) { el.innerHTML = '<div class="comp-okempty"><div class="comp-okemoji">👍</div><div class="comp-okttl">Sin faltantes en esta tanda</div><div class="comp-oksub">Está todo. Tocá <b>Separar →</b> para seguir.</div></div>'; return; }
+  // v7.72: cartel de faltantes resueltos por MG
+  let mgCartel = "";
+  if (_comp.completedByMg && _comp.completedByMg.length) {
+    const mgCodesStr = _comp.completedByMg.map(function (c) { return c.cod + " (" + (c.cargar + c.exc) + "cj)"; }).join(", ");
+    mgCartel = '<div class="comp-mg-aviso"><div class="comp-mg-ico">✓</div><div class="comp-mg-txt"><div class="comp-mg-ttl">Códigos completados por Guardar a Góndola:</div><div class="comp-mg-cod">' + escapeHtml(mgCodesStr) + '</div></div></div>';
+  }
+  if (!_comp.hayFalt) { el.innerHTML = mgCartel + '<div class="comp-okempty"><div class="comp-okemoji">👍</div><div class="comp-okttl">Sin faltantes en esta tanda</div><div class="comp-oksub">Está todo. Tocá <b>Separar →</b> para seguir.</div></div>'; return; }
   const cargo = (_compMode === "cargo");
   const toggle = '<button type="button" class="comp-mode-toggle" onclick="_compToggleMode()">Anotás lo que <b>' + (cargo ? "CARGÓ" : "FALTÓ") + '</b> · tocá para cambiar a lo que ' + (cargo ? "faltó" : "cargó") + '</button>';
   el.innerHTML = '<div class="comp-step-t">' + (cargo ? '¿Cuántas cajas CARGÓ a cada pedido?' : '¿Cuántas cajas FALTARON por pedido?') + '</div>' + toggle +
@@ -14926,6 +14944,8 @@ function mgConfirmar() {
   const nE = sel.reduce(function (s, it) { return s + (it.exc || 0); }, 0);
   const _tsIni = _mg.tsInicio, _leg = _mg.legajo;   // capturar ANTES de cerrar (closeMG anula _mg)
   try { opDraftClear(_mg && _mg.legajo); } catch (_e) {}
+  // v7.72: guardar códigos completados en buffer para CP (Completar Pedido)
+  try { mgRecordCompletedCodes(sel); } catch (_e) {}
   closeMG();
   stockMove(rows);
   try { emitGuardadoSesion(nG + nE, _tsIni, _leg); } catch (_e) {}   // ratio de guardado (se autonutre)
@@ -15004,6 +15024,64 @@ function mgEmitFueraLista(cod, g, e, legajo) {
 function closeMG() { const ov = document.getElementById("mgModal"); if (ov) ov.classList.remove("show"); _mg = null; }
 function mgHasProgress() { return !!(_mg && _mg.items && _mg.items.some(function (it) { return (it.cargar > 0) || (it.exc > 0); })); }
 function mgAskClose() { opAskClose(mgHasProgress(), "MG", _mg && _mg.legajo, "Guardar a góndola", _mg, closeMG); }
+
+/* v7.72 — Completar Pedido notifications: cuando MG guarda códigos, se almacenan
+   en un buffer en localStorage. Cuando CP abre para una tanda, chequea si alguno
+   de los códigos guardados recientemente resuelve un faltante. Si sí, muestra un
+   cartel y envía Telegram. */
+function mgRecordCompletedCodes(items) {
+  try {
+    const buf = JSON.parse(localStorage.getItem("_mgCompletedCodesBuffer") || "[]");
+    const now = Date.now();
+    items.forEach(function (it) {
+      if ((it.cargar > 0) || (it.exc > 0)) {
+        buf.push({
+          cod: String(it.cod || "").toUpperCase(),
+          cargar: Number(it.cargar) || 0,
+          exc: Number(it.exc) || 0,
+          ts: now
+        });
+      }
+    });
+    // Limpiar buffer viejo: más de 1 hora
+    const oldBuf = buf.filter(function (x) { return (now - (x.ts || 0)) < 3600000; });
+    localStorage.setItem("_mgCompletedCodesBuffer", JSON.stringify(oldBuf));
+  } catch (_e) {}
+}
+/* Obtener códigos guardados recientemente que puedan resolver faltantes en una tanda.
+   Devuelve un array de {cod, cargar, exc} que coinciden con faltantes de la tanda. */
+async function mgGetCompletedForTanda(tanda) {
+  try {
+    const buf = JSON.parse(localStorage.getItem("_mgCompletedCodesBuffer") || "[]");
+    if (!buf.length) return [];
+    const falt = await faltantesDeTanda(tanda);
+    if (!falt.length) return [];
+    const result = [];
+    buf.forEach(function (b) {
+      const match = falt.find(function (f) { return _compMatchArt(b.cod, f.art); });
+      if (match) result.push({ cod: b.cod, cargar: b.cargar, exc: b.exc, faltante: match });
+    });
+    // Limpiar buffer después de consultar (evitar alertas repetidas)
+    localStorage.removeItem("_mgCompletedCodesBuffer");
+    return result;
+  } catch (_e) { return []; }
+}
+/* Emitir alerta Telegram de faltante resuelto por MG. */
+function emitCompletarPedidoResuelto(tanda, completedCodes) {
+  try {
+    if (!tanda || !completedCodes || !completedCodes.length) return;
+    const codesStr = completedCodes.map(function (c) { return c.cod + "(" + (c.cargar + c.exc) + "cj)"; }).join(", ");
+    const payload = {
+      legajo: "", opcion: "CPR", descripcion: "Completar Pedido: faltante resuelto por MG",
+      texto: String(tanda).toUpperCase() + "|" + codesStr,
+      ts: Date.now(),
+      id: ("cpr_" + String(tanda).toUpperCase() + "_" + Date.now()).replace(/[^a-zA-Z0-9_\-]/g, ""),
+      ts_inicio_iso: null
+    };
+    enqueueReport(payload);
+    if (typeof trySendOneReport === "function") trySendOneReport(payload).then(function (r) { if (r && r.ok) removeFromQueue(payload.id); }).catch(function () {});
+  } catch (_e) {}
+}
 
 /* ===== Bajar EXCEDENTE a góndola (v6.10, operario). El excedente son cajas que NO
    entraron cuando la góndola estaba llena (se guardaron "arriba" con su ubicación en el
