@@ -4,7 +4,12 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-08-05 · Versión app al documentar: **v7.70**
+> Última actualización: 2026-08-05 · Versión app al documentar: **v7.71**
+>
+> Nota: **v7.71 — Recodificación de insumos plásticos a códigos numéricos** (pedido del usuario).
+> 8 códigos alfabéticos → numéricos: AI→1135, ABS→2455, PE→2435, PP→2405, PS→2425, NV→2475,
+> NR→2505, N25→2485. Nuevo insumo 1445 (EVA BRASKEM PN 2021). EBA se deja con código original
+> (no incluido en mapeo). Movimientos_Stock actualizados. Bump **v7.71**.
 >
 > Nota: **v7.70 — Aviso URGENTE por Telegram: faltó en el picking pero HABÍA stock en góndola**
 > (pedido del usuario). Nuevo evento **`FGU`**. Al **TERMINAR el picking** (`stockBajaPicking`, TP),
