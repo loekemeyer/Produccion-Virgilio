@@ -7,3 +7,4 @@ app-release-signing.keystore
 *.apk
 android-twa/
 node_modules/
+.claude/caveman-enabled
