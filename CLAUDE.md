@@ -4,6 +4,19 @@ App web (PWA, sin framework) para registrar producción de depósito (picking,
 armado, carga de camión, recepción). La usan operarios desde el celular y
 supervisores desde un monitor. Se sirve por GitHub Pages desde `main`.
 
+## Configuraciones y comandos especiales
+
+**Estado central:** `config-claude.json` — toggles y comandos que afectan CUALQUIER chat.
+
+### Modos
+
+- **caveman**: Responde sin artículos, sin fluff, directo. Comandos: "activa caveman" / "desactiva caveman"
+- **tablas_compactas**: Tablas con separación mínima, headers en doble fila si hace falta, nombres abreviados, optimiza anchura. Siempre activo.
+
+### Comandos especiales
+
+- **resumen del día**: Reporte del trabajo de hoy en bullet points. Estilo ejecutivo. Include: completadas, en progreso, bloqueados, próximos pasos.
+
 ## ⚠ Antes de responder preguntas sobre datos o funcionamiento
 
 **Leé `GUIA-PROYECTO.md`** (en la raíz del repo). Es la guía viva del proyecto:
