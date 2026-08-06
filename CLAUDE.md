@@ -10,7 +10,10 @@ supervisores desde un monitor. Se sirve por GitHub Pages desde `main`.
 
 ### Modos
 
-- **caveman**: Responde sin artículos, sin fluff, directo. Comandos: "activa caveman" / "desactiva caveman"
+- **caveman**: Responde sin artículos, sin fluff, directo. 
+  - Activar: "activa caveman" → ejecuta `./scripts/caveman-toggle.sh activa`
+  - Desactivar: "desactiva caveman" → ejecuta `./scripts/caveman-toggle.sh desactiva`
+  - Estado guardado en `caveman-state.json` y `config-claude.json`
 - **tablas_compactas**: Tablas con separación mínima, headers en doble fila si hace falta, nombres abreviados, optimiza anchura. Siempre activo.
 
 ### Comandos especiales
