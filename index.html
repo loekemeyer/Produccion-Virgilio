@@ -10361,7 +10361,10 @@ function ocgGroups() {
 function ocBodyGen() {
   const gen = _oc.gen;
   const g = (gen && !gen.error) ? ocgGroups() : {};
-  const keys = Object.keys(g).sort(function (a, b) { return a.localeCompare(b); });
+  let keys = Object.keys(g).sort(function (a, b) { return a.localeCompare(b); });
+  // v7.81: "(sin proveedor)" al final de la lista (no al principio)
+  keys = keys.filter(function (k) { return k !== "(sin proveedor)"; });
+  if (g["(sin proveedor)"]) keys.push("(sin proveedor)");
   // v7.66: botón grande "Generar las OCs" arriba, a la altura del ← Volver (pedido del usuario).
   const genBtn = keys.length ? '<button class="oc-btn ok" style="font-size:15px;padding:8px 20px;font-weight:800;line-height:1.2;text-align:center" onclick="ocgGenerar()">✓ Generar las OCs<br><span id="ocgCountdown" style="font-size:10.5px;font-weight:600;opacity:.9">' + escapeHtml(_ocgAutoEnTxt()) + '</span></button>' : '';
   let h = '<div class="oc-tools"><button class="oc-btn" onclick="ocBack()">← Volver</button>' + genBtn + '<button class="oc-btn" onclick="ocgEnterCfg()">⚙ Configuraciones</button></div>';
