@@ -23332,6 +23332,49 @@ function monitorLegajoTag(legajo, state) {
   return `<span class="monitor-legajo" title="${escapeHtml(title)}">${escapeHtml(display)}</span>`;
 }
 
+/* idea 2865: duración "en curso" de un EP/AP abierto, horario-laboral-aware (no reloj de pared).
+   Antes: Date.now()-startTs crudo → una tanda abierta el viernes a la tarde marcaba ~66h el lunes
+   (contaba las dos noches y el fin de semana entero como tiempo trabajado). Ahora: dentro del
+   mismo día se sigue calculando igual (diferencia directa), pero si cruza uno o más días sólo
+   cuenta las horas dentro de horaEntrada-horaSalida de cada operario (getEmpleadosHorarios,
+   fallback 08-17) y saltea sábado/domingo/feriados (FERIADOS_AR) para los días intermedios y
+   para "hoy" — mismo criterio que computeClosureDur() ya usa para tandas YA cerradas (línea
+   ~18433), pero simplificado para un cierre que todavía no pasó (sin fichada real del día, sin
+   FJ real del día de apertura). Límite conocido: si se trabajó un fin de semana excepcionalmente
+   (caso real reportado: sábado hasta las 14h) el badge en vivo lo sigue salteando — no hay forma
+   barata de saber que hubo actividad real ese día sin otro fetch; se corrige solo cuando la
+   tanda cierra y computeClosureDur puede usar la fichada real de ese día. */
+function businessDurSinceMs(startMs, legajo) {
+  const nowMs = Date.now();
+  if (!(nowMs > startMs)) return 0;
+  const dayOpen = isoToDayKey(startMs), dayNow = isoToDayKey(nowMs);
+  if (dayOpen === dayNow) return nowMs - startMs;
+  const hmap = (typeof getEmpleadosHorarios === "function") ? getEmpleadosHorarios() : null;
+  const h = (hmap && hmap.get) ? (hmap.get(String(legajo)) || {}) : {};
+  const _he = parseHHMMtoHours(h.entrada); const horaEntrada = (_he == null) ? 8 : _he;
+  const _hs = parseHHMMtoHours(h.salida);  const horaSalida  = (_hs == null) ? 17 : _hs;
+  const workH = Math.max(0, horaSalida - horaEntrada);
+  const tsOfHourOnDay = function (dayKey, hours) {
+    const hh = Math.floor(hours), mm = Math.floor((hours - hh) * 60), ss = Math.round((hours - hh - mm / 60) * 3600);
+    return new Date(dayKey + "T" + String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0") + ":" + String(ss).padStart(2, "0") + "-03:00").getTime();
+  };
+  const isOff = function (dayKey) {
+    const wd = new Date(dayKey + "T00:00:00-03:00").getUTCDay();
+    return wd === 0 || wd === 6 || FERIADOS_AR.has(dayKey);
+  };
+  const openPortion = Math.max(0, tsOfHourOnDay(dayOpen, horaSalida) - startMs);
+  const closeStartMs = Math.max(tsOfHourOnDay(dayNow, horaEntrada), startMs);
+  const closePortion = isOff(dayNow) ? 0 : Math.max(0, nowMs - closeStartMs);
+  const dStart = new Date(dayOpen + "T00:00:00-03:00").getTime();
+  const dEnd = new Date(dayNow + "T00:00:00-03:00").getTime();
+  let intermediateDays = 0;
+  for (let dm = dStart + 24 * 3600 * 1000; dm < dEnd - 1000; dm += 24 * 3600 * 1000) {
+    const dKey = new Date(dm).toISOString().slice(0, 10);
+    if (isOff(dKey)) continue;
+    intermediateDays++;
+  }
+  return openPortion + intermediateDays * workH * 3600 * 1000 + closePortion;
+}
 /* Celda de Picking / Pedido Separado: icono centrado en la columna + iniciales
    del operario que la empezó. Clickeable: abre el popup con los eventos de
    esa tanda de ese lado (EP/TP para picking, AP/TAP para separado). */
@@ -23342,7 +23385,8 @@ function statusCell(state, legajo, tanda, kind, startTs) {
   // idea 4283: si está EN CURSO (EP/AP abierto sin cerrar), mostrar hace cuánto — ámbar >1h, rojo >2h.
   let dur = "";
   if (state === "curso" && startTs) {
-    const min = Math.round((Date.now() - new Date(startTs).getTime()) / 60000);
+    const durMs = (typeof businessDurSinceMs === "function") ? businessDurSinceMs(new Date(startTs).getTime(), legajo) : (Date.now() - new Date(startTs).getTime());
+    const min = Math.round(durMs / 60000);
     if (min >= 0) {
       const txt = min >= 60 ? (Math.floor(min / 60) + "h" + String(min % 60).padStart(2, "0")) : (min + "m");
       const col = min >= 120 ? "#dc2626" : (min >= 60 ? "#d97706" : "#64748b");
