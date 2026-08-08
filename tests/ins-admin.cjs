@@ -306,6 +306,10 @@ catch (_e) {
     const tot2 = document.querySelectorAll("#stkBody table"); const totAfter = tot2[tot2.length - 1];
     out.totalEditAbreInputs = !!totAfter.querySelector("tbody input#edQty_5");
     out.totalEditAbreGuardar = !!totAfter.querySelector("tbody button") && /Guardar/.test(totAfter.innerHTML);
+    // idea 8628: los botones Guardar/Cancelar de la fila en edición van en un contenedor
+    // nowrap (no se apilan en 2 líneas y agrandan la fila en mobile).
+    const _accCell5 = totAfter.querySelector("tbody input#edQty_5") ? totAfter.querySelector("tbody input#edQty_5").closest("tr").querySelector("td:last-child") : null;
+    out.totalEditBtnsNowrap = !!_accCell5 && /white-space:\s*nowrap/.test(_accCell5.innerHTML) && _accCell5.querySelectorAll("button").length === 2;
     // Cancelar vuelve al modo lectura
     const btnCancel = Array.prototype.filter.call(totAfter.querySelectorAll("tbody button"), function (b) { return b.textContent === "Cancelar"; })[0];
     if (btnCancel) btnCancel.click();
@@ -405,7 +409,7 @@ catch (_e) {
     r.histOrdenado === true && r.histFiltraCat === true &&
     r.hayTablaTotal === true && /Código\|Detalle\|Categoría\|Rack \/ sector\|Cantidad\|Unidad/.test(r.totalCols || "") &&
     r.totalTieneEditar === true && r.totalSinEditarInline === true &&
-    r.totalEditAbreInputs === true && r.totalEditAbreGuardar === true && r.totalEditCancela === true &&
+    r.totalEditAbreInputs === true && r.totalEditAbreGuardar === true && r.totalEditBtnsNowrap === true && r.totalEditCancela === true &&
     r.totalGuardaPostea === true && r.totalGuardaDelta === 666 && r.totalGuardaUni === "Kg" && r.totalGuardaCod === "5" &&
     r.totalHayFiltros === true && r.totalFiltraCod === 1 &&
     r.totalFiltraSinCat >= 1 && r.totalSeActualiza === true && r.uniProhibidaBloquea === true &&

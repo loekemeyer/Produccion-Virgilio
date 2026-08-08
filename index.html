@@ -13197,8 +13197,9 @@ function _stkInsListado(k, items) {
         '<td><input class="stk-inp" id="edUbi_' + escapeHtml(it.cod) + '" value="' + escapeHtml(it.ubic) + '" style="width:80px;"></td>' +
         '<td><input class="stk-inp" id="edQty_' + escapeHtml(it.cod) + '" type="number" step="any" value="' + escapeHtml(u.saldo) + '" style="width:82px;"></td>' +
         '<td>' + _stkInsUniSel("edUni_" + it.cod, _stkInsUniMostrar(it)) + '</td>' +
-        '<td><button class="stk-btn" onclick="stkInsGuardar(\'' + escapeHtml(it.cod) + '\')">✓ Guardar</button> ' +
-        '<button class="stk-btn stk-btn-x" onclick="stkInsEdit(null)">Cancelar</button></td></tr>';
+        '<td><div style="display:flex;gap:6px;flex-wrap:nowrap;white-space:nowrap;">' +
+        '<button class="stk-btn" style="white-space:nowrap;" onclick="stkInsGuardar(\'' + escapeHtml(it.cod) + '\')">✓ Guardar</button>' +
+        '<button class="stk-btn stk-btn-x" style="white-space:nowrap;" onclick="stkInsEdit(null)">Cancelar</button></div></td></tr>';
     }).join("");
     h += '</tbody></table></div>';
   }
@@ -13280,8 +13281,9 @@ function _stkInsTodos(items) {
         '<td><input class="stk-inp" id="edUbi_' + escapeHtml(it.cod) + '" value="' + escapeHtml(it.ubic) + '" style="width:80px;"></td>' +
         '<td><input class="stk-inp" id="edQty_' + escapeHtml(it.cod) + '" type="number" step="any" value="' + escapeHtml(u.saldo) + '" style="width:82px;"></td>' +
         '<td>' + _stkInsUniSel("edUni_" + it.cod, _stkInsUniMostrar(it)) + '</td>' +
-        '<td><button class="stk-btn" onclick="stkInsGuardar(\'' + escapeHtml(it.cod) + '\')">✓ Guardar</button> ' +
-        '<button class="stk-btn stk-btn-x" onclick="stkInsEdit(null)">Cancelar</button></td></tr>';
+        '<td><div style="display:flex;gap:6px;flex-wrap:nowrap;white-space:nowrap;">' +
+        '<button class="stk-btn" style="white-space:nowrap;" onclick="stkInsGuardar(\'' + escapeHtml(it.cod) + '\')">✓ Guardar</button>' +
+        '<button class="stk-btn stk-btn-x" style="white-space:nowrap;" onclick="stkInsEdit(null)">Cancelar</button></div></td></tr>';
     }
     var xs = (it.xuni || []).filter(function (u) { return Math.abs(u.saldo) > 0.0005; });
     var neg = function (x) { return x < 0 ? ' style="color:#b91c1c;font-weight:800;"' : ""; };
