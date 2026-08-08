@@ -8984,6 +8984,15 @@ function _compDifResolve(tipo, gond) {
   // por encima). Si la góndola ya está en 0 o + → no se toca. Sin dato de saldo → no se toca.
   // "Sí, agarro de góndola" NO descuenta (ya lo descontó el picking). "De más" (sobra): nada.
   if (tipo === "menos" && gond === "no" && typeof stockMove === "function") {
+    // idea 1569: el picking ya había movido `c.sale` cajas a separar_pedidos (Pickeados),
+    // pero en la mesa sólo hay `real` (= c.sale - qty). Las `qty` que "faltan" nunca salieron
+    // realmente de góndola (por eso acá abajo "no hay en góndola" para completar) — son fantasma
+    // en separar_pedidos y hay que descontarlas, si no la ETAPA 2 del cron las arrastra hasta
+    // a_facturar como si de verdad se hubieran armado. ref=tanda (no "picking_difiere") para que
+    // la ETAPA 2 la agrupe con el resto de los movimientos de esa tanda. client_id determinístico
+    // (no _stockClientId() al azar) para que un doble toque del mismo caso no descuente dos veces.
+    const dedupId = "npd_" + _comp.tanda + "_" + n.np + "_" + c.cod + "_" + tipo + "_" + gond + "_" + qty;
+    try { stockMove([{ cod_art: c.cod, descripcion: "", deposito: "separar_pedidos", delta: -qty, tipo: "ajuste", ref: _comp.tanda, legajo: _comp.legajo, client_id: dedupId }]); } catch (_e) {}
     (async function () {
       let ret = 0;
       try { const sal = await _stkGondolaSaldoVivo(c.cod); if (sal != null && sal < 0) ret = Math.min(qty, -sal); } catch (_e) { ret = 0; }
