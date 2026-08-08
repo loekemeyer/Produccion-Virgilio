@@ -61,6 +61,9 @@ catch (_e) {
     localStorage.clear();
     window.loadArtNombres = async function () { return {}; };
     window.stockFetchSaldos = async function () { return { "502": { cod: "502", desc: "X", a_guardar: 10, terminado: 0 } }; };
+    window.ocgDemanda = async function () { return {}; };            // idea 4926: prioridad (sin capacidad/demanda acá)
+    window.rkbFetchCxM = async function () { return { cxm: {}, locs: {} }; };
+    window.fetch = function () { return Promise.resolve({ ok: true, json: function () { return Promise.resolve([]); } }); };
     showMGModal("77");
     await new Promise(function (res) { setTimeout(res, 60); });
     out.draftAntes = !!opDraftLoad("77");            // false: sin progreso todavía

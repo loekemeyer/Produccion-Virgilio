@@ -162,4 +162,7 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== comp-terminar-unificado (v7.75: botón 'Terminar' emite TAP + mueve stock — sin TAP/TP sueltos) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/comp-terminar-unificado.cjs
 
+echo "== mg-prioridad (idea 4926: Guardar a góndola ordenado por prioridad + máximo de MCs sin rebalsar) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/mg-prioridad.cjs
+
 echo "== TODO OK =="
