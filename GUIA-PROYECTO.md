@@ -1044,12 +1044,17 @@
 > cada fila muestra descripción, **📍 sector** de planimetría y dónde está lo que falta.
 > ⚠ **"Stock REAL al momento del chequeo"** (lo pidió explícito el usuario): la lectura es
 > siempre **fresca** (`cache:"no-store"`, sin cachés del front) **y** se corrige el desfasaje
-> conocido del pipeline — la baja de góndola del picking la escribe el cron
-> `reconciliar_pipeline_stock` (jobid 22, cada 10') y **recién cuando la tanda mandó TP**, así
-> que lo que un operario está sacando de la góndola AHORA (picking en curso, o TP de hace
-> <10 min) **todavía figura en el saldo**. El chequeo resta los **PKC de las tandas que aún no
+> conocido del pipeline — la baja de góndola del picking **recién se escribía cuando la tanda
+> mandó TP**, así que lo que un operario estaba sacando de la góndola AHORA (picking en curso)
+> todavía figuraba en el saldo. ⚠ **Corrección (2026-08-08):** desde el trigger
+> `trg_tp_reconciliar_stock` (AFTER INSERT en `Registros_Produccion_Virgilio` cuando
+> `opcion='TP'`, ejecuta `reconciliar_pipeline_stock_etapa1()` al toque) la ETAPA 1 del pipeline
+> ya **no espera al cron `reconciliar_pipeline_stock` (jobid 22, cada 10')** — corre apenas se
+> guarda el TP. El hueco de **"TP reciente, cron todavía no corrió (hasta 10')"** que este párrafo
+> documentaba está **cerrado**; sigue existiendo, sin cambios, el caso del **picking en curso sin
+> TP todavía**, que es justo lo que el chequeo resta a mano: los **PKC de las tandas que aún no
 > tienen movimiento `picking` escrito** (excedente primero y después góndola, **igual reparto
-> que el cron**) y lo **avisa** en el modal ("⏳ Descontado del saldo el picking de N tanda(s)…").
+> que el cron**), avisándolo en el modal ("⏳ Descontado del saldo el picking de N tanda(s)…").
 > Además, si la tanda ya se pickeó / se está pickeando, lo dice. **Códigos:** `equivResolve`
 > (029→437E) + `pkCodEmpresa` (437E→`437E CH` según la NP) igual que el picking; si el código
 > queda **pelado** se suma **toda la familia LK/CH** (mismo criterio que el SSG v7.04 — es la
