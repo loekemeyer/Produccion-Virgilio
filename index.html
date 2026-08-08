@@ -11811,8 +11811,9 @@ function stkBodyStocks() {
         else if (c.key === "racks_ch") _clk = "stkOpenMovsArt('" + _ce + "','racks_ch','Racks CH','🗄️')";           // v7.03
       }
       if (_clk) {
-        const _zero = v <= 0.05;   // saldo 0 con historial → gris + tooltip distinto
-        tds += '<td class="num stk-pick-cell' + (_zero ? " stk-hist0" : "") + '" onclick="event.stopPropagation();' + _clk + '" title="' + (_zero ? "Saldo 0 ahora, pero tuvo movimientos — ver el historial" : "Ver detalle (NPs / ubicación)") + '">' + (c.key === "terminado" ? '<b>' + fmtCajas(v) + '</b>' : fmtCajas(v)) + '</td>';
+        const _neg = v < -0.05;   // v7.87: negativo real → alerta roja, no "saldo 0"
+        const _zero = !_neg && v <= 0.05;   // saldo 0 con historial → gris + tooltip distinto
+        tds += '<td class="num stk-pick-cell' + (_neg ? " stk-neg" : (_zero ? " stk-hist0" : "")) + '" onclick="event.stopPropagation();' + _clk + '" title="' + (_neg ? "Saldo negativo — revisar movimientos" : (_zero ? "Saldo 0 ahora, pero tuvo movimientos — ver el historial" : "Ver detalle (NPs / ubicación)")) + '">' + (c.key === "terminado" ? '<b>' + fmtCajas(v) + '</b>' : fmtCajas(v)) + '</td>';
       } else {
         tds += '<td class="num ' + (v < 0 ? "stk-neg" : "") + '">' + (c.key === "terminado" ? '<b>' + fmtCajas(v) + '</b>' : fmtCajas(v)) + '</td>';
       }
