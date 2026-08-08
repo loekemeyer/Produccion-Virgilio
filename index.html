@@ -3696,6 +3696,7 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
   <div class="row row-6 row-sec" id="row4"></div>
   <div class="row row-6 row-sec" id="row5"></div>
   <div id="racksAlarma"></div>
+  <div id="clockSkewBanner"></div>
   <div id="pendingSuggestion"></div>
 
   <div id="selectedArea" class="hidden">
@@ -5896,6 +5897,39 @@ function removeFromQueue(id) {
   updatePendingIndicator();
 }
 
+/* v7.87 — idea 9782: detectar reloj del celular desincronizado (clock skew) antes de
+   que corrompa horas. Aprovecha el header "Date" que Supabase devuelve en cada
+   respuesta (éxito o error) para comparar el reloj del dispositivo contra el del
+   servidor, sin pedir ningún permiso ni endpoint extra. Si difieren más del umbral,
+   banner dismissible en #optionsScreen (una vez por sesión; se recalcula si el
+   siguiente envío muestra que el desfasaje sigue). */
+let _clockSkewMs = null;
+let _clockSkewDismissed = false;
+const CLOCK_SKEW_THRESHOLD_MS = 5 * 60 * 1000;   // 5 minutos
+
+function _checkClockSkew(res) {
+  try {
+    if (!res || !res.headers || typeof res.headers.get !== "function") return;
+    const h = res.headers.get("date");
+    if (!h) return;
+    const serverMs = new Date(h).getTime();
+    if (!serverMs || isNaN(serverMs)) return;
+    _clockSkewMs = Date.now() - serverMs;
+    renderClockSkewBanner();
+  } catch (_e) { /* no-op */ }
+}
+function dismissClockSkewBanner() { _clockSkewDismissed = true; renderClockSkewBanner(); }
+function renderClockSkewBanner() {
+  const box = document.getElementById("clockSkewBanner");
+  if (!box) return;
+  if (_clockSkewDismissed || _clockSkewMs === null || Math.abs(_clockSkewMs) < CLOCK_SKEW_THRESHOLD_MS) { box.innerHTML = ""; return; }
+  const mins = Math.round(Math.abs(_clockSkewMs) / 60000);
+  const dir = _clockSkewMs > 0 ? "adelantado" : "atrasado";
+  box.innerHTML = '<div style="background:#fef2f2;border:2px solid #dc2626;color:#991b1b;border-radius:11px;padding:10px 12px;margin:8px 0;font-size:13.5px;font-weight:600;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+    '<span>🕐 El reloj de este celular está <b>' + dir + ' ~' + mins + ' min</b> respecto al servidor. Puede hacer que tus horarios queden mal registrados — avisá a un supervisor.</span>' +
+    '<button onclick="dismissClockSkewBanner()" style="background:none;border:none;color:#991b1b;font-weight:800;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button></div>';
+}
+
 /* Intenta enviar UN payload a Supabase.
    Devuelve { ok, networkFail, status }:
      - ok=true            -> aceptado (201 ó 409 dedup)
@@ -5946,6 +5980,7 @@ async function trySendOneReport(payload, timeoutMs) {
     });
     clearTimeout(t);
     if (!res) return { ok: false, networkFail: true };
+    _checkClockSkew(res);   // v7.87 — idea 9782: reloj del celular desincronizado
     // 201 Created = ok. 409 Conflict = ya existía (reintento exitoso).
     if (res.ok || res.status === 409) return { ok: true, status: res.status };
     // Server respondió pero rechazó. No reintentar al toque.
