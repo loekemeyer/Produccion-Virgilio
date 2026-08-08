@@ -16043,6 +16043,25 @@ async function cpSendTelegramAlert(artCod, saldoRacks, saldoGondola) {
     });
   } catch (_e) {}
 }
+/* idea 6497 — Alerta Telegram cuando Completar Pedido retira de Góndola con saldo 0
+   (queda negativa "de la nada"). Mismo patrón/canal que cpSendTelegramAlert (racks→góndola). */
+async function cpSendTelegramGondolaVacia(artCod, np, qty, legajo) {
+  try {
+    const msg = "⚠️ *COMPLETAR PEDIDO retira de GÓNDOLA VACÍA*\n" +
+      "Artículo: `" + String(artCod) + "`\n" +
+      "NP: " + String(np) + " · " + Math.round(qty) + " caja(s)\n" +
+      "Góndola estaba en 0 antes de este retiro → queda negativa.\n" +
+      "Legajo: " + String(legajo || "-") +
+      "\n_Revisar: puede haber otro pedido que necesite esas cajas._";
+    const CHAT_ID = "-1002231959863";
+    const url = SUPABASE_URL + "/rest/v1/telegram_outbox";
+    const body = {
+      chat_id: CHAT_ID, text: msg, parse_mode: "Markdown", status: "pending",
+      dedup_key: "cp_gondola0_" + String(np).trim() + "_" + String(artCod).trim() + "_" + cpTodayAR()
+    };
+    await fetch(url, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store" });
+  } catch (_e) {}
+}
 /* v6.18 — Razón social por NP (de PPP_Programacion_Diaria) → mostrar el NOMBRE del cliente en el CP. */
 async function cpLoadRazonSocial(nps) {
   const map = {};
@@ -16163,6 +16182,12 @@ function cpRenderStep2(body) {
     if (!lios.length) h += '<div class="cp-note">Sin líos con detalle en este pedido — se crea uno nuevo.</div>';
   }
   h += '</div>';
+  // idea 6497: si se elige sacar de Góndola pero la góndola está en 0, avisar ANTES de
+  // confirmar — sino se retira "de la nada" y la deja negativa sin que nadie se entere hasta
+  // que otro pedido la necesite. cpConfirm() manda además el aviso a Telegram.
+  if (_cp.origen === "terminado" && gon <= 0) {
+    h += '<div class="cp-pend" style="background:#fef2f2;border-color:#fca5a5;color:#991b1b;">⚠️ Góndola está en <b>0</b> para ' + escapeHtml(String(e.cod_art)) + ' — al completar se va a retirar sin stock real (queda negativa). Se avisa por Telegram.</div>';
+  }
   const ok = _cp.qty > 0 && !_cp.liosLoading;
   h += '<button class="cp-fin"' + (ok ? "" : " disabled") + ' onclick="cpConfirm()">✓ Completar ' + _cp.qty + ' caja(s) → a facturar</button>';
   _renderKeepFocus(body, h);
@@ -16249,6 +16274,10 @@ async function cpConfirm() {
     ts: Date.now(), id: ("cp_" + s.np + "_" + s.cod_art + "_" + Date.now()).replace(/[^a-zA-Z0-9_\-]/g, ""), ts_inicio_iso: _cpIni
   };
   try { enqueueReport(payload); if (typeof trySendOneReport === "function") trySendOneReport(payload).then(function (r) { if (r && r.ok) removeFromQueue(payload.id); }).catch(function () {}); } catch (_e) {}
+  // idea 6497: si se retira de Góndola con saldo 0 (queda negativa "de la nada"), avisar.
+  if (origen === "terminado" && (Number((s._saldo || {}).terminado) || 0) <= 0) {
+    try { cpSendTelegramGondolaVacia(s.cod_art, s.np, qty, leg); } catch (_e) {}
+  }
   try { await stockMove(rows); } catch (_e) {}
   // v6.27: si la NP YA estaba facturada, las cajas de CP recién entradas a "a facturar"
   // no las descontaría ningún facturado futuro (ya se facturó) → sacarlas ahora. Si NO

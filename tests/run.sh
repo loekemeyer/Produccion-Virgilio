@@ -162,4 +162,7 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== comp-terminar-unificado (v7.75: botón 'Terminar' emite TAP + mueve stock — sin TAP/TP sueltos) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/comp-terminar-unificado.cjs
 
+echo "== cp-gondola-vacia (idea 6497: Completar Pedido avisa cartel+Telegram si retira de góndola en 0) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/cp-gondola-vacia.cjs
+
 echo "== TODO OK =="
