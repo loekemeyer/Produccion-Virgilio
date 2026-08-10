@@ -2212,6 +2212,8 @@ tr.ppp-err-zona > td{ background:#fffbeb !important; }
 .cr-td-lios.cr-lios0{ color: #94a3b8; font-weight: 600; }
 .fac-lios-cell{ text-align: center; font-weight: 800; color: #b45309; white-space: nowrap; }
 .fac-lios-cell .fac-lios0{ color: #94a3b8; font-weight: 600; }
+.fac-cajas-cell{ text-align: center; font-weight: 800; color: #0369a1; white-space: nowrap; }
+.fac-cajas-cell .fac-cajas0{ color: #94a3b8; font-weight: 600; }
 .cr-td-ctrl{ text-align: center; }
 .cr-td-act{ text-align: center; white-space: nowrap; }
 .cr-sinsal-btn{ font-size: 11px; font-weight: 800; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 7px; padding: 6px 8px; cursor: pointer; white-space: nowrap; line-height: 1.1; }
@@ -6213,7 +6215,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v8.72";
+const APP_VERSION = "v8.73";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -27572,9 +27574,11 @@ function facRender(tandas){
         <td>${escapeHtml(f.zona)}</td>
         <td class="fac-lios-cell">${(() => {
           const np = String(f.np).trim().replace(/\.0+$/, "");
-          const esSuper = /super/i.test(String(f.zona || "")) || (typeof pppZonaDeBarrio === "function" && pppZonaDeBarrio(f.barrio) === "Super");
-          if (esSuper) { const c = _facCajas.get(np); return (!c) ? '<span class="fac-lios0">—</span>' : (escapeHtml(String(Math.round(c))) + ' <small style="font-weight:600;color:#64748b">cj</small>'); }
           const v = _facLios.get(np); return (v == null) ? '<span class="fac-lios0">—</span>' : escapeHtml(String(v));
+        })()}</td>
+        <td class="fac-cajas-cell">${(() => {
+          const np = String(f.np).trim().replace(/\.0+$/, "");
+          const c = _facCajas.get(np); return (!c) ? '<span class="fac-cajas0">—</span>' : escapeHtml(String(Math.round(c)));
         })()}</td>
         <td class="center fac-accion-cell"><button class="fac-btn-tick" data-args='${args}' onclick="facTickNP(this)">✓</button></td>
       </tr>`;
@@ -27589,15 +27593,16 @@ function facRender(tandas){
             <th class="center" style="width:5%">Salida</th>
             <th style="width:7%">NP</th>
             <th style="width:5%">Cod</th>
-            <th style="width:15%">Razón Social</th>
-            <th style="width:11%">Faltantes</th>
+            <th style="width:14%">Razón Social</th>
+            <th style="width:10%">Faltantes</th>
             <th style="width:9%" title="Pedidos en código secundario a corregir (secundario → principal). Confirmá en 🔀 Corregir códigos.">Cambiar cód</th>
-            <th style="width:12%">Dirección</th>
+            <th style="width:11%">Dirección</th>
             <th class="num" style="width:3.5%">M3</th>
-            <th style="width:8%">Localidad</th>
-            <th style="width:9%">Zona</th>
-            <th class="center" style="width:4%">Líos</th>
-            <th class="center fac-accion-th" style="width:5%">Acción</th>
+            <th style="width:7%">Localidad</th>
+            <th style="width:8%">Zona</th>
+            <th class="center" style="width:3.5%">Líos</th>
+            <th class="center" style="width:3.5%">Cajas</th>
+            <th class="center fac-accion-th" style="width:7.5%">Acción</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
