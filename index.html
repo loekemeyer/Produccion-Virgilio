@@ -86,7 +86,7 @@ button {
 .sup-action-btn:active { transform: scale(.97); }
 .sup-action-btn .sup-ico { font-size: 34px; flex: 0 0 auto; line-height: 1; }
 /* Dos niveles (v4.16): GRANDES (uso diario) en UNA sola fila (hoy 6) · CHICOS (ocasionales) en UNA tira de 7. */
-.sup-actions.sup-primary { grid-template-columns: repeat(6, 1fr); }
+.sup-actions.sup-primary { grid-template-columns: repeat(7, 1fr); }
 .sup-primary .sup-action-btn { min-height: 150px; font-size: 19px; }
 .sup-primary .sup-action-btn .sup-ico { font-size: 42px; }
 .sup-sec-label { max-width: min(1280px, 97vw); margin: 26px auto 6px; font-size: 12.5px; font-weight: 800;
@@ -3614,6 +3614,7 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
       <button class="sup-action-btn" onclick="openRecepcionAdmin()"><span class="sup-ico">🏭</span><span>Carga Recepción Mercadería</span></button>
       <button class="sup-action-btn" onclick="showFaltAvisar()"><span class="sup-ico">📦➕</span><span>Completar Pedido</span></button>
       <button class="sup-action-btn" onclick="openStockAdmin()"><span class="sup-ico">📦</span><span>Stock y Compras</span></button>
+      <button class="sup-action-btn" onclick="openPanelWebLK()"><span class="sup-ico">🌐</span><span>Panel Web LK</span></button>
       <button class="sup-action-btn" onclick="openRemitosAdmin()"><span class="sup-ico">🚚</span><span>Recepción Remitos (RR)</span></button>
     </div>
     <div class="sup-sec-label">Reportes y configuración</div>
@@ -6298,7 +6299,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v9.10";
+const APP_VERSION = "v9.11";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -21290,6 +21291,16 @@ function openRecepcionAdmin() {
 function openRemitosAdmin() {
   if (!requireSupervisor()) return;
   showControlRemitos("0", true);
+}
+
+/* ===== Panel Web LK — copia del admin del sitio de mayoristas (loekemeyer.com)
+   servido desde /admin/ dentro de este mismo repo. Apunta al proyecto Supabase
+   de LK (kwkclwhmoygunqmlegrg), distinto del de Virgilio. La sesión de admin
+   la maneja el propio admin.js contra la tabla `admins` de LK; acá solo
+   navegamos. Botón restringido a supervisores para no confundir a operarios. */
+function openPanelWebLK() {
+  if (!requireSupervisor()) return;
+  location.href = "admin/admin.html";
 }
 
 /* ===== Editor de Planimetría — escribe DIRECTO a Supabase (tabla "Planimetria").
