@@ -16331,12 +16331,11 @@ function stkBodyConteosRealizados() {
     (_stk.conteosUI.pendientes || []).forEach(row => {
       const contado = row.deposito === 'insumos' ? row.cantidad : row.cajas;
       const uni = row.deposito === 'insumos' ? row.unidad : '—';
-      const safeId = (row.id + '').replace(/'/g, "\\'");
       h += '<tr><td><b>' + escapeHtml(row.cod) + '</b></td>' +
         '<td>' + (row.deposito === 'insumos' ? '📋 Insumos' : '📦 Mercadería') + '</td>' +
         '<td class="num">' + escapeHtml(String(contado)) + '</td>' +
         '<td style="font-size:0.9em;color:#666">' + escapeHtml(uni || '—') + '</td>' +
-        '<td><button class="stk-btn" style="padding:4px 9px;color:#1e40af;border:1px solid #1e40af" onclick="stkAceptarConteo(\'' + safeId + '\')">✓ Aceptar</button> <button class="stk-btn" style="padding:4px 9px;color:#dc2626;border:1px solid #dc2626" onclick="stkRechazarConteo(\'' + safeId + '\')">✕ Rechazar</button></td></tr>';
+        '<td><button class="stk-btn" style="padding:4px 9px;color:#1e40af;border:1px solid #1e40af" data-conteo-id="' + escapeHtml(String(row.id)) + '" onclick="stkAceptarConteo(this.getAttribute(\'data-conteo-id\'))">✓ Aceptar</button> <button class="stk-btn" style="padding:4px 9px;color:#dc2626;border:1px solid #dc2626" data-conteo-id="' + escapeHtml(String(row.id)) + '" onclick="stkRechazarConteo(this.getAttribute(\'data-conteo-id\'))">✕ Rechazar</button></td></tr>';
     });
     h += '</tbody></table></div>';
   }
