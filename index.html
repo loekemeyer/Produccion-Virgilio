@@ -15984,28 +15984,33 @@ const SUPABASE_CONTEO_ENDPOINT = SUPABASE_URL + "/rest/v1/Conteo_Stock";
 const SUPABASE_CONTEO_ALERTAS_ENDPOINT = SUPABASE_URL + "/rest/v1/Conteo_Alertas";
 /* ===== MÓDULO CONTEO MEJORADO (v11.0)
    Campos dinámicos: Pilas/Cajas/Sueltas para mercadería, Cantidad/Unidad para insumos.
-   SIN autocomplete por ahora (causa issues con promises). */
+   Con autocomplete dropdown. */
 
-// Caché de códigos para detección de tipo (se carga en background)
 let _cntCodesCache = null;
-async function _cntLoadCodesCache() {
-  if (_cntCodesCache) return _cntCodesCache;
-  try {
-    const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
-    const [term, ins] = await Promise.all([
-      fetch(SUPABASE_URL + "/rest/v1/vista_saldos_stock?select=cod_art", { headers: H }).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(SUPABASE_URL + "/rest/v1/Insumos?select=cod_art", { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])
-    ]);
+let _cntCodesData = null;
+
+function _cntLoadCodesCache() {
+  if (_cntCodesCache) return Promise.resolve(_cntCodesCache);
+  const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
+  return Promise.all([
+    fetch(SUPABASE_URL + "/rest/v1/vista_saldos_stock?select=cod_art,descripcion", { headers: H }).then(r => r.ok ? r.json() : []).catch(() => []),
+    fetch(SUPABASE_URL + "/rest/v1/Insumos?select=cod_art,nombre,unidad", { headers: H }).then(r => r.ok ? r.json() : []).catch(() => [])
+  ]).then(([term, ins]) => {
+    _cntCodesData = {
+      terminado: term.map(r => ({ cod: String(r.cod_art).toUpperCase(), desc: r.descripcion, tipo: 'terminado' })),
+      insumos: ins.map(r => ({ cod: String(r.cod_art).toUpperCase(), desc: r.nombre, tipo: 'insumos', unidad: r.unidad }))
+    };
     const termCods = new Set(term.map(r => _ocgNorm(String(r.cod_art || ""))));
     const insCods = new Set(ins.map(r => _ocgNorm(String(r.cod_art || ""))));
     _cntCodesCache = { terminado: termCods, insumos: insCods };
-  } catch (_e) {
+    return _cntCodesCache;
+  }).catch(() => {
     _cntCodesCache = { terminado: new Set(), insumos: new Set() };
-  }
-  return _cntCodesCache;
+    _cntCodesData = { terminado: [], insumos: [] };
+    return _cntCodesCache;
+  });
 }
 
-// Detectar si un código es insumo o terminado
 async function _cntDetectType(cod) {
   const cache = await _cntLoadCodesCache();
   const codN = _ocgNorm(String(cod || ""));
@@ -16014,8 +16019,36 @@ async function _cntDetectType(cod) {
   const isIns = cache.insumos.has(codN);
   if (isTerm && !isIns) return 'terminado';
   if (isIns && !isTerm) return 'insumos';
-  if (isTerm && isIns) return 'terminado'; // default a terminado
+  if (isTerm && isIns) return 'terminado';
   return null;
+}
+
+function _cntShowAutocomplete(query, inputIndex) {
+  if (!query || query.length < 1 || !_cntCodesData) return;
+  const qN = _ocgNorm(query);
+  const matches = [
+    ..._cntCodesData.terminado.filter(x => _ocgNorm(x.cod).startsWith(qN)).slice(0, 5),
+    ..._cntCodesData.insumos.filter(x => _ocgNorm(x.cod).startsWith(qN)).slice(0, 5)
+  ];
+  if (!matches.length) { document.querySelectorAll('.cnt-ac-' + inputIndex).forEach(el => el.remove()); return; }
+  let html = '<div class="cnt-ac-' + inputIndex + '" style="position:absolute;background:#fff;border:1px solid #ccc;max-height:200px;overflow-y:auto;z-index:999;width:80px;top:100%;left:0">';
+  matches.forEach(m => {
+    const lbl = m.tipo === 'insumos' ? ' (ins)' : '';
+    html += '<div onclick="cntSelectCode(' + inputIndex + ',\'' + escapeHtml(m.cod).replace(/'/g, "\\'") + '\',\'' + escapeHtml(m.tipo).replace(/'/g, "\\'") + '\')" style="padding:6px;cursor:pointer;border-bottom:1px solid #eee;font-size:0.85em">' + escapeHtml(m.cod) + lbl + '</div>';
+  });
+  html += '</div>';
+  const container = document.querySelector('[data-cnt-input="' + inputIndex + '"]');
+  if (container) {
+    document.querySelectorAll('.cnt-ac-' + inputIndex).forEach(el => el.remove());
+    container.insertAdjacentHTML('beforeend', html);
+  }
+}
+
+function cntSelectCode(inputIndex, cod, tipo) {
+  const input = document.querySelector('[data-cnt-input="' + inputIndex + '"] input.cnt-code-input');
+  if (input) input.value = cod;
+  document.querySelectorAll('.cnt-ac-' + inputIndex).forEach(el => el.remove());
+  cntSet(inputIndex, 'cod', cod);
 }
 
 function cntSet(i, f, v) {
