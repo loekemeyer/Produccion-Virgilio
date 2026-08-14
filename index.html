@@ -16023,8 +16023,16 @@ async function _cntDetectType(cod) {
   return null;
 }
 
-function _cntShowAutocomplete(query, rowIdx) {
-  if (!query || query.length < 1 || !_cntCodesData) return;
+async function _cntShowAutocomplete(query, rowIdx) {
+  if (!query || query.length < 1) {
+    const container = document.getElementById('cntAC' + rowIdx);
+    if (container) container.innerHTML = '';
+    return;
+  }
+  // Esperar a que caché cargue si aún no está lista
+  await _cntLoadCodesCache();
+  if (!_cntCodesData) return;
+
   const qN = _ocgNorm(query);
   const matches = [
     ..._cntCodesData.terminado.filter(x => _ocgNorm(x.cod).startsWith(qN)).slice(0, 5),
@@ -16036,16 +16044,22 @@ function _cntShowAutocomplete(query, rowIdx) {
     return;
   }
   let html = '<div style="position:absolute;background:#fff;border:1px solid #999;max-height:180px;overflow-y:auto;z-index:999;width:140px;top:100%;left:0;box-shadow:0 2px 8px rgba(0,0,0,0.15)">';
-  matches.forEach(m => {
+  matches.forEach((m, idx) => {
     const lbl = m.tipo === 'insumos' ? ' <span style="color:#999">(insumo)</span>' : '';
-    html += '<div onclick="cntSelectCode(' + rowIdx + ',\'' + escapeHtml(m.cod).replace(/'/g, "\\'") + '\')" style="padding:8px;cursor:pointer;border-bottom:1px solid #eee;font-size:0.9em;white-space:nowrap">' + escapeHtml(m.cod) + lbl + '</div>';
+    html += '<div data-cnt-code="' + idx + '" onclick="cntSelectCode(' + rowIdx + ',' + idx + ')" style="padding:8px;cursor:pointer;border-bottom:1px solid #eee;font-size:0.9em;white-space:nowrap" data-cod="' + escapeHtml(m.cod) + '">' + escapeHtml(m.cod) + lbl + '</div>';
   });
   html += '</div>';
   const container = document.getElementById('cntAC' + rowIdx);
   if (container) container.innerHTML = html;
 }
 
-function cntSelectCode(rowIdx, cod) {
+function cntSelectCode(rowIdx, codIdx) {
+  // codIdx es el índice del elemento clickeado en el dropdown
+  const el = document.querySelector('[data-cnt-code="' + codIdx + '"]');
+  if (!el) return;
+  const cod = el.getAttribute('data-cod');
+  if (!cod) return;
+
   const input = document.querySelector('[data-cnt-row="' + rowIdx + '"] input.cnt-code-input');
   if (input) input.value = cod;
   const container = document.getElementById('cntAC' + rowIdx);
@@ -16352,11 +16366,11 @@ function stkBodyConteo() {
       '<td style=”position:relative”><input class=”cnt-in” style=”width:90px” value=”' + escapeHtml(r.ubicacion || “”) + '” oninput=”cntSet(' + i + ',\'ubicacion\',this.value)” placeholder=”ej: gondola”></td>' +
       '<td style=”position:relative” data-cnt-row=”' + i + '”><input class=”cnt-in cnt-code-input” style=”width:70px” value=”' + escapeHtml(r.cod || “”) + '” oninput=”cntSet(' + i + ',\'cod\',this.value)” placeholder=”código” /><div id=”cntAC' + i + '”></div></td>' +
       '<td style=”text-align:center;font-size:1.1em”>' + tipoIcon + '</td>' +
-      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.pilas || “”)) + '” oninput=”cntSet(' + i + ',\'pilas\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
-      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cxp || “”)) + '” oninput=”cntSet(' + i + ',\'cxp\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
-      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.sueltas || “”)) + '” oninput=”cntSet(' + i + ',\'sueltas\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
-      (isInsumo ? '<td class=”num” style=”display:table-cell”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cantidad || “”)) + '” oninput=”cntSet(' + i + ',\'cantidad\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9;display:none”></td>') +
-      (isInsumo ? '<td class=”num” style=”display:table-cell”><input class=”cnt-in” style=”width:50px” value=”' + escapeHtml(r.unidad || “”) + '” oninput=”cntSet(' + i + ',\'unidad\',this.value)” placeholder=”bolsa”></td>' : '<td class=”num” style=”background:#f9f9f9;display:none”></td>') +
+      '<td class=”num” style=”' + (isMercaderia ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.pilas || “”)) + '” oninput=”cntSet(' + i + ',\'pilas\',this.value)”></td>' +
+      '<td class=”num” style=”' + (isMercaderia ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cxp || “”)) + '” oninput=”cntSet(' + i + ',\'cxp\',this.value)”></td>' +
+      '<td class=”num” style=”' + (isMercaderia ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.sueltas || “”)) + '” oninput=”cntSet(' + i + ',\'sueltas\',this.value)”></td>' +
+      '<td class=”num” style=”' + (isInsumo ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cantidad || “”)) + '” oninput=”cntSet(' + i + ',\'cantidad\',this.value)”></td>' +
+      '<td class=”num” style=”' + (isInsumo ? '' : 'visibility:hidden') + '”><input class=”cnt-in” style=”width:50px” value=”' + escapeHtml(r.unidad || “”) + '” oninput=”cntSet(' + i + ',\'unidad\',this.value)” placeholder=”bolsa”></td>' +
       '<td class=”num”><b id=”cntCaj' + i + '”>' + (Math.round(_cntCalcCantidad(r) * 100) / 100) + '</b></td>' +
       '<td><button class=”stk-btn” style=”padding:4px 9px” onclick=”cntDelRow(' + i + ')”>✕</button></td>' +
       '</tr>';
