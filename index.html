@@ -3355,7 +3355,7 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
       <div class="comp-step" id="compStep2"></div>
     </div>
     <div class="comp-foot">
-      <button class="comp-pausar" id="compPausar" onclick="compPausar()" title="Salir sin terminar: queda pendiente y lo retomás con “Seguir armado”. La pausa no cuenta en el tiempo.">⏸ Pausar</button>
+      <button class="comp-pausar" id="compPausar" onclick="compPausar()" title="Salir sin terminar: queda pendiente y lo retomás con "Seguir armado". La pausa no cuenta en el tiempo.">⏸ Pausar</button>
       <button class="comp-fin" id="compFin" onclick="compTerminar()">Terminar</button>
     </div>
   </div>
@@ -3859,7 +3859,7 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
       </div>
       <div class="sup-cfg" id="ssgSwitchRow" style="max-width:none;margin:16px auto 0;">
         <div class="sup-cfg-top">
-          <span class="sup-cfg-t">📦 Aviso Telegram “stock en negativo”</span>
+          <span class="sup-cfg-t">📦 Aviso Telegram "stock en negativo"</span>
           <span class="sup-sw" id="ssgSw" onclick="toggleSsgAlert()" role="switch"><span class="sup-sw-k"></span></span>
         </div>
         <div class="sup-cfg-hint" id="ssgSwHint">Cargando…</div>
@@ -5530,10 +5530,10 @@ function showInstructivo() {
     { t: "🛒 Picking", c: "EP · TP", x: "EP = empecé a pickear (elegí la tanda). La app te guía artículo por artículo: <b>sector + código + cuántas</b>. Si no hay, tocás <b>Faltan</b>. TP = terminé." },
     { t: "🔨 Armado de pedidos", c: "AP · TAP", x: "AP = empecé a armar. Se abre el asistente en pasos: <b>1)</b> faltantes, <b>2)</b> clasificar cada pedido <b>Lío/Etiqueta/Nada</b>, <b>3)</b> separar la mesa por pedido, <b>4)</b> armar los líos. TAP = terminé." },
     { t: "📦➕ Completar Pedido", c: "CP", x: "Si llegó una caja que <b>faltaba</b> en un pedido sin facturar: tocá CP → elegí el faltante → cuántas → de dónde sale → a qué lío va." },
-    { t: "🏭 Recepción", c: "RT · RR", x: "RT = recibí mercadería (entra a <b>“a guardar”</b>). RR = controlar los remitos cargados al camión." },
+    { t: "🏭 Recepción", c: "RT · RR", x: "RT = recibí mercadería (entra a <b>"a guardar"</b>). RR = controlar los remitos cargados al camión." },
     { t: "🚚 Carga y control", c: "CC · CR", x: "CC = inicio/fin de la carga del camión. CR = control de remitos." },
-    { t: "📥 Guardar a góndola", c: "MG", x: "Lo que está en <b>“a guardar”</b> lo pasás a góndola. Si la góndola está llena, marcás <b>Excedente</b> y su ubicación." },
-    { t: "📦 Insumos y Productos Movimiento", c: "INS (RI · EI · SC)", x: "Un solo botón que te da <b>3 opciones</b>: <b>📥 Recibir</b> (entra stock), <b>📤 Entregar</b> (sale stock), o <b>🚚 Salida a Cervantes</b> (envío a la central). Al elegir Recibir o Entregar te pide <b>de dónde/a dónde</b>. ¿El insumo no está? Entrás por Recibir y usás <b>“+ Agregar insumo nuevo”</b>." },
+    { t: "📥 Guardar a góndola", c: "MG", x: "Lo que está en <b>"a guardar"</b> lo pasás a góndola. Si la góndola está llena, marcás <b>Excedente</b> y su ubicación." },
+    { t: "📦 Insumos y Productos Movimiento", c: "INS (RI · EI · SC)", x: "Un solo botón que te da <b>3 opciones</b>: <b>📥 Recibir</b> (entra stock), <b>📤 Entregar</b> (sale stock), o <b>🚚 Salida a Cervantes</b> (envío a la central). Al elegir Recibir o Entregar te pide <b>de dónde/a dónde</b>. ¿El insumo no está? Entrás por Recibir y usás <b>"+ Agregar insumo nuevo"</b>." },
     { t: "⏱ Pausas y otros", c: "AT · PB · Limp · Perm · PC · CT", x: "Marcá cuándo: atendés el timbre (AT), vas al baño (PB), limpiás (Limp), pedís permiso (Perm), parás a comer (PC) o hacés conteo (CT). Tocás al <b>empezar</b> y otra vez al <b>terminar</b>." }
   ];
   ov.innerHTML = '<div class="instr-card"><div class="instr-head"><span class="instr-title">❓ ¿Cómo se usa?</span><button class="instr-close" onclick="closeInstructivo()">Cerrar</button></div><div class="instr-body">' +
@@ -9780,7 +9780,7 @@ function compPausar() {
   if (ov) ov.classList.remove("show");
   try { renderPendingSuggestion(); } catch (_e) {}   // dibuja "▶ Seguir armado" en la pantalla del operario
   try { updatePendingIndicator(); } catch (_e) {}
-  try { alert("⏸ Armado en pausa" + (tanda ? " (tanda " + tanda + ")" : "") + ".\nSe guardó todo lo cargado. Cuando quieras retomalo con “▶ Seguir armado”.\nLa pausa NO cuenta en el tiempo del armado."); } catch (_e) {}
+  try { alert("⏸ Armado en pausa" + (tanda ? " (tanda " + tanda + ")" : "") + ".\nSe guardó todo lo cargado. Cuando quieras retomalo con "▶ Seguir armado".\nLa pausa NO cuenta en el tiempo del armado."); } catch (_e) {}
 }
 /* Guarda el pedido entero en la tabla Entregas_Virgilio (POST en bloque, 1 sola llamada).
    Si no hay red, lo deja en localStorage para reintentar al volver online (_compFlushEntregas). */
@@ -10480,7 +10480,7 @@ function ocBodyEntregas() {
         '<td class="num oc-sep">' + dash + '</td><td class="num">' + dash + '</td><td class="num">' + dash + '</td><td class="num">' + dash + '</td>') +
       '<td>' + chips.join(" ") + '</td></tr>';
   });
-  h += '</tbody></table></div><div class="oc-ent-hint">Ordenado por lo más urgente (falta de stock, después menor % de entrega). “—” = sin datos de ese lado. Fabricación/venta = promedio de los últimos 3 meses; OC = pedido vs recibido cargado en Compras.</div>';
+  h += '</tbody></table></div><div class="oc-ent-hint">Ordenado por lo más urgente (falta de stock, después menor % de entrega). "—" = sin datos de ese lado. Fabricación/venta = promedio de los últimos 3 meses; OC = pedido vs recibido cargado en Compras.</div>';
   return h;
 }
 function ocGroups() {
@@ -12494,7 +12494,7 @@ function prodRender() {
 
   h += '<div class="prod-metas">🎯 <b>Metas premio</b> (0%): Picking <input class="prod-meta-in" type="number" step="0.05" min="0" value="' + metas.pick + '" onchange="prodSetMeta(\'pick\', this.value)"> · Armado <input class="prod-meta-in" type="number" step="0.05" min="0" value="' + metas.arm + '" onchange="prodSetMeta(\'arm\', this.value)"> m³/h <span class="prod-metas-h">· premio = (ritmo ÷ meta − 1) × 100, puede ser negativo</span></div>';
 
-  h += '<div class="prod-note">Cada operario muestra sus <b>dos ritmos por separado</b>: picking y armado (m³/h; no se comparan entre sí). El "envase" de cada tanda (de que abre hasta que cierra) cuenta como esa tarea: los <b>huecos adentro son trabajo</b>, no ocio. <b>Ocio</b> = jornada con nada abierto. Las tandas que <b>cruzan el borde</b> del período no se miden (se muestran aparte). m³ de Entregados + Programación (~96%); menos de ' + POCO + ' tandas → “pocos datos”.</div>';
+  h += '<div class="prod-note">Cada operario muestra sus <b>dos ritmos por separado</b>: picking y armado (m³/h; no se comparan entre sí). El "envase" de cada tanda (de que abre hasta que cierra) cuenta como esa tarea: los <b>huecos adentro son trabajo</b>, no ocio. <b>Ocio</b> = jornada con nada abierto. Las tandas que <b>cruzan el borde</b> del período no se miden (se muestran aparte). m³ de Entregados + Programación (~96%); menos de ' + POCO + ' tandas → "pocos datos".</div>';
 
   // toggle de vista: tarjetas (detalle) ↔ tabla (ranking comparable)
   h += '<div class="prod-viewseg"><button class="prod-vbtn' + (_prodTab === "cards" ? " on" : "") + '" onclick="prodSetTab(\'cards\')">📇 Tarjetas</button><button class="prod-vbtn' + (_prodTab === "table" ? " on" : "") + '" onclick="prodSetTab(\'table\')">📊 Tabla</button></div>';
@@ -13154,7 +13154,7 @@ function stkBodyProceso() {
     h += '</div>';
     return h;
   };
-  let h = '<div class="stk-cut" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;">Cajas que salieron de góndola por picking y todavía no se facturaron. Entran al terminar el <b>picking (TP)</b>, pasan a “a facturar” al terminar el <b>armado (TAP)</b> y salen del stock cuando Marianela factura <b>toda</b> la tanda.</div>';
+  let h = '<div class="stk-cut" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;">Cajas que salieron de góndola por picking y todavía no se facturaron. Entran al terminar el <b>picking (TP)</b>, pasan a "a facturar" al terminar el <b>armado (TAP)</b> y salen del stock cuando Marianela factura <b>toda</b> la tanda.</div>';
   h += '<input class="stk-filtro" type="search" placeholder="🔎 Buscar tanda" value="' + escapeHtml(_stk.filtro) + '" oninput="if(_stk){_stk.filtro=this.value;stkRender();}">';
   h += sec("📦 A Separar (pickeado, falta armar)", "Tandas con picking terminado, esperando el armado/separado (TAP).", sep);
   h += sec("🧾 A Facturar (armado, falta facturar)", "Tandas armadas, esperando que Marianela las facture. Al facturarse toda la tanda, salen del stock.", fac);
@@ -15897,7 +15897,7 @@ function stkBodyCapacidad() {
   const discOcupa = arts.filter(function (r) { return discontCap[_ocgNorm(r.cod)] && r.capacidad > 0; });
   if (discOcupa.length) {
     h += '<div style="background:#f1f5f9;border:1.5px solid #cbd5e1;border-radius:11px;padding:10px 12px;margin:0 0 12px;color:#475569;font-size:12.5px;line-height:1.4;">' +
-      '<b>🚫 ' + discOcupa.length + ' discontinuado(s) que todavía ocupan lugar en góndola.</b> No se venden más — conviene <b>liberar el sector</b> (marcarlo “Libre” en Editar Planimetría) para reasignarlo.' +
+      '<b>🚫 ' + discOcupa.length + ' discontinuado(s) que todavía ocupan lugar en góndola.</b> No se venden más — conviene <b>liberar el sector</b> (marcarlo "Libre" en Editar Planimetría) para reasignarlo.' +
       '<div style="margin-top:7px;">' + discOcupa.map(function (r) {
         return '<span style="display:inline-block;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:3px 8px;margin:0 4px 4px 0;font-family:Consolas,Menlo,monospace;"><b>' + escapeHtml(r.cod) + '</b> <span style="color:#64748b;font-family:system-ui;">(' + r.capacidad + ' cj · ' + escapeHtml((r.sectores || []).slice(0, 3).join(", ")) + ')</span></span>';
       }).join("") + '</div></div>';
@@ -16346,15 +16346,15 @@ function stkBodyConteosRealizados() {
 function stkBodyConteo() {
   _cntLoadCodesCache().catch(() => {});
   if (!_stk.conteo) _stk.conteo = {
-    rows: [{ ubicacion: “”, cod: “”, tipo: null, pilas: “”, cxp: “”, sueltas: “”, cantidad: “”, unidad: “” }],
-    legajo: “”,
+    rows: [{ ubicacion: "", cod: "", tipo: null, pilas: "", cxp: "", sueltas: "", cantidad: "", unidad: "" }],
+    legajo: "",
     showComp: false
   };
   const c = _stk.conteo;
-  let h = '<div class=”stk-cut” style=”background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;”>Conteo físico: escribí código y elegí. Mercadería (Pilas·Cajas·Sueltas) o Insumos (Cantidad·Unidad).</div>';
-  h += '<div style=”margin-bottom:12px”><input class=”stk-aj-inp” id=”cntLegajo” style=”max-width:140px;text-align:center” placeholder=”Legajo” value=”' + escapeHtml(c.legajo || “”) + '” oninput=”if(_stk&&_stk.conteo)_stk.conteo.legajo=this.value”></div>';
+  let h = '<div class="stk-cut" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;">Conteo físico: escribí código y elegí. Mercadería (Pilas·Cajas·Sueltas) o Insumos (Cantidad·Unidad).</div>';
+  h += '<div style="margin-bottom:12px"><input class="stk-aj-inp" id="cntLegajo" style="max-width:140px;text-align:center" placeholder="Legajo" value="' + escapeHtml(c.legajo || "") + '" oninput="if(_stk&&_stk.conteo)_stk.conteo.legajo=this.value"></div>';
 
-  h += '<div class=”stk-tblwrap”><table class=”stk-tbl stk-tbl-fit”><thead><tr><th>Ubicación</th><th>Código</th><th style=”font-size:0.85em”>Tipo</th><th class=”num”>Pilas</th><th class=”num”>Cjas×Pila</th><th class=”num”>Sueltas</th><th class=”num” style=”display:none” id=”cntCantHdr”>Cant</th><th class=”num” style=”display:none” id=”cntUnitHdr”>Unidad</th><th class=”num”>Total</th><th></th></tr></thead><tbody>';
+  h += '<div class="stk-tblwrap"><table class="stk-tbl stk-tbl-fit"><thead><tr><th>Ubicación</th><th>Código</th><th style="font-size:0.85em">Tipo</th><th class="num">Pilas</th><th class="num">Cjas×Pila</th><th class="num">Sueltas</th><th class="num" style="display:none" id="cntCantHdr">Cant</th><th class="num" style="display:none" id="cntUnitHdr">Unidad</th><th class="num">Total</th><th></th></tr></thead><tbody>';
 
   c.rows.forEach(function (r, i) {
     const isMercaderia = r.tipo === 'terminado';
@@ -16362,21 +16362,21 @@ function stkBodyConteo() {
     const tipoIcon = isMercaderia ? '📦' : (isInsumo ? '📋' : '·');
 
     h += '<tr>' +
-      '<td style=”position:relative”><input class=”cnt-in” style=”width:90px” value=”' + escapeHtml(r.ubicacion || “”) + '” oninput=”cntSet(' + i + ',\'ubicacion\',this.value)” placeholder=”ej: gondola”></td>' +
-      '<td style=”position:relative” data-cnt-row=”' + i + '”><input class=”cnt-in cnt-code-input” style=”width:70px” value=”' + escapeHtml(r.cod || “”) + '” oninput=”cntSet(' + i + ',\'cod\',this.value)” placeholder=”código” /><div id=”cntAC' + i + '”></div></td>' +
-      '<td style=”text-align:center;font-size:1.1em”>' + tipoIcon + '</td>' +
-      '<td class=”num” style=”' + (isMercaderia ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.pilas || “”)) + '” oninput=”cntSet(' + i + ',\'pilas\',this.value)”></td>' +
-      '<td class=”num” style=”' + (isMercaderia ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cxp || “”)) + '” oninput=”cntSet(' + i + ',\'cxp\',this.value)”></td>' +
-      '<td class=”num” style=”' + (isMercaderia ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.sueltas || “”)) + '” oninput=”cntSet(' + i + ',\'sueltas\',this.value)”></td>' +
-      '<td class=”num” style=”' + (isInsumo ? '' : 'visibility:hidden') + '”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cantidad || “”)) + '” oninput=”cntSet(' + i + ',\'cantidad\',this.value)”></td>' +
-      '<td class=”num” style=”' + (isInsumo ? '' : 'visibility:hidden') + '”><input class=”cnt-in” style=”width:50px” value=”' + escapeHtml(r.unidad || “”) + '” oninput=”cntSet(' + i + ',\'unidad\',this.value)” placeholder=”bolsa”></td>' +
-      '<td class=”num”><b id=”cntCaj' + i + '”>' + (Math.round(_cntCalcCantidad(r) * 100) / 100) + '</b></td>' +
-      '<td><button class=”stk-btn” style=”padding:4px 9px” onclick=”cntDelRow(' + i + ')”>✕</button></td>' +
+      '<td style="position:relative"><input class="cnt-in" style="width:90px" value="' + escapeHtml(r.ubicacion || "") + '" oninput="cntSet(' + i + ',\'ubicacion\',this.value)" placeholder="ej: gondola"></td>' +
+      '<td style="position:relative" data-cnt-row="' + i + '"><input class="cnt-in cnt-code-input" style="width:70px" value="' + escapeHtml(r.cod || "") + '" oninput="cntSet(' + i + ',\'cod\',this.value)" placeholder="código" /><div id="cntAC' + i + '"></div></td>' +
+      '<td style="text-align:center;font-size:1.1em">' + tipoIcon + '</td>' +
+      '<td class="num" style="' + (isMercaderia ? '' : 'visibility:hidden') + '"><input class="cnt-in" type="number" inputmode="numeric" style="width:50px" value="' + escapeHtml(String(r.pilas || "")) + '" oninput="cntSet(' + i + ',\'pilas\',this.value)"></td>' +
+      '<td class="num" style="' + (isMercaderia ? '' : 'visibility:hidden') + '"><input class="cnt-in" type="number" inputmode="numeric" style="width:50px" value="' + escapeHtml(String(r.cxp || "")) + '" oninput="cntSet(' + i + ',\'cxp\',this.value)"></td>' +
+      '<td class="num" style="' + (isMercaderia ? '' : 'visibility:hidden') + '"><input class="cnt-in" type="number" inputmode="numeric" style="width:50px" value="' + escapeHtml(String(r.sueltas || "")) + '" oninput="cntSet(' + i + ',\'sueltas\',this.value)"></td>' +
+      '<td class="num" style="' + (isInsumo ? '' : 'visibility:hidden') + '"><input class="cnt-in" type="number" inputmode="numeric" style="width:50px" value="' + escapeHtml(String(r.cantidad || "")) + '" oninput="cntSet(' + i + ',\'cantidad\',this.value)"></td>' +
+      '<td class="num" style="' + (isInsumo ? '' : 'visibility:hidden') + '"><input class="cnt-in" style="width:50px" value="' + escapeHtml(r.unidad || "") + '" oninput="cntSet(' + i + ',\'unidad\',this.value)" placeholder="bolsa"></td>' +
+      '<td class="num"><b id="cntCaj' + i + '">' + (Math.round(_cntCalcCantidad(r) * 100) / 100) + '</b></td>' +
+      '<td><button class="stk-btn" style="padding:4px 9px" onclick="cntDelRow(' + i + ')">✕</button></td>' +
       '</tr>';
   });
 
   h += '</tbody></table></div>';
-  h += '<div class=”stk-ini-btns”><button class=”stk-btn” onclick=”cntAddRow()”>+ Fila</button> <button class=”stk-btn” onclick=”cntCompara()”>📊 Comparar</button> <button class=”stk-btn” onclick=”cntExportCsv()”>⬇ CSV</button> <button class=”stk-btn ok” onclick=”cntGuardar()”>💾 Guardar</button></div>';
+  h += '<div class="stk-ini-btns"><button class="stk-btn" onclick="cntAddRow()">+ Fila</button> <button class="stk-btn" onclick="cntCompara()">📊 Comparar</button> <button class="stk-btn" onclick="cntExportCsv()">⬇ CSV</button> <button class="stk-btn ok" onclick="cntGuardar()">💾 Guardar</button></div>';
   if (c.showComp) {
     const cont = {};
     c.rows.forEach(function (r) { const k = _ocgNorm(r.cod); if (!k) return; cont[k] = (cont[k] || 0) + _cntCalcCantidad(r); });
@@ -17702,7 +17702,7 @@ async function stkAutoBajadaGenerar() {
   try {
     const resp = await fetch(SUPABASE_RACKS_BAJ_ENDPOINT, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(rows) });
     if (!resp.ok) throw new Error("HTTP " + resp.status);
-    try { alert("✓ Generada la bajada: " + r.bajar.length + " código(s) · " + totC + " cajas.\nMarianela la aprueba en Recepción → “Bajadas Racks → góndola”."); } catch (_e) {}
+    try { alert("✓ Generada la bajada: " + r.bajar.length + " código(s) · " + totC + " cajas.\nMarianela la aprueba en Recepción → "Bajadas Racks → góndola"."); } catch (_e) {}
   } catch (e) { try { alert("Error generando la bajada: " + (e.message || e)); } catch (_e) {} }
 }
 function stkAutoBajadaSection() {
@@ -18530,7 +18530,7 @@ function insRender() {
     if (cat === "?") h += '<div class="ins-depw">⚠ Códigos <b>sin clasificar</b>: viejos, duplicados o recién sugeridos. Esperan que los ordenen desde Stock y Compras. Si el que buscás está acá, avisá.</div>';
     h += '<input class="ins-search" type="search" placeholder="🔎 Buscar ' + (cat ? "en esta categoría" : "en TODOS") + '" value="' + escapeHtml(_ins.filtro) + '" oninput="if(_ins){_ins.filtro=this.value;insRender();}">';
     if (!shown.length) {
-      h += '<div class="ins-empty">' + (f ? "No hay ninguno que diga “" + escapeHtml(_ins.filtro) + "”." : "No hay insumos en esta categoría.") + '</div>';
+      h += '<div class="ins-empty">' + (f ? "No hay ninguno que diga "" + escapeHtml(_ins.filtro) + ""." : "No hay insumos en esta categoría.") + '</div>';
       if (f && cat) h += '<button class="ins-back" style="width:100%;" onclick="if(_ins){_ins.cat=\'\';insRender();}">🔎 Buscar en TODAS las categorías</button>';
     } else {
       h += '<div class="ins-grid">' + shown.map(function (it) {
@@ -18910,7 +18910,7 @@ function scAskClose() { opAskClose(scHasProgress(), "SC", _sc && _sc.legajo, "Sa
    Completar / RC / EA) con cosas cargadas, se le pregunta y —si sale— se guarda un
    SNAPSHOT del estado en localStorage (uno por legajo). En la pantalla de inicio
    aparece "▶ Seguir…" que reabre el modal EXACTO donde quedó (sin recargar). ===== */
-var OP_EXIT_MSG = "¿Salir sin terminar?\n\nLo que cargaste queda guardado: vas a poder volver con el botón “▶ Seguir…” en la pantalla de inicio.";
+var OP_EXIT_MSG = "¿Salir sin terminar?\n\nLo que cargaste queda guardado: vas a poder volver con el botón "▶ Seguir…" en la pantalla de inicio.";
 function _opDraftKey(legajo) { return "vir_op_draft_" + String(legajo || "").trim(); }
 function opDraftSave(op, legajo, label, snap) {
   try { localStorage.setItem(_opDraftKey(legajo), JSON.stringify({ op: op, legajo: String(legajo || ""), label: label, ts: Date.now(), snap: snap })); } catch (_e) {}
@@ -18990,14 +18990,14 @@ function mgRender() {
   if (!_mg) return; const body = document.getElementById("mgBody"); if (!body) return;
   // NO cortamos cuando la lista está vacía: el buscador tiene que estar igual para
   // poder guardar un código fuera de lista (avisa Telegram).
-  let h = '<div class="mg-hint">Ordenado por <b>prioridad</b>: primero lo que tiene la <b>góndola más vacía</b> (stock ÷ capacidad). Marcá cuántas cajas van a <b>Góndola</b>; si está <b>llena</b>, tocá <b>“¿Hay Excedente?”</b> (avisa al supervisor).</div>';
+  let h = '<div class="mg-hint">Ordenado por <b>prioridad</b>: primero lo que tiene la <b>góndola más vacía</b> (stock ÷ capacidad). Marcá cuántas cajas van a <b>Góndola</b>; si está <b>llena</b>, tocá <b>"¿Hay Excedente?"</b> (avisa al supervisor).</div>';
   h += '<input id="mgSearch" class="mg-search" type="search" inputmode="numeric" autocomplete="off" placeholder="🔎 Buscar código…" value="' + escapeHtml(_mg.filtro || "") + '" oninput="mgSearchInput(this.value)">';
   const fq = String(_mg.filtro || "").trim(), fLo = fq.toLowerCase(), fUp = fq.toUpperCase();
   const shown = fq ? _mg.items.filter(function (it) { return String(it.cod).toLowerCase().indexOf(fLo) >= 0; }) : _mg.items;
   const exact = _mg.items.some(function (it) { return String(it.cod).toUpperCase() === fUp; });
   // Código buscado que NO está en "a guardar" → se puede guardar igual (avisa Telegram).
   if (fq && !exact) {
-    h += '<div class="mg-addrow">El código <b>' + escapeHtml(fUp) + '</b> no está en “a guardar”. <button class="mg-add-btn" onclick="mgAddManual()">➕ Guardarlo igual</button><div class="mg-add-note">⚠ Avisa por Telegram (puede ser un error de tipeo en un paso anterior).</div></div>';
+    h += '<div class="mg-addrow">El código <b>' + escapeHtml(fUp) + '</b> no está en "a guardar". <button class="mg-add-btn" onclick="mgAddManual()">➕ Guardarlo igual</button><div class="mg-add-note">⚠ Avisa por Telegram (puede ser un error de tipeo en un paso anterior).</div></div>';
   }
   if (!shown.length && !(fq && !exact)) h += '<div class="mg-empty" style="padding:16px">' + (fq ? "Sin resultados." : "No hay mercadería para guardar 👍") + '</div>';
   h += shown.map(function (it) {
@@ -19515,7 +19515,7 @@ async function showRacksBajarModal(legajo, _resume) {
 }
 function rkbRender() {
   if (!_rkb) return; const body = document.getElementById("rkbBody"); if (!body) return;
-  let h = '<div class="rkb-hint">Bajás en <b>master cajas</b> (lo que físicamente movés del rack). Aparece <b>ordenado por código</b>. Los que dicen <b>“cajas”</b> todavía no tienen el master cargado. Si algo que tenés físicamente <b>no figura</b>, buscalo y tocá <b>➕</b> (avisa por Telegram). Al registrar, <b>el stock pasa a góndola al instante</b> (no espera aprobación).</div>';
+  let h = '<div class="rkb-hint">Bajás en <b>master cajas</b> (lo que físicamente movés del rack). Aparece <b>ordenado por código</b>. Los que dicen <b>"cajas"</b> todavía no tienen el master cargado. Si algo que tenés físicamente <b>no figura</b>, buscalo y tocá <b>➕</b> (avisa por Telegram). Al registrar, <b>el stock pasa a góndola al instante</b> (no espera aprobación).</div>';
   h += '<input id="rkbSearch" class="rkb-search" type="search" autocomplete="off" placeholder="🔎 Buscar código…" value="' + escapeHtml(_rkb.filtro || "") + '" oninput="rkbSearchInput(this.value)">';
   const fq = String(_rkb.filtro || "").trim(), fLo = fq.toLowerCase(), fUp = fq.toUpperCase();
   const shown = fq ? _rkb.items.filter(function (it) { return String(it.cod).toLowerCase().indexOf(fLo) >= 0; }) : _rkb.items;
@@ -19804,7 +19804,7 @@ async function showEAModal(legajo, _resume) {
 function eaRender() {
   if (!_ea) return; const body = document.getElementById("eaBody"); if (!body) return;
   if (_ea.edit) { eaRenderEdit(body); return; }
-  let h = '<div class="ea-hint">Estos son los artículos en <b>“para envasar”</b>. Poné cuántas cajas <b>entregás para envasar</b> y tocá registrar — se <b>descuentan</b> del stock. El <b>📍 sector</b> es aparte del mapa de racks (pueden estar en el mismo estante, pero son cosas distintas): tocalo para cargar/mover dónde está.</div>';
+  let h = '<div class="ea-hint">Estos son los artículos en <b>"para envasar"</b>. Poné cuántas cajas <b>entregás para envasar</b> y tocá registrar — se <b>descuentan</b> del stock. El <b>📍 sector</b> es aparte del mapa de racks (pueden estar en el mismo estante, pero son cosas distintas): tocalo para cargar/mover dónde está.</div>';
   h += '<input id="eaSearch" class="ea-search" type="search" autocomplete="off" placeholder="🔎 Buscar código…" value="' + escapeHtml(_ea.filtro || "") + '" oninput="eaSearchInput(this.value)">';
   const fq = String(_ea.filtro || "").trim().toLowerCase();
   const shown = fq ? _ea.items.filter(function (it) { return String(it.cod).toLowerCase().indexOf(fq) >= 0; }) : _ea.items;
@@ -19864,7 +19864,7 @@ function eaConfirmar() {
   const tot = sel.reduce(function (s, it) { return s + Number(it.baja || 0); }, 0);
   try { opDraftClear(leg); } catch (_e) {}
   closeEA();
-  try { alert("✓ Entregaste " + tot + " caja(s) para envasar.\nSe descontaron del stock de “para envasar”."); } catch (_e) {}
+  try { alert("✓ Entregaste " + tot + " caja(s) para envasar.\nSe descontaron del stock de "para envasar"."); } catch (_e) {}
 }
 function eaEmitEvent(cod, cajas, legajo) {
   const payload = {
@@ -26666,7 +26666,7 @@ function pppRenderProg() {
       '</div>';
     html += '<div id="pppBaseNote" style="font-size:12px;font-weight:600;margin:2px 2px 8px;color:' + (cfg.baseOk === false ? '#b42318' : '#166534') + ';">' + escapeHtml(cfg.baseNote || "") + '</div>';
   } else {
-    html += '<div class="ppp-toolbar"><button class="ppp-sug-btn" onclick="pppSugerirInline()">🪄 Sugerir tandas</button><span class="ppp-sug-hint">Es una sugerencia para cargar a mano en el Excel (no cambia nada acá). Se muestra acá abajo; con “Exportar PDF” la imprimís.</span></div>';
+    html += '<div class="ppp-toolbar"><button class="ppp-sug-btn" onclick="pppSugerirInline()">🪄 Sugerir tandas</button><span class="ppp-sug-hint">Es una sugerencia para cargar a mano en el Excel (no cambia nada acá). Se muestra acá abajo; con "Exportar PDF" la imprimís.</span></div>';
     html += '<div id="pppSugInline"></div>';
   }
   // ===== Sugerencia: pedido en A Programar cuyo CLIENTE ya tiene tanda en Programación =====
@@ -32020,8 +32020,8 @@ window.facTickNP = async function(btn){
       if (!_facEsOperadora()){
         alert(
           "🚫 NP " + np + " todavía NO se factura\n\n" +
-          "Este faltante se puede COMPLETAR — hay stock en “a guardar” o en góndola:\n" + _detR + "\n\n" +
-          "Completá el pedido desde “Completar pedido” (CP) antes de facturar.\n" +
+          "Este faltante se puede COMPLETAR — hay stock en "a guardar" o en góndola:\n" + _detR + "\n\n" +
+          "Completá el pedido desde "Completar pedido" (CP) antes de facturar.\n" +
           "Si igual hay que facturar corto, lo tiene que autorizar la operadora."
         );
         return;
@@ -32029,7 +32029,7 @@ window.facTickNP = async function(btn){
       const okOv = confirm(
         "⚠ NP " + np + " — faltante RECUPERABLE\n\n" +
         "Hay stock para completarlo (a guardar / góndola):\n" + _detR + "\n\n" +
-        "Lo ideal es completarlo desde “Completar pedido” (CP).\n" +
+        "Lo ideal es completarlo desde "Completar pedido" (CP).\n" +
         "¿Facturar CORTO igual? Queda registrado y se avisa por Telegram."
       );
       if (!okOv) return;
