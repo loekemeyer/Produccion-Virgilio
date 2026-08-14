@@ -16023,32 +16023,34 @@ async function _cntDetectType(cod) {
   return null;
 }
 
-function _cntShowAutocomplete(query, inputIndex) {
+function _cntShowAutocomplete(query, rowIdx) {
   if (!query || query.length < 1 || !_cntCodesData) return;
   const qN = _ocgNorm(query);
   const matches = [
     ..._cntCodesData.terminado.filter(x => _ocgNorm(x.cod).startsWith(qN)).slice(0, 5),
     ..._cntCodesData.insumos.filter(x => _ocgNorm(x.cod).startsWith(qN)).slice(0, 5)
   ];
-  if (!matches.length) { document.querySelectorAll('.cnt-ac-' + inputIndex).forEach(el => el.remove()); return; }
-  let html = '<div class="cnt-ac-' + inputIndex + '" style="position:absolute;background:#fff;border:1px solid #ccc;max-height:200px;overflow-y:auto;z-index:999;width:80px;top:100%;left:0">';
+  if (!matches.length) {
+    const container = document.getElementById('cntAC' + rowIdx);
+    if (container) container.innerHTML = '';
+    return;
+  }
+  let html = '<div style="position:absolute;background:#fff;border:1px solid #999;max-height:180px;overflow-y:auto;z-index:999;width:140px;top:100%;left:0;box-shadow:0 2px 8px rgba(0,0,0,0.15)">';
   matches.forEach(m => {
-    const lbl = m.tipo === 'insumos' ? ' (ins)' : '';
-    html += '<div onclick="cntSelectCode(' + inputIndex + ',\'' + escapeHtml(m.cod).replace(/'/g, "\\'") + '\',\'' + escapeHtml(m.tipo).replace(/'/g, "\\'") + '\')" style="padding:6px;cursor:pointer;border-bottom:1px solid #eee;font-size:0.85em">' + escapeHtml(m.cod) + lbl + '</div>';
+    const lbl = m.tipo === 'insumos' ? ' <span style="color:#999">(insumo)</span>' : '';
+    html += '<div onclick="cntSelectCode(' + rowIdx + ',\'' + escapeHtml(m.cod).replace(/'/g, "\\'") + '\')" style="padding:8px;cursor:pointer;border-bottom:1px solid #eee;font-size:0.9em;white-space:nowrap">' + escapeHtml(m.cod) + lbl + '</div>';
   });
   html += '</div>';
-  const container = document.querySelector('[data-cnt-input="' + inputIndex + '"]');
-  if (container) {
-    document.querySelectorAll('.cnt-ac-' + inputIndex).forEach(el => el.remove());
-    container.insertAdjacentHTML('beforeend', html);
-  }
+  const container = document.getElementById('cntAC' + rowIdx);
+  if (container) container.innerHTML = html;
 }
 
-function cntSelectCode(inputIndex, cod, tipo) {
-  const input = document.querySelector('[data-cnt-input="' + inputIndex + '"] input.cnt-code-input');
+function cntSelectCode(rowIdx, cod) {
+  const input = document.querySelector('[data-cnt-row="' + rowIdx + '"] input.cnt-code-input');
   if (input) input.value = cod;
-  document.querySelectorAll('.cnt-ac-' + inputIndex).forEach(el => el.remove());
-  cntSet(inputIndex, 'cod', cod);
+  const container = document.getElementById('cntAC' + rowIdx);
+  if (container) container.innerHTML = '';
+  cntSet(rowIdx, 'cod', cod);
 }
 
 function cntSet(i, f, v) {
@@ -16058,6 +16060,11 @@ function cntSet(i, f, v) {
   r[f] = v;
 
   if (f === 'cod') {
+    // Mostrar dropdown mientras escribe
+    if (v && v.length > 0) _cntShowAutocomplete(v, i);
+    else document.querySelectorAll('#cntAC' + i + ' > div').forEach(el => el.remove());
+
+    // Detectar tipo cuando termina de escribir/selecciona
     _cntDetectType(v).then(tipo => {
       r.tipo = tipo || null;
       stkRender();
@@ -16084,7 +16091,7 @@ function _cntCalcCantidad(r) {
 function cntAddRow() {
   if (!_stk || !_stk.conteo) return;
   _stk.conteo.rows.push({
-    sector: "", cod: "", tipo: null, desc: "",
+    ubicacion: "", cod: "", tipo: null,
     pilas: "", cxp: "", sueltas: "",
     cantidad: "", unidad: ""
   });
@@ -16155,7 +16162,7 @@ function cntExportCsv() {
   rows.forEach(function (r) {
     var k = _ocgNorm(r.cod), cont = _cntCalcCantidad(r), s = sys[k] || { gond: 0, exc: 0, proc: 0 };
     var sysv = (s.gond || 0) + (s.exc || 0);
-    out.push([r.sector || "", codBase(r.cod || ""), r.pilas || "", r.cxp || "", r.sueltas || "", esn(cont), esn(sysv), esn(cont - sysv), esn(s.proc)]);
+    out.push([r.ubicacion || "", codBase(r.cod || ""), r.pilas || "", r.cxp || "", r.sueltas || "", esn(cont), esn(sysv), esn(cont - sysv), esn(s.proc)]);
   });
   var csv = "﻿" + out.map(function (rr) { return rr.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
   var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -16178,7 +16185,7 @@ function cntGuardar() {
       sesion: ses,
       legajo: c.legajo || null,
       cod: cod,
-      sector: String(r.sector || "").trim() || null,
+      sector: String(r.ubicacion || "").trim() || null,
       deposito: r.tipo === 'insumos' ? 'insumos' : 'terminado',
       ...(r.tipo !== 'insumos' ? {
         pilas: Number(r.pilas) || 0,
@@ -16195,7 +16202,7 @@ function cntGuardar() {
   if (!validRows.length) { try { alert("No hay filas válidas con código y cantidad."); } catch (_e) {} return; }
   fetch(SUPABASE_CONTEO_ENDPOINT, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(validRows) })
     .then(function (r) {
-      if (r.ok || (r.status >= 400 && r.status < 500)) { try { alert("✓ Conteo guardado: " + validRows.length + " línea(s)."); } catch (_e) {} _stk.conteo = { rows: [{ sector: "", cod: "", tipo: null, desc: "", pilas: "", cxp: "", sueltas: "", cantidad: "", unidad: "" }], legajo: c.legajo, showComp: false }; stkRender(); }
+      if (r.ok || (r.status >= 400 && r.status < 500)) { try { alert("✓ Conteo guardado: " + validRows.length + " línea(s)."); } catch (_e) {} _stk.conteo = { rows: [{ ubicacion: "", cod: "", tipo: null, pilas: "", cxp: "", sueltas: "", cantidad: "", unidad: "" }], legajo: c.legajo, showComp: false }; stkRender(); }
       else { try { alert("Error guardando (" + r.status + ")."); } catch (_e) {} }
     })
     .catch(function () { try { alert("Sin conexión — no se guardó."); } catch (_e) {} });
@@ -16326,33 +16333,37 @@ function stkBodyConteosRealizados() {
 function stkBodyConteo() {
   _cntLoadCodesCache().catch(() => {});
   if (!_stk.conteo) _stk.conteo = {
-    rows: [{ sector: “”, cod: “”, tipo: null, desc: “”, pilas: “”, cxp: “”, sueltas: “”, cantidad: “”, unidad: “” }],
+    rows: [{ ubicacion: “”, cod: “”, tipo: null, pilas: “”, cxp: “”, sueltas: “”, cantidad: “”, unidad: “” }],
     legajo: “”,
     showComp: false
   };
   const c = _stk.conteo;
-  let h = '<div class=”stk-cut” style=”background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;”>Conteo físico: <b>Mercadería</b> (Pilas · Cajas×Pila · Sueltas) o <b>Insumos</b> (Cantidad · Unidad). Autocomplete al escribir código.</div>';
-  h += '<div style=”margin-bottom:8px”><input class=”stk-aj-inp” id=”cntLegajo” style=”max-width:130px;text-align:center” placeholder=”Legajo” value=”' + escapeHtml(c.legajo || “”) + '” oninput=”if(_stk&&_stk.conteo)_stk.conteo.legajo=this.value”></div>';
-  h += '<div class=”stk-tblwrap”><table class=”stk-tbl stk-tbl-fit”><thead><tr><th>Sector</th><th>Código</th><th style=”font-size:0.85em;color:#666”>Tipo</th><th class=”num” id=”cntHdrPilas”>Pilas</th><th class=”num” id=”cntHdrCxp”>Cjas×Pila</th><th class=”num” id=”cntHdrSueltas”>Sueltas</th><th class=”num” id=”cntHdrCant” style=”display:none”>Cant</th><th class=”num” id=”cntHdrUni” style=”display:none”>Unidad</th><th class=”num”>Total</th><th></th></tr></thead><tbody>';
+  let h = '<div class=”stk-cut” style=”background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;”>Conteo físico: escribí código y elegí. Mercadería (Pilas·Cajas·Sueltas) o Insumos (Cantidad·Unidad).</div>';
+  h += '<div style=”margin-bottom:12px”><input class=”stk-aj-inp” id=”cntLegajo” style=”max-width:140px;text-align:center” placeholder=”Legajo” value=”' + escapeHtml(c.legajo || “”) + '” oninput=”if(_stk&&_stk.conteo)_stk.conteo.legajo=this.value”></div>';
+
+  h += '<div class=”stk-tblwrap”><table class=”stk-tbl stk-tbl-fit”><thead><tr><th>Ubicación</th><th>Código</th><th style=”font-size:0.85em”>Tipo</th><th class=”num”>Pilas</th><th class=”num”>Cjas×Pila</th><th class=”num”>Sueltas</th><th class=”num” style=”display:none” id=”cntCantHdr”>Cant</th><th class=”num” style=”display:none” id=”cntUnitHdr”>Unidad</th><th class=”num”>Total</th><th></th></tr></thead><tbody>';
+
   c.rows.forEach(function (r, i) {
-    const tipoStr = r.tipo === 'insumos' ? '📦' : (r.tipo === 'terminado' ? '📦' : '?');
-    const isMercaderia = r.tipo !== 'insumos' && r.tipo !== null;
+    const isMercaderia = r.tipo === 'terminado';
     const isInsumo = r.tipo === 'insumos';
+    const tipoIcon = isMercaderia ? '📦' : (isInsumo ? '📋' : '·');
+
     h += '<tr>' +
-      '<td><input class=”cnt-in” style=”width:84px” value=”' + escapeHtml(r.sector || “”) + '” oninput=”cntSet(' + i + ',\'sector\',this.value)”></td>' +
-      '<td style=”position:relative”><input class=”cnt-in cnt-code-input” style=”width:74px” value=”' + escapeHtml(r.cod || “”) + '” oninput=”cntSet(' + i + ',\'cod\',this.value)”></td>' +
-      '<td style=”text-align:center;font-size:0.9em”>' + tipoStr + '</td>' +
-      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:56px;text-align:center” value=”' + escapeHtml(String(r.pilas || “”)) + '” oninput=”cntSet(' + i + ',\'pilas\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
-      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:56px;text-align:center” value=”' + escapeHtml(String(r.cxp || “”)) + '” oninput=”cntSet(' + i + ',\'cxp\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
-      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:56px;text-align:center” value=”' + escapeHtml(String(r.sueltas || “”)) + '” oninput=”cntSet(' + i + ',\'sueltas\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
-      (isInsumo ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:56px;text-align:center” value=”' + escapeHtml(String(r.cantidad || “”)) + '” oninput=”cntSet(' + i + ',\'cantidad\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9;display:none”></td>') +
-      (isInsumo ? '<td class=”num”><input class=”cnt-in” style=”width:56px;text-align:center” value=”' + escapeHtml(r.unidad || “”) + '” oninput=”cntSet(' + i + ',\'unidad\',this.value)” placeholder=”ej: bolsas”></td>' : '<td class=”num” style=”background:#f9f9f9;display:none”></td>') +
+      '<td style=”position:relative”><input class=”cnt-in” style=”width:90px” value=”' + escapeHtml(r.ubicacion || “”) + '” oninput=”cntSet(' + i + ',\'ubicacion\',this.value)” placeholder=”ej: gondola”></td>' +
+      '<td style=”position:relative” data-cnt-row=”' + i + '”><input class=”cnt-in cnt-code-input” style=”width:70px” value=”' + escapeHtml(r.cod || “”) + '” oninput=”cntSet(' + i + ',\'cod\',this.value)” placeholder=”código” /><div id=”cntAC' + i + '”></div></td>' +
+      '<td style=”text-align:center;font-size:1.1em”>' + tipoIcon + '</td>' +
+      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.pilas || “”)) + '” oninput=”cntSet(' + i + ',\'pilas\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
+      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cxp || “”)) + '” oninput=”cntSet(' + i + ',\'cxp\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
+      (isMercaderia ? '<td class=”num”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.sueltas || “”)) + '” oninput=”cntSet(' + i + ',\'sueltas\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9”></td>') +
+      (isInsumo ? '<td class=”num” style=”display:table-cell”><input class=”cnt-in” type=”number” inputmode=”numeric” style=”width:50px” value=”' + escapeHtml(String(r.cantidad || “”)) + '” oninput=”cntSet(' + i + ',\'cantidad\',this.value)”></td>' : '<td class=”num” style=”background:#f9f9f9;display:none”></td>') +
+      (isInsumo ? '<td class=”num” style=”display:table-cell”><input class=”cnt-in” style=”width:50px” value=”' + escapeHtml(r.unidad || “”) + '” oninput=”cntSet(' + i + ',\'unidad\',this.value)” placeholder=”bolsa”></td>' : '<td class=”num” style=”background:#f9f9f9;display:none”></td>') +
       '<td class=”num”><b id=”cntCaj' + i + '”>' + (Math.round(_cntCalcCantidad(r) * 100) / 100) + '</b></td>' +
       '<td><button class=”stk-btn” style=”padding:4px 9px” onclick=”cntDelRow(' + i + ')”>✕</button></td>' +
       '</tr>';
   });
+
   h += '</tbody></table></div>';
-  h += '<div class=”stk-ini-btns”><button class=”stk-btn” onclick=”cntAddRow()”>+ Fila</button> <button class=”stk-btn” onclick=”cntCompara()”>📊 Comparar con el sistema</button> <button class=”stk-btn” onclick=”cntExportCsv()”>⬇ Exportar CSV</button> <button class=”stk-btn ok” onclick=”cntGuardar()”>💾 Guardar conteo</button></div>';
+  h += '<div class=”stk-ini-btns”><button class=”stk-btn” onclick=”cntAddRow()”>+ Fila</button> <button class=”stk-btn” onclick=”cntCompara()”>📊 Comparar</button> <button class=”stk-btn” onclick=”cntExportCsv()”>⬇ CSV</button> <button class=”stk-btn ok” onclick=”cntGuardar()”>💾 Guardar</button></div>';
   if (c.showComp) {
     const cont = {};
     c.rows.forEach(function (r) { const k = _ocgNorm(r.cod); if (!k) return; cont[k] = (cont[k] || 0) + _cntCalcCantidad(r); });
