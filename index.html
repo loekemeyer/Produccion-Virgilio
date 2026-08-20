@@ -2919,6 +2919,15 @@ table.fac-np-tbl td.center{ text-align: center; }
 /* v11.13 — Cód Cliente como 1ª columna y MUCHO más grande (pedido del dueño): es el
    dato que la operadora busca primero para facturar. */
 .fac-cod-big{ font-family: Consolas, Menlo, monospace; font-weight: 900; color: #0f172a; font-size: 22px; letter-spacing: 0.5px; }
+/* v11.13 — NC a Loeke→Chef es un checklist SECUNDARIO: chico y discreto, para que
+   FACTURACIÓN sea la protagonista (pedido del dueño). Antes se comía la pantalla. */
+#facNcList{ opacity: .9; margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 6px; }
+#facNcList .fac-nc-head{ font-weight: 800; color: #92400e; font-size: 13px; margin: 4px 0 2px; }
+#facNcList .fac-nc-sub{ font-weight: 600; font-size: 11px; color: #94a3b8; margin: 0 0 4px; }
+#facNcList table.fac-np-tbl{ font-size: 11px; min-width: 0; }
+#facNcList table.fac-np-tbl th{ font-size: 10.5px; padding: 3px 6px; }
+#facNcList table.fac-np-tbl td{ padding: 2px 6px; }
+#facNcList .fac-nc-btn{ background: #16a34a; color: #fff; border: none; border-radius: 6px; padding: 3px 9px; font-weight: 800; font-size: 11px; cursor: pointer; }
 /* .fac-dir-cell removido en v8.81 (columna Dirección eliminada de Facturación) */
 /* Razón Social: el nombre trunca en su renglón, pero los avisos (⚠ FALTA / 🧾
    equivalencia) tienen que poder BAJAR y verse — antes el td tenía overflow:hidden
@@ -31434,11 +31443,11 @@ function facRenderNc(){
       + '<td style="color:#475569;">' + escapeHtml(x.desc) + '</td>'
       + '<td class="center">' + (x.cajas || "") + '</td>'
       + '<td style="color:#475569;">' + escapeHtml(rs) + '</td>'
-      + '<td class="center"><button data-nc=\'' + args + '\' onclick="facNcConfirm(this)" style="background:#16a34a;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-weight:800;cursor:pointer;">✓ NC hecha</button></td>'
+      + '<td class="center"><button class="fac-nc-btn" data-nc=\'' + args + '\' onclick="facNcConfirm(this)">✓ NC hecha</button></td>'
       + '</tr>';
   }).join("");
-  box.innerHTML = '<div style="margin:16px 0 6px;font-weight:800;color:#92400e;">🧾 NC a Loeke + pasar stock a Chef — ' + list.length + ' pendiente(s)'
-    + '<div style="font-weight:600;font-size:12px;color:#64748b;margin-top:2px;">Artículos importados por Chef que se facturan por Chef → hacé la Nota de Crédito a Loeke y pasá el stock. Confirmá con ✓ para que no se te olvide. No afecta la carga del camión.</div></div>'
+  box.innerHTML = '<div class="fac-nc-head">🧾 NC a Loeke + pasar stock a Chef — ' + list.length + ' pendiente(s)</div>'
+    + '<div class="fac-nc-sub">Artículos importados por Chef que se facturan por Chef → hacé la Nota de Crédito a Loeke y pasá el stock. Confirmá con ✓ para que no se te olvide. No afecta la carga del camión.</div>'
     + '<div class="fac-table-wrap"><table class="fac-np-tbl"><thead><tr>'
     + '<th style="width:12%">NP</th><th style="width:10%">Cód</th><th style="width:34%">Artículo</th><th class="center" style="width:8%">Cajas</th><th style="width:24%">Razón Social</th><th class="center" style="width:12%">Acción</th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
