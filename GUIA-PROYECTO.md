@@ -4,7 +4,19 @@
 > salen los datos**, para poder responder preguntas con precisión y sin inventar.
 > **Mantener actualizada en cada cambio del proyecto** (ver § "Mantenimiento").
 >
-> Última actualización: 2026-08-17 · Versión app al documentar: **v11.03**
+> Última actualización: 2026-08-20 · Versión app al documentar: **v11.13**
+>
+> Nota **v11.13 — Facturación: Cód Cliente grande + columna "Facturar N" (parciales).**
+> Reordené el módulo **Facturación** (`openFacturacion`, monitor de ventas). Nuevo orden de
+> columnas: **Cód Cliente** primero y con letra mucho más grande (`.fac-cod-big`, 22px) →
+> **NP** → **Faltantes** → **Facturar** → resto a la derecha (Tanda, Salida, Razón Social,
+> Cambiar cód, Líos, Cajas, ✓). La columna nueva **Facturar** (`facFacturar(np)`) muestra,
+> por artículo que salió **parcial** (pidió X, agarró Y), un badge verde `cod: facturar Y`
+> (= `cajas_pedidas − cajas_falto`); **solo aparece si hubo parcial** (si faltó todo, nada).
+> **Por qué**: el badge de Faltantes solo mostraba lo que FALTÓ, y la operadora salteaba el
+> renglón entero sin facturar lo entregado (bug real NPs 98406/395, 44581/729E y 836 — cajas
+> pickeadas que no se facturaron). Es solo front: la data (pedidas + faltó) ya venía en
+> `facFetchFaltantes`; cero cambios de backend. Idea de usuario **6542**.
 >
 > Nota **2026-08-17 — Cobranzas: valorizar una NP sin ver la factura.** Objetivo del
 > usuario: que Virgilio sepa cuánta plata se le facturó a cada NP/cliente sin tener la

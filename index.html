@@ -2916,6 +2916,9 @@ table.fac-np-tbl td.num{ text-align: right; font-variant-numeric: tabular-nums; 
 table.fac-np-tbl td.center{ text-align: center; }
 .fac-np-cell{ font-family: monospace; font-weight: bold; color: #1e6bd6; font-size: 13px; }
 .fac-cod-cell{ font-family: monospace; color: #475569; font-size: 12px; }
+/* v11.13 — Cód Cliente como 1ª columna y MUCHO más grande (pedido del dueño): es el
+   dato que la operadora busca primero para facturar. */
+.fac-cod-big{ font-family: Consolas, Menlo, monospace; font-weight: 900; color: #0f172a; font-size: 22px; letter-spacing: 0.5px; }
 /* .fac-dir-cell removido en v8.81 (columna Dirección eliminada de Facturación) */
 /* Razón Social: el nombre trunca en su renglón, pero los avisos (⚠ FALTA / 🧾
    equivalencia) tienen que poder BAJAR y verse — antes el td tenía overflow:hidden
@@ -3398,6 +3401,12 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
      tickear. Es solo color: el botón sigue habilitado, la operadora decide. */
   tr.fac-en-progreso .fac-btn-tick{ background:#ea580c; }
   tr.fac-en-progreso .fac-btn-tick:hover{ background:#c2410c; }
+  /* v11.13 — columna "Facturar": cuánto hay que facturar de un artículo que salió PARCIAL
+     (pidió X, faltó Y → facturar X−Y). Verde = acción a hacer, para que NO se saltee el
+     renglón entero y se facture lo entregado. */
+  table.fac-np-tbl td.fac-fact-col{ white-space:normal; overflow:visible; line-height:1.3; }
+  .fac-fact-badge{ font-size:12.5px; font-weight:800; color:#065f46; background:#d1fae5; border:1px solid #6ee7b7; border-radius:7px; padding:2px 7px; line-height:1.3; display:inline-block; margin:1px 0; }
+  .fac-fact-badge b{ font-size:16px; }
 </style>
 <div id="facturacionModal">
   <div class="fac-banner" id="facBanner" style="display:none"></div>
@@ -6504,7 +6513,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v11.12";
+const APP_VERSION = "v11.13";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -31491,6 +31500,22 @@ function facFaltBadge(np){
   const mas = f.items.length > 8 ? " +" + (f.items.length - 8) : "";
   return '<div class="fac-falta-badge" title="Faltan ' + f.cajas + ' cajas en ' + f.items.length + ' artículo(s) — facturá por lo ENTREGADO">⚠ FALTA ' + f.cajas + ' cj: ' + det + mas + '</div>';
 }
+/* v11.13 — "Facturar N": cuánto hay que facturar de un artículo que salió PARCIAL
+   (se pidió X, faltó Y → facturar X−Y). SOLO aparece cuando salió una parte Y faltó otra;
+   si faltó TODO (entregado 0) no aparece (no hay nada que facturar). Objetivo: que la
+   operadora facture lo ENTREGADO y no saltee el renglón entero (bug 395/729E/836).
+   Data ya cargada en facFetchFaltantes (pedidas + faltó). */
+function facFacturar(np){
+  const f = facFaltInfo(np);
+  if (!f || !f.items || !f.items.length) return "";
+  const parts = f.items.map(function(it){
+    return { cod: it.cod, fact: (Number(it.ped) || 0) - (Number(it.falto) || 0) };
+  }).filter(function(x){ return x.fact > 0; });
+  if (!parts.length) return "";
+  return parts.map(function(x){
+    return '<div class="fac-fact-badge" title="Salió parcial — facturá SOLO lo entregado, no saltees el renglón">' + escapeHtml(x.cod) + ': facturar <b>' + x.fact + '</b></div>';
+  }).join("");
+}
 /* v7.90 — código en formato display de un miembro normalizado dentro de su familia. */
 function _equivDisp(fam, kn){ if(!fam) return kn; const i = fam._codsN.indexOf(kn); return i>=0 ? fam.cods[i] : kn; }
 /* v5.80 — Faltantes en COLUMNA aparte (no dentro de la Razón Social): SOLO la
@@ -31960,12 +31985,13 @@ function facRender(tandas){
     const _ft = facTareaActiva(f.np);
     return `
       <tr data-fac-np="${escapeHtml(f.np)}" class="${altFlag ? 'fac-tanda-alt' : ''}${_ft ? ' fac-en-progreso' : (_ff ? ' fac-has-falta' : '')}">
+        <td class="fac-cod-big">${escapeHtml(f.cod)}</td>
+        <td class="fac-np-cell">${escapeHtml(f.np)}</td>
+        <td class="fac-falta-col">${facFaltDist(f.np)}</td>
+        <td class="fac-fact-col">${facFacturar(f.np)}</td>
         <td class="fac-tanda-col">${escapeHtml(f.tanda)}</td>
         <td class="center">${escapeHtml(f.fechaSalida)}</td>
-        <td class="fac-np-cell">${escapeHtml(f.np)}</td>
-        <td class="fac-cod-cell">${escapeHtml(f.cod)}</td>
         <td class="fac-rs-cell"><span class="fac-rs-name">${escapeHtml(f.rs)}</span>${_ft ? facTareaBadge(f.np) : ''}</td>
-        <td class="fac-falta-col">${facFaltDist(f.np)}</td>
         <td style="white-space:normal;font-size:11px;font-weight:800;color:#1e40af;line-height:1.3;">${facCambioCod(f.np)}</td>
         <td class="fac-lios-cell">${(() => {
           const np = String(f.np).trim().replace(/\.0+$/, "");
@@ -31984,16 +32010,17 @@ function facRender(tandas){
       <table class="fac-np-tbl">
         <thead>
           <tr>
-            <th style="width:8%">Tanda</th>
-            <th class="center" style="width:6%">Salida</th>
+            <th style="width:9%">Cód Cliente</th>
             <th style="width:8%">NP</th>
-            <th style="width:6%">Cod</th>
-            <th style="width:22%">Razón Social</th>
-            <th style="width:16%">Faltantes</th>
-            <th style="width:14%" title="Pedidos en código secundario a corregir (secundario → principal). Confirmá en 🔀 Corregir códigos.">Cambiar cód</th>
-            <th class="center" style="width:5%">Líos</th>
-            <th class="center" style="width:5%">Cajas</th>
-            <th class="center fac-accion-th" style="width:10%">Acción</th>
+            <th style="width:15%">Faltantes</th>
+            <th style="width:13%" title="Cuánto facturar de un artículo que salió PARCIAL (pedido − faltó). Facturá lo entregado, no saltees el renglón.">Facturar</th>
+            <th style="width:7%">Tanda</th>
+            <th class="center" style="width:6%">Salida</th>
+            <th style="width:17%">Razón Social</th>
+            <th style="width:10%" title="Pedidos en código secundario a corregir (secundario → principal). Confirmá en 🔀 Corregir códigos.">Cambiar cód</th>
+            <th class="center" style="width:4%">Líos</th>
+            <th class="center" style="width:4%">Cajas</th>
+            <th class="center fac-accion-th" style="width:9%">Acción</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
