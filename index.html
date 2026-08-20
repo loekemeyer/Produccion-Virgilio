@@ -6524,7 +6524,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v11.13";
+const APP_VERSION = "v11.14";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -26674,6 +26674,10 @@ function pppRenderProg() {
   const box = document.getElementById("pppPreview"); if (!box) return;
   // v8.61 — cargar (una vez) los entregados para el aviso "salió en fecha ≠ a la PPP".
   if (_pppDelivered == null) { try { pppRefreshDelivered(); } catch (_e) {} }
+  // v11.14 — cargar (una vez) la hoja de entregados para poder SACAR de "Programación"
+  // lo que ya salió (facturado/cargado/entregado). Ambas cargas se guardan solas (null →
+  // fetch una vez → re-render), no entran en loop.
+  if (_pppMetaEntSet == null) { try { pppRefreshMetaEntSet(); } catch (_e) {} }
   // Semáforo de góndola: en las solapas con íconos, dispará (o refrescá) la carga
   // compartida. Guarda TTL/busy adentro → no entra en loop con el re-render.
   if (_pppTab === "prog" || _pppTab === "plan") { try { pppChkAutoLoad(); } catch (_e) {} }
@@ -26698,8 +26702,19 @@ function pppRenderProg() {
   if (PPP_READONLY) {
     _errInfo    = _pppComputeErrors(all, ent);                           // anota p._err + arma el panel
     try { _pppEmitError(_errInfo); } catch (_e) {}                       // v4.05: aviso Telegram si hay errores PPP
+    // v11.14 — un pedido que YA SALIÓ (facturado/cargado al camión o entregado) NO debe
+    // seguir figurando en "Programación Diaria": aparece en "En Salida" (facturado sin
+    // confirmar) o en "Entregados" (confirmado). Antes quedaba también en Programación —
+    // solo marcado 🚮 SACAR — y el que ya se cargó al camión y estaba "vencido/falta
+    // controlar" se veía en Programación en vez de en la línea de salida. Fuente de "salió"
+    // = misma que alimenta En Salida/Entregados: vista_ppp_pedidos_entregados (_pppDelivered)
+    // + confirmadas (control de remito CRN + hoja PPP_Entregados_Meta). Si todavía no
+    // cargaron, el set queda chico y no saca nada (no rompe, solo no filtra hasta que carga).
+    const _salieron = new Set();
+    try { (_pppDelivered || []).forEach(function (p) { _salieron.add(_pppNpNorm(p.np)); }); } catch (_e) {}
+    try { _pppConfirmadas().forEach(function (np) { _salieron.add(np); }); } catch (_e) {}
     entreg      = all.filter(function (p) { return ent.has(String(p.np)); });
-    programados = all.filter(function (p) { return p.programmed; });     // incluye los entregados (se marcan 🚮 SACAR in situ)
+    programados = all.filter(function (p) { return p.programmed && !_salieron.has(_pppNpNorm(p.np)); });
     aProgramar  = all.filter(function (p) { return !p.programmed; });
   } else {
     const notEnt = all.filter(function (p) { return !ent.has(String(p.np)); });
