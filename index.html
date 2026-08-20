@@ -1778,6 +1778,8 @@ button.pk-anular small{ display:block; font-size:12px; font-weight:700; opacity:
 .planim-inp{ height: 42px; font-size: 16px; border: 2px solid #cbd5e1; border-radius: 8px; padding: 0 10px; box-sizing: border-box; width: auto; margin: 0; transition: border-color .12s, box-shadow .12s; }
 .planim-inp:focus{ outline: none; border-color: #1e6bd6; box-shadow: 0 0 0 3px rgba(30,107,214,.12); }
 .planim-inp-num{ max-width: 84px; text-align: center; }
+/* v11.13 — orden auto-sugerido (por sector): verde suave, editable. */
+.planim-ord-sug{ background: #ecfdf5 !important; border-color: #6ee7b7 !important; }
 .planim-search{ width: 100%; }
 .planim-hint{ font-size: 12px; color: #64748b; margin-top: 8px; }
 .planim-btn-save{ width: auto; margin: 0; padding: 0 16px; height: 42px; background: #16a34a; color: #fff; border: 0; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background .12s; }
@@ -3784,8 +3786,8 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
         <div class="planim-add-t">Agregar / actualizar ubicación</div>
         <div class="planim-add-row">
           <input id="planimNewCod" class="planim-inp" type="text" placeholder="Código (ej. 580)">
-          <input id="planimNewSec" class="planim-inp" type="text" placeholder="Sector (ej. C19)">
-          <input id="planimNewOrd" class="planim-inp planim-inp-num" type="number" inputmode="numeric" placeholder="Orden">
+          <input id="planimNewSec" class="planim-inp" type="text" placeholder="Sector (ej. C19)" oninput="this.value=this.value.toUpperCase();planimFillOrden('planimNewSec','planimNewOrd')">
+          <input id="planimNewOrd" class="planim-inp planim-inp-num" type="number" inputmode="numeric" placeholder="Orden" oninput="this.classList.remove('planim-ord-sug')">
           <button class="planim-btn-save" onclick="planimAdd()">Guardar</button>
         </div>
         <input id="planimRef" class="planim-inp planim-search" type="text" placeholder="🧭 ¿Al lado de qué código o sector va? — te muestro los órdenes cercanos" oninput="planimNearby(this.value)">
@@ -28504,12 +28506,58 @@ function planimRender(filter) {
     const kE = escapeHtml(k);
     return '<div class="planim-row">' +
       '<span class="planim-row-cod">' + kE + '</span>' +
-      '<input class="planim-inp planim-row-sec" id="planimSec_' + kE + '" type="text" value="' + escapeHtml(String(e[0] || "")) + '" placeholder="Sector">' +
-      '<input class="planim-inp planim-inp-num planim-row-ord" id="planimOrd_' + kE + '" type="number" inputmode="numeric" value="' + (e[1] != null ? Number(e[1]) : 0) + '">' +
+      '<input class="planim-inp planim-row-sec" id="planimSec_' + kE + '" type="text" value="' + escapeHtml(String(e[0] || "")) + '" placeholder="Sector" oninput="this.value=this.value.toUpperCase();planimFillOrden(\'planimSec_' + kE + '\',\'planimOrd_' + kE + '\',\'' + kE + '\')">' +
+      '<input class="planim-inp planim-inp-num planim-row-ord" id="planimOrd_' + kE + '" type="number" inputmode="numeric" value="' + (e[1] != null ? Number(e[1]) : 0) + '" oninput="this.classList.remove(\'planim-ord-sug\')">' +
       '<button class="planim-btn-save" onclick="planimSaveRow(\'' + kE + '\')">Guardar</button>' +
       '<button class="planim-btn-del" onclick="planimDeleteRow(\'' + kE + '\')">Borrar</button>' +
     '</div>';
   }).join("") + (keys.length > CAP ? '<div class="planim-empty">Mostrando ' + CAP + ' de ' + keys.length + ' — afiná la búsqueda.</div>' : "");
+}
+/* v11.13 — Sugerencia de N° de orden para un sector, MISMA lógica que el trigger
+   backend planimetria_autoorden (sql/planimetria_autoorden.sql). Lee window.GONDOLA.
+   Devuelve un número o null. */
+function planimSuggestOrden(sector, excludeCod) {
+  const G = window.GONDOLA || {};
+  const S = String(sector || "").trim().toUpperCase();
+  if (!S) return null;
+  const exc = String(excludeCod || "").toUpperCase();
+  const rows = Object.keys(G).map(function (k) {
+    const e = G[k] || ["", 0];
+    return { cod: String(k).toUpperCase(), sector: String(e[0] || "").toUpperCase(), orden: Number(e[1]) };
+  }).filter(function (r) { return r.cod !== exc && r.sector && !isNaN(r.orden) && r.orden !== 0; });
+  if (!rows.length) return null;
+  // 1) mismo sector exacto → su orden (mínimo)
+  const same = rows.filter(function (r) { return r.sector === S; });
+  if (same.length) return Math.min.apply(null, same.map(function (r) { return r.orden; }));
+  // 2) mismo pasillo (misma letra inicial), interpolar por nombre de sector
+  const letra = S.charAt(0);
+  let prev = null, next = null;
+  const bump = function (r) {
+    if (r.sector < S) prev = (prev == null) ? r.orden : Math.max(prev, r.orden);
+    else if (r.sector > S) next = (next == null) ? r.orden : Math.min(next, r.orden);
+  };
+  rows.filter(function (r) { return r.sector.charAt(0) === letra; }).forEach(bump);
+  // 3) sin pasillo → vecinos globales por nombre
+  if (prev == null && next == null) rows.forEach(bump);
+  if (prev != null && next != null) return Math.round((prev + next) / 2);
+  if (prev != null) return prev + 1;
+  if (next != null) return Math.max(next - 1, 1);
+  // 4) nada → el mayor + 1
+  return Math.max.apply(null, rows.map(function (r) { return r.orden; })) + 1;
+}
+/* Autocompleta el input de orden con la sugerencia si está vacío/0 o si el valor
+   actual fue puesto por la propia sugerencia (clase planim-ord-sug). Nunca pisa un
+   número puesto a mano. */
+function planimFillOrden(secElId, ordElId, excludeCod) {
+  const secEl = document.getElementById(secElId);
+  const ordEl = document.getElementById(ordElId);
+  if (!secEl || !ordEl) return;
+  const cur = parseInt(ordEl.value, 10);
+  const wasAuto = ordEl.classList.contains("planim-ord-sug");
+  if (cur && cur !== 0 && !wasAuto) return;   // orden puesto a mano → no lo piso
+  const sug = planimSuggestOrden(secEl.value, excludeCod);
+  if (sug != null) { ordEl.value = sug; ordEl.classList.add("planim-ord-sug"); }
+  else if (wasAuto) { ordEl.value = ""; ordEl.classList.remove("planim-ord-sug"); }
 }
 async function planimUpsert(cod, sector, orden) {
   const headers = await facAuthWriteHeaders({ "Prefer": "resolution=merge-duplicates,return=minimal" });
