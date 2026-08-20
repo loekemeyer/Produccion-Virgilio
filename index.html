@@ -6503,7 +6503,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v11.0";
+const APP_VERSION = "v11.01";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -10778,7 +10778,11 @@ function _ocPngBlob(x) {
   return new Promise(function (resolve, reject) {
     const host = document.createElement("div");
     host.setAttribute("style", "position:fixed;left:-99999px;top:0;background:#fff");
-    host.innerHTML = '<style>' + _OC_PRINT_CSS + '</style><div class="ocimg" style="background:#fff;padding:16px;display:inline-block">' + ocPrintHtml(x, {}) + '</div>';
+    // v11.01 — ancho FIJO (antes inline-block sin tope): la tabla es width:100%, sin
+    // un ancho contenedor la columna Descripción se estiraba a UNA sola línea y la imagen
+    // salía larguísima y finita en WhatsApp. Con 700px la Descripción envuelve y queda
+    // en proporción retrato, prolija para mandar por chat.
+    host.innerHTML = '<style>' + _OC_PRINT_CSS + '</style><div class="ocimg" style="background:#fff;padding:16px;width:700px;box-sizing:border-box">' + ocPrintHtml(x, {}) + '</div>';
     document.body.appendChild(host);
     const inner = host.querySelector(".ocimg");
     const W = Math.ceil(inner.scrollWidth) + 2, H = Math.ceil(inner.scrollHeight) + 2;
