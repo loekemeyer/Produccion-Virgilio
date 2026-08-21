@@ -6,7 +6,7 @@
    ⚠ IMPORTANTE: SUPABASE_URL y SUPABASE_KEY están duplicados acá y en
    index.html. Si rotás la publishable key, hay que actualizar AMBOS.
    ========================================================= */
-const SW_VERSION = "v11.14-vir";
+const SW_VERSION = "v11.15-vir";
 /* nota: v7.68 — generador de OCs desde stock (vista_generador_oc). */
 
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";

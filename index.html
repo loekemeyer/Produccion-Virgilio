@@ -1871,6 +1871,10 @@ button.pk-anular small{ display:block; font-size:12px; font-weight:700; opacity:
 .ppp-ent-mode.on{ background:#0f766e; color:#fff; border-color:#0f766e; }
 .ppp-ent-row{ font-size:12.5px; color:#334155; padding:2px 0; }
 .ppp-ent-row b{ color:#0f172a; }
+/* v11.15 — En Salida: pedido que salió CON FALTANTE resaltado en rojo (para verlo aparte
+   y revisarlo — es el caso que se saltea al facturar). */
+.ppp-ent-row.ppp-ent-falt{ background:#fef2f2; border-left:3px solid #dc2626; border-radius:4px; padding:2px 6px; }
+.ppp-ent-row.ppp-ent-falt b{ color:#991b1b; }
 .ppp-ent-m3{ color:#1e6bd6; font-weight:600; }
 .ppp-ent-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:2px 12px; }
 .ppp-ent-cell{ font-size:12px; color:#334155; padding:2px 0; border-bottom:1px solid #f1f5f9; }
@@ -6524,7 +6528,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v11.14";
+const APP_VERSION = "v11.15";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -24361,9 +24365,10 @@ function _pppEnViajeHtml() {
   if (_pppDelivered == null || _pppMetaEntSet == null) return '<div class="planim-empty">Cargando pedidos en salida…</div>';
   const list = _pppEntFilter(_pppSplitDelivered().enViaje);
   if (!list.length) return '<div class="ppp-ent-note">' + (_pppSearch ? "Sin coincidencias." : "No hay pedidos en salida (todos los facturados están confirmados como entregados).") + '</div>';
-  let totM3 = 0; for (const p of list) totM3 += (p.m3 || 0);
-  const r = _pppEntGroupedHtml(list, true, 0);
-  return '<div class="ppp-ent-note">🚚 Pedidos <b>en salida</b> — ya se <b>facturaron</b> (salieron de la programación) pero <b>todavía no se confirmó la entrega</b> (sin control de remito ni en la hoja de entregados). Incluye lo facturado sin cargar y lo cargado sin controlar. <b>' + list.length + '</b> pedido(s) · <b>' + totM3.toFixed(2) + '</b> m³.</div>' + r.html;
+  let totM3 = 0, nFalt = 0; for (const p of list) { totM3 += (p.m3 || 0); if (p.cajF > 0) nFalt++; }
+  const r = _pppEntGroupedHtml(list, true, 0, true);   // v11.15: markFalt → filas con faltante en rojo
+  const faltNote = nFalt ? ' <span style="color:#dc2626;font-weight:800;">⚠ ' + nFalt + ' con faltante (en rojo — revisar que se haya facturado lo entregado).</span>' : '';
+  return '<div class="ppp-ent-note">🚚 Pedidos <b>en salida</b> — ya se <b>facturaron</b> (salieron de la programación) pero <b>todavía no se confirmó la entrega</b> (sin control de remito ni en la hoja de entregados). Incluye lo facturado sin cargar y lo cargado sin controlar. <b>' + list.length + '</b> pedido(s) · <b>' + totM3.toFixed(2) + '</b> m³.' + faltNote + '</div>' + r.html;
 }
 function _pppYmdKey(s) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || "")); return m ? (m[1] + m[2] + m[3]) : ""; }
 async function pppRefreshDelivered() {
@@ -24427,7 +24432,8 @@ function _pppEntBodyHtml() { return _pppEntTabsHtml() + (_pppEntMode === "excel"
 /* Render compartido: lista de entregados AGRUPADA por fecha (desc) → tanda, con m³.
    showCajas = muestra cajas/faltó (solo la vista rica de la app las tiene). cap =
    límite de pedidos renderizados (0 = sin límite). Devuelve {html, capped, total}. */
-function _pppEntGroupedHtml(list, showCajas, cap) {
+/* v11.15 — markFalt: resalta en rojo las filas con faltante (solo la usa "En Salida"). */
+function _pppEntGroupedHtml(list, showCajas, cap, markFalt) {
   const DOW = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const total = list.length;
   const capped = !!(cap && total > cap);
@@ -24451,7 +24457,8 @@ function _pppEntGroupedHtml(list, showCajas, cap) {
         const cajas = (showCajas && p.cajE) ? (' · ' + p.cajE + ' cj' + (p.cajF ? ' <span style="color:#dc2626">(faltó ' + p.cajF + ')</span>' : '')) : '';
         // v8.33 — si carga camión ≠ PPP, marcar (la PPP se cargó con otra fecha)
         const disc = (p.discrep && p.pppDate) ? ' <span style="color:#b45309;font-weight:700;" title="Salió (carga camión) en otra fecha que la de la PPP — revisar la PPP">⚠ PPP decía ' + p.pppDate.slice(8, 10) + '/' + p.pppDate.slice(5, 7) + '</span>' : '';
-        html += '<div class="ppp-ent-row"><b>' + escapeHtml(p.np) + '</b> ' + escapeHtml((p.rs || p.cod || "").slice(0, 32)) + (p.m3 != null ? ' <span class="ppp-ent-m3">' + p.m3.toFixed(3) + ' m³</span>' : '') + cajas + disc + '</div>';
+        const faltCls = (markFalt && p.cajF > 0) ? ' ppp-ent-falt' : '';   // v11.15: salió con faltante → rojo
+        html += '<div class="ppp-ent-row' + faltCls + '"><b>' + escapeHtml(p.np) + '</b> ' + escapeHtml((p.rs || p.cod || "").slice(0, 32)) + (p.m3 != null ? ' <span class="ppp-ent-m3">' + p.m3.toFixed(3) + ' m³</span>' : '') + cajas + disc + '</div>';
       }
       html += '</div>';
     }
