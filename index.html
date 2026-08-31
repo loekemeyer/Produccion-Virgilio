@@ -5110,6 +5110,22 @@ async function confirmarTerminarDia() {
     if (d.tipo === "Picking" || d.tipo === "Armado") {
       const isPick = d.tipo === "Picking";
       const code   = isPick ? "TP" : "TAP";
+      // v12.17 — gate anti TAP-sin-Entregas en Fin de Jornada (mismo que send() v7.74).
+      // Si el armado NO pasó por el asistente Completar → no tiene filas en
+      // Entregas_Virgilio → no se puede facturar. Abrimos el asistente y abortamos
+      // el FJ para que el operario lo complete primero.
+      if (!isPick && d.closeText
+          && !(typeof esOperadorPrueba === "function" && esOperadorPrueba())
+          && !(typeof _armadoRegistrado !== "undefined" && _armadoRegistrado.has(String(d.closeText).trim().toUpperCase()))) {
+        let _fjTieneEnt = null;
+        try { _fjTieneEnt = await _compTandaYaArmada(d.closeText); } catch (_e) { _fjTieneEnt = null; }
+        if (_fjTieneEnt === false) {
+          try { alert("⚠ El armado de " + d.closeText + " no tiene entregas registradas.\n\nAntes de cerrar el día, completá el armado en el asistente «Completar» para que se pueda facturar."); } catch (_e) {}
+          try { showCompletarWizard(legajoStr, String(d.closeText).trim().toUpperCase()); } catch (_e) {}
+          closeTerminarDia();
+          return;   // abortamos el FJ completo
+        }
+      }
       const tsIni  = isPick ? (st.picking && st.picking.ts_inicio)
                             : (st.armado  && st.armado.ts_inicio);
       const closeId = nowMs.toString(36) + "_fjclose_" + code + "_" + Math.random().toString(36).slice(2, 6);
@@ -6535,7 +6551,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.16";
+const APP_VERSION = "v12.17";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
