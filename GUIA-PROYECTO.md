@@ -1033,6 +1033,17 @@
 > cayera el timer, o sea rara vez acá y seguido en un runner lento — que es el patrón de la **CI, en
 > rojo desde antes de esta tanda**. Ahora los controles se **agregan** en vez de reemplazar el body.
 >
+> Nota **2026-09-03 — v12.65: botón "📥 Excel" en la hoja Stocks (Stock y Compras).**
+> Pedido del dueño. En la barra de filtros de la solapa **Stocks** hay un botón que descarga un
+> `.xlsx` real (vía SheetJS, `pppLoadXlsx`) con **exactamente lo que se ve en pantalla**: respeta
+> TODOS los filtros activos (búsqueda de varios códigos, LK/CH, 🔴 Negativos, ⚠ Stock bajo, 📌
+> Fijados, 🚫 Discontinuos, filtro por columna) y el mismo orden. Columnas exportadas: **Código,
+> LK/CH, Descripción, Proy. caj/mes, Total Stock, Cajas Pedidas** (de "Código" hasta "Cajas
+> Pedidas", sin las de depósitos). Implementación: `stkBodyStocks()` guarda un snapshot de las
+> filas mostradas en `_stk._expRows` mientras dibuja; `stkExportarExcelVista()` lo escribe. (La
+> vieja `stkDescargarExcel()` v7.77 sigue huérfana desde v8.93 y re-filtraba con lógica vieja —
+> por eso NO se reusó.)
+>
 > Nota **2026-09-03 — v12.64: Remito y Factura pide LAS DOS fotos, y las dos se ven.**
 > Pedido del dueño. En Recepción de Mercadería, cuando el operario elige el tipo de documento
 > **"📄🧾 Remito y Factura"**, ahora se le piden **dos fotos rotuladas** —una del remito y otra de la

@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.64";
+const APP_VERSION = "v12.65";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -13846,6 +13846,8 @@ function stkBodyStocks() {
     '<button type="button" onclick="stkToggleSoloPin()" title="Mostrar sólo los códigos que fijaste (📌). Se guardan aunque cierres la app." style="width:auto;margin:0;flex:0 0 auto;padding:0 11px;height:38px;border:1.5px solid ' + (_stk.soloPin ? "#b45309" : "#cbd5e1") + ';border-radius:9px;background:' + (_stk.soloPin ? "#fffbeb" : "#fff") + ';color:' + (_stk.soloPin ? "#b45309" : "#334155") + ';font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">' + (_stk.soloPin ? "☑" : "📌") + ' Fijados' + ((_stk.pins || []).length ? " (" + _stk.pins.length + ")" : "") + '</button>' +
     // v10.50 — chip "🚫 Ocultar discontinuos" (off por defecto: se ven).
     '<button type="button" onclick="stkToggleOcultarDisc()" title="Ocultar los códigos DISCONTINUADOS (OC_Maximos activo=false o marcados a mano). Por defecto se ven." style="width:auto;margin:0;flex:0 0 auto;padding:0 11px;height:38px;border:1.5px solid ' + (_stk.ocultarDisc ? "#7c3aed" : "#cbd5e1") + ';border-radius:9px;background:' + (_stk.ocultarDisc ? "#f5f3ff" : "#fff") + ';color:' + (_stk.ocultarDisc ? "#6d28d9" : "#334155") + ';font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">' + (_stk.ocultarDisc ? "☑" : "☐") + ' 🚫 Discontinuos' + (_stkDiscCount ? " (" + _stkDiscCount + ")" : "") + '</button>' +
+    // v12.65 — Descargar Excel de lo que se ve ahora (con los filtros aplicados). Columnas Código→Cajas Pedidas.
+    '<button type="button" onclick="stkExportarExcelVista()" title="Descargar en Excel lo que se ve ahora (con los filtros aplicados): Código, LK/CH, Descripción, Proy. caj/mes, Total Stock y Cajas Pedidas" style="width:auto;margin:0;flex:0 0 auto;padding:0 12px;height:38px;border:1.5px solid #16a34a;border-radius:9px;background:#f0fdf4;color:#166534;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">📥 Excel</button>' +
     '<span style="flex:0 0 auto;width:1px;height:26px;background:#e2e8f0;margin:0 2px;"></span>' +
     stkAsOfControl() +
     '<span id="stkMergeStatus" title="' + (_stk._mergeComplete ? 'Datos completos cargados' : 'Cargando datos completos…') + '" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:0 0 auto;">' +
@@ -13896,6 +13898,9 @@ function stkBodyStocks() {
     if (ap !== bp) return bp - ap;                       // fijados arriba
     return 0;                                            // resto: orden original (sort estable)
   });
+  // v12.65 — snapshot de EXACTAMENTE lo que se muestra (mismo orden, mismos filtros)
+  // para el botón "📥 Excel" de la barra. Columnas Código→Cajas Pedidas (pedido del dueño).
+  _stk._expRows = [];
   shown.forEach(function (a) {
     const _tot = SECTKEYS.reduce(function (s, k) { return s + (Number(a[k]) || 0); }, 0) + (Number(a.racks_ch) || 0);  // v7.54: racks_ch sumado al total
     const _ped = _demOf(a.cod);
@@ -13916,6 +13921,7 @@ function stkBodyStocks() {
       else _famTag = ' <span title="SECUNDARIO — no deben entrar pedidos acá. El principal es ' + escapeHtml(_equivDisp(_fam, _fam._defN)) + '." style="color:#1e40af;font-size:10px;font-weight:800;">⇄' + escapeHtml(_equivDisp(_fam, _fam._defN)) + '</span>';
     }
     const _proy = _proyOf(a.cod);
+    _stk._expRows.push({ cod: _codDisplay, lin: _lin, desc: (artNombre(a.cod, a.desc) || ""), proy: _proy, tot: _tot, ped: _ped });
     let tds = '<td class="stk-cod">' + escapeHtml(_codDisplay) + _famTag + '</td><td style="text-align:center;font-weight:800;font-size:11px;padding:3px 4px;color:' + (_lin === "LK" ? "#b91c1c" : (_lin === "CH" ? "#1e40af" : "#94a3b8")) + ';">' + (_lin || "—") + '</td><td class="stk-desc">' + escapeHtml(artNombre(a.cod, a.desc) || "—") + '</td>' + '<td class="num stk-pick-cell" style="background:#faf5ff;color:' + (_proy > 0.05 ? '#6d28d9' : '#c4b5fd') + ';cursor:pointer" onclick="event.stopPropagation();stkShowProyVentas(\'' + encodeURIComponent(a.cod) + '\',' + (Math.round((_proy || 0) * 100) / 100) + ')" title="Tocá para ver de dónde surge (ventas facturadas de los últimos 6 meses)">' + (_proy > 0.05 ? Math.round(_proy) : '—') + '</td>' + '<td class="num ' + (_tot < 0 ? "stk-neg" : "") + '" style="background:#f8fafc"><b>' + fmtCajas(_tot) + '</b></td>' + (_ped ? '<td class="num stk-pick-cell" style="background:#fffbeb;color:#92400e" onclick="event.stopPropagation();stkOpenCajasPedidasArt(\'' + encodeURIComponent(a.cod) + '\')" title="Todas las cajas pedidas (programadas o no) todavía no facturadas. Tocá para ver el detalle por NP"><b>' + fmtCajas(_ped) + '</b>' + (_demSPOf(a.cod) > 0.05 ? ' <span title="⚠ ' + fmtCajas(_demSPOf(a.cod)) + ' caja(s) pedidas están en la base de pedidos pero SIN programar en el PPP (Programación Diaria)" style="cursor:help">⚠️</span>' : '') + '</td>' : '<td class="num" style="background:#fffbeb;color:#92400e"></td>') + (_cap ? '<td class="num stk-pick-cell" style="background:#f0fdf4;color:#166534" onclick="event.stopPropagation();stkOpenCapArt(\'' + encodeURIComponent(a.cod) + '\')" title="Ubicaciones y capacidad de góndola"><b>' + fmtCajas(_cap) + '</b></td>' : '<td class="num" style="background:#f0fdf4;color:#166534">—</td>');
     cols.forEach(function (c) {
       const v = (c.racksKey ? ((Number(a[c.key]) || 0) + (Number(a.racks_ch) || 0)) : (Number(a[c.key]) || 0));
@@ -15934,6 +15940,38 @@ function stkDescargarExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Stock");
     XLSX.writeFile(wb, "Stock_" + new Date().toISOString().split("T")[0] + ".xlsx");
+  }).catch(function (e) {
+    alert("No pude generar el Excel: " + (e && e.message ? e.message : e));
+  });
+}
+// v12.65 — Descargar Excel de la hoja Stocks: EXACTAMENTE lo que se ve con los filtros
+// aplicados (búsqueda, LK/CH, negativos, stock bajo, fijados, discontinuos, filtro por
+// columna, línea, etc.). Usa el snapshot _stk._expRows que arma stkBodyStocks en el mismo
+// orden y con los mismos filtros que la tabla en pantalla. Columnas: Código, LK/CH,
+// Descripción, Proy. caj/mes, Total Stock, Cajas Pedidas (pedido del dueño).
+function stkExportarExcelVista() {
+  if (!_stk) return;
+  const rows = _stk._expRows || [];
+  if (!rows.length) { alert("No hay filas para exportar con los filtros actuales."); return; }
+  const num = function (n) { return Math.round((Number(n) || 0) * 10) / 10; };
+  const headers = ["Código", "LK/CH", "Descripción", "Proy. caj/mes", "Total Stock", "Cajas Pedidas"];
+  const aoa = [headers];
+  rows.forEach(function (r) {
+    aoa.push([
+      String(r.cod || ""),
+      String(r.lin || ""),
+      String(r.desc || ""),
+      (Number(r.proy) || 0) > 0.05 ? Math.round(Number(r.proy)) : "",
+      num(r.tot),
+      (Number(r.ped) || 0) > 0.05 ? num(r.ped) : ""
+    ]);
+  });
+  pppLoadXlsx().then(function (XLSX) {
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wch: 9 }, { wch: 6 }, { wch: 34 }, { wch: 13 }, { wch: 11 }, { wch: 13 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Stocks");
+    XLSX.writeFile(wb, "Stocks_" + new Date().toISOString().split("T")[0] + ".xlsx");
   }).catch(function (e) {
     alert("No pude generar el Excel: " + (e && e.message ? e.message : e));
   });
