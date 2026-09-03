@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.68";
+const APP_VERSION = "v12.69";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -16013,7 +16013,9 @@ function _stkXlsxStyledBlob(aoa, widths, textCols) {
   const nCols = (aoa[0] || []).length;
   const nData = aoa.length - 1;   // filas de datos (sin encabezado)
   // ---- Bordes (dedup) ----
-  const borderDefs = [], borderIdx = {};
+  // Índice 0 reservado = SIN borde (el estilo Normal por defecto que Excel espera).
+  // Si el índice 0 llevara borde, Excel puede "auto-reparar" y descartar los estilos.
+  const borderDefs = ["<border><left/><right/><top/><bottom/><diagonal/></border>"], borderIdx = {};
   const seg = function (tag, st) { return st ? "<" + tag + ' style="' + st + '"><color rgb="FF000000"/></' + tag + ">" : "<" + tag + "/>"; };
   const needBorder = function (l, r, t, b) {
     const k = l + "|" + r + "|" + t + "|" + b;
@@ -16021,7 +16023,8 @@ function _stkXlsxStyledBlob(aoa, widths, textCols) {
     return borderIdx[k];
   };
   // ---- Estilos de celda (xf), uno por borde; misma alineación para todos ----
-  const xfDefs = [], xfIdx = {};
+  // Índice 0 reservado = formato Normal por defecto (fontId 0, sin borde), como espera Excel.
+  const xfDefs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'], xfIdx = {};
   const needXf = function (borderId, bold) {
     const k = borderId + "|" + (bold ? "b" : "n");
     if (xfIdx[k] == null) {
@@ -16069,7 +16072,7 @@ function _stkXlsxStyledBlob(aoa, widths, textCols) {
     colsXml + "<sheetData>" + rowsXml + "</sheetData></worksheet>";
   const stylesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+    '<fonts count="2"><font><sz val="14"/><name val="Calibri"/></font><font><b/><sz val="16"/><name val="Calibri"/></font></fonts>' +
     '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
     '<borders count="' + borderDefs.length + '">' + borderDefs.join("") + "</borders>" +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
