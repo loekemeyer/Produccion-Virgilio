@@ -233,6 +233,8 @@ const RCP_CSS = `
 #rcpRoot .noBtn{ margin-left:auto; padding:8px 12px; font-size:12px; font-weight:800; border:2px solid var(--border); border-radius:9px; background:#fff; color:#111; cursor:pointer; white-space:nowrap; }
 #rcpRoot .noBtn.on{ background:var(--danger); border-color:var(--danger); color:#fff; }
 #rcpRoot .pcFotoRow .fotoDrop{ flex:1; }
+/* v12.64 — rótulo arriba de cada bloque de foto cuando se piden las dos. */
+#rcpRoot .opFotoTitulo{ font-size:14px; font-weight:800; color:#334155; margin:14px 0 6px; }
 #rcpRoot .fotoDrop{ display:inline-flex; align-items:center; justify-content:center; min-width:160px; min-height:46px; padding:8px 12px; border:2px dashed #cbd5e1; border-radius:10px; background:#fff; cursor:pointer; font-weight:800; font-size:13px; color:#475569; }
 #rcpRoot .fotoDrop.has{ border-style:solid; border-color:var(--ok); color:var(--ok); background:#eef7ee; }
 #rcpRoot .fotoDrop.drag{ border-color:#1e6bd6; background:#eff6ff; }
@@ -254,6 +256,12 @@ const RCP_CSS = `
    que cerrar la foto para leer los códigos/cajas y volver a abrirla para cotejar. */
 #rcpRoot .fotoOverlayBox{ display:flex; align-items:center; justify-content:center; gap:14px; width:100%; max-width:1280px; margin:auto; }
 #rcpRoot .fotoOverlayImg{ flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; }
+/* v12.64 — dos fotos (remito + factura) una al lado de la otra en el visor. Cada una
+   con su rótulo, porque a simple vista los dos papeles se parecen. */
+#rcpRoot .fotoOverlayImg.dos{ gap:10px; align-items:flex-start; }
+#rcpRoot .fotoOverlayCel{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:6px; }
+#rcpRoot .fotoOverlayCelTit{ color:#fff; font-size:13px; font-weight:800; letter-spacing:.3px; }
+#rcpRoot .fotoOverlayImg.dos img{ max-height:78vh; }
 #rcpRoot .fotoOverlayInfo{ flex:0 0 330px; max-width:330px; max-height:88vh; overflow:auto; background:#fff; border-radius:12px; padding:14px 16px; box-shadow:0 2px 14px rgba(0,0,0,.4); }
 #rcpRoot .fovName{ font-size:19px; font-weight:900; color:#111; }
 #rcpRoot .fovMeta{ font-size:13px; font-weight:700; color:#475569; margin-top:2px; }
@@ -268,6 +276,10 @@ const RCP_CSS = `
   #rcpRoot .fotoOverlayBox{ flex-direction:column; align-items:stretch; gap:10px; }
   #rcpRoot .fotoOverlayInfo{ flex:0 0 auto; max-width:none; max-height:38vh; }
   #rcpRoot .fotoOverlay img{ max-height:46vh; }
+  /* En el celular las dos fotos van UNA ABAJO DE LA OTRA: al lado quedarían de ~180px
+     y un remito no se lee. El overlay ya scrollea (overflow:auto). */
+  #rcpRoot .fotoOverlayImg.dos{ flex-direction:column; align-items:stretch; }
+  #rcpRoot .fotoOverlayImg.dos img{ max-height:44vh; }
 }
 #rcpRoot .pcFoot{ margin-top:10px; display:flex; align-items:center; justify-content:flex-end; gap:12px; }
 #rcpRoot .enviarBtn{ padding:11px 22px; font-size:16px; font-weight:900; border:0; border-radius:11px; background:#111; color:#fff; cursor:pointer; }
@@ -453,6 +465,11 @@ function opResetState() {
   opState.fotoFile = null;
   if (opState.fotoPreviewUrl) { try { URL.revokeObjectURL(opState.fotoPreviewUrl); } catch(_e){} }
   opState.fotoPreviewUrl = null;
+  // v12.64 — segunda foto: cuando el tipo de documento es "Remito y Factura" se piden
+  // las DOS (foto 1 = remito, foto 2 = factura). En los otros tipos queda en null.
+  opState.fotoFile2 = null;
+  if (opState.fotoPreviewUrl2) { try { URL.revokeObjectURL(opState.fotoPreviewUrl2); } catch(_e){} }
+  opState.fotoPreviewUrl2 = null;
 }
 function openOp() {
   opResetState();
@@ -1237,42 +1254,72 @@ function renderResumen() {
   tot.textContent = "Total: " + items.length + " código(s) · " + totalCajas + " cajas";
   opBody.appendChild(tot);
 
-  // v11.xx — Foto obligatoria de la mercadería (se sube al confirmar)
-  const fotoSec = document.createElement("div");
-  fotoSec.className = "opFotoSection";
-  const fotoInput = document.createElement("input");
-  fotoInput.type = "file"; fotoInput.accept = "image/*";
-  fotoInput.setAttribute("capture", "environment");
-  fotoInput.style.display = "none";
-  const fotoBtn = document.createElement("button");
-  fotoBtn.type = "button"; fotoBtn.className = "opFotoBtn" + (opState.fotoFile ? " has" : "");
-  fotoBtn.textContent = opState.fotoFile ? "📷 ✓ Foto sacada — tocá para cambiar" : "📷 Sacar foto de la mercadería";
-  const fotoPreview = document.createElement("div");
-  fotoPreview.className = "opFotoPreview";
-  if (opState.fotoPreviewUrl) { const pi = document.createElement("img"); pi.src = opState.fotoPreviewUrl; fotoPreview.appendChild(pi); }
-  const fotoHint = document.createElement("div");
-  fotoHint.className = "opFotoHint";
-  fotoHint.textContent = opState.fotoFile ? "" : "Obligatorio: sacá una foto antes de enviar";
-  fotoHint.style.display = opState.fotoFile ? "none" : "";
-  fotoBtn.onclick = function() { fotoInput.click(); };
-  fotoInput.onchange = function() {
-    if (fotoInput.files && fotoInput.files[0]) {
-      opState.fotoFile = fotoInput.files[0];
-      fotoBtn.textContent = "📷 ✓ Foto sacada — tocá para cambiar";
-      fotoBtn.classList.add("has");
-      fotoHint.style.display = "none";
-      try {
-        if (opState.fotoPreviewUrl) URL.revokeObjectURL(opState.fotoPreviewUrl);
-        opState.fotoPreviewUrl = URL.createObjectURL(opState.fotoFile);
-        fotoPreview.innerHTML = "";
-        const pi = document.createElement("img"); pi.src = opState.fotoPreviewUrl; fotoPreview.appendChild(pi);
-      } catch(_e){}
-      const cb = document.getElementById("opConfirmar");
-      if (cb) cb.disabled = false;
+  /* v11.xx — Foto obligatoria de la mercadería (se sube al confirmar).
+     v12.64 — Si el operario eligió "Remito y Factura" se piden DOS fotos, una de cada
+     papel, y las dos son obligatorias. Con un solo documento sigue siendo una sola,
+     igual que siempre. El bloque se arma con la misma función para que las dos se
+     comporten idéntico (preview, cambiar, validación). */
+  const dosFotos = (opState.tipoDoc === "remito_factura");
+
+  function _fotoBloque(slot, titulo, textoBtn) {
+    // slot 1 → opState.fotoFile / fotoPreviewUrl ; slot 2 → fotoFile2 / fotoPreviewUrl2
+    const kFile = slot === 2 ? "fotoFile2" : "fotoFile";
+    const kUrl  = slot === 2 ? "fotoPreviewUrl2" : "fotoPreviewUrl";
+    const sec = document.createElement("div");
+    sec.className = "opFotoSection";
+    if (titulo) {
+      const h = document.createElement("div");
+      h.className = "opFotoTitulo";
+      h.textContent = titulo;
+      sec.appendChild(h);
     }
-  };
-  fotoSec.appendChild(fotoInput); fotoSec.appendChild(fotoBtn); fotoSec.appendChild(fotoPreview); fotoSec.appendChild(fotoHint);
-  opBody.appendChild(fotoSec);
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = "image/*";
+    input.setAttribute("capture", "environment");
+    input.style.display = "none";
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "opFotoBtn" + (opState[kFile] ? " has" : "");
+    btn.textContent = opState[kFile] ? "📷 ✓ Foto sacada — tocá para cambiar" : textoBtn;
+    const prev = document.createElement("div");
+    prev.className = "opFotoPreview";
+    if (opState[kUrl]) { const pi = document.createElement("img"); pi.src = opState[kUrl]; prev.appendChild(pi); }
+    const hint = document.createElement("div");
+    hint.className = "opFotoHint";
+    hint.textContent = opState[kFile] ? "" : "Obligatorio: sacá esta foto antes de enviar";
+    hint.style.display = opState[kFile] ? "none" : "";
+    btn.onclick = function() { input.click(); };
+    input.onchange = function() {
+      if (input.files && input.files[0]) {
+        opState[kFile] = input.files[0];
+        btn.textContent = "📷 ✓ Foto sacada — tocá para cambiar";
+        btn.classList.add("has");
+        hint.style.display = "none";
+        try {
+          if (opState[kUrl]) URL.revokeObjectURL(opState[kUrl]);
+          opState[kUrl] = URL.createObjectURL(opState[kFile]);
+          prev.innerHTML = "";
+          const pi = document.createElement("img"); pi.src = opState[kUrl]; prev.appendChild(pi);
+        } catch(_e){}
+        _fotosSync();
+      }
+    };
+    sec.appendChild(input); sec.appendChild(btn); sec.appendChild(prev); sec.appendChild(hint);
+    return sec;
+  }
+
+  // Habilita Confirmar sólo con TODAS las fotos que corresponden a este tipo de doc.
+  function _fotosOk() { return !!opState.fotoFile && (!dosFotos || !!opState.fotoFile2); }
+  function _fotosSync() {
+    const cb = document.getElementById("opConfirmar");
+    if (cb) cb.disabled = !_fotosOk();
+  }
+
+  if (dosFotos) {
+    opBody.appendChild(_fotoBloque(1, "📄 Foto del REMITO", "📷 Sacar foto del remito"));
+    opBody.appendChild(_fotoBloque(2, "🧾 Foto de la FACTURA", "📷 Sacar foto de la factura"));
+  } else {
+    opBody.appendChild(_fotoBloque(1, "", "📷 Sacar foto de la mercadería"));
+  }
 
   opActions.innerHTML = "";
   const volver = document.createElement("button");
@@ -1284,7 +1331,7 @@ function renderResumen() {
   conf.id = "opConfirmar";
   conf.textContent = "✓ Confirmar y enviar";
   conf.onclick = opEnviar;
-  conf.disabled = !opState.fotoFile;
+  conf.disabled = !_fotosOk();
   opActions.appendChild(volver);
   opActions.appendChild(conf);
   rcpDraftSave();
@@ -1682,12 +1729,20 @@ async function opEnviar() {
   } catch (_e) {}
 
   // v11.xx — Subir foto de la mercadería ANTES del insert a Control_Modo_OP.
-  let fotoUrl = null;
+  let fotoUrl = null, fotoUrl2 = null;
   if (opState.fotoFile) {
     try {
       const fId = "op_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
       fotoUrl = await pendUploadFoto(fId, opState.fotoFile);
     } catch (e) { console.warn("Foto upload failed (sigue sin foto):", e); }
+  }
+  // v12.64 — segunda foto (la factura) cuando el tipo de doc es "Remito y Factura".
+  // Se sube aparte y con su propio try: si falla una, la otra igual queda guardada.
+  if (opState.fotoFile2) {
+    try {
+      const fId2 = "op_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7) + "_fac";
+      fotoUrl2 = await pendUploadFoto(fId2, opState.fotoFile2);
+    } catch (e) { console.warn("Foto factura upload failed (sigue sin foto):", e); }
   }
 
   // v8.83: generar código de 4 dígitos ANTES de insertar, así el operario lo ve de una.
@@ -1710,8 +1765,19 @@ async function opEnviar() {
       estado: 'pendiente'
     };
     if (fotoUrl) insertObj.foto_url = fotoUrl;
+    if (fotoUrl2) insertObj.foto_factura_url = fotoUrl2;
     if (codigoConf) insertObj.codigo = codigoConf;
-    const { data: regData, error: errReg } = await supabase.from("Control_Modo_OP").insert(insertObj).select("id").single();
+    let { data: regData, error: errReg } = await supabase.from("Control_Modo_OP").insert(insertObj).select("id").single();
+    /* v12.64 — Red de seguridad por si `foto_factura_url` todavía no existe en la tabla:
+       PostgREST rechaza el insert entero con PGRST204 ("column not found") y el operario
+       perdería la recepción completa por una foto. Si pasa eso, se reintenta SIN esa
+       columna: se pierde la foto de la factura, no la recepción. Cuando la columna esté
+       creada este camino no se usa nunca. */
+    if (errReg && fotoUrl2 && /foto_factura_url/.test(String(errReg.message || ""))) {
+      console.warn("Falta la columna foto_factura_url en Control_Modo_OP — se guarda sin la foto de la factura. Crearla con sql/control_modo_op_foto_factura.sql");
+      delete insertObj.foto_factura_url;
+      ({ data: regData, error: errReg } = await supabase.from("Control_Modo_OP").insert(insertObj).select("id").single());
+    }
     if (errReg) console.warn("Control_Modo_OP insert error (¿falta crear la tabla?):", errReg);
     else { pendId = regData ? regData.id : null; }
   } catch (e) { console.warn("Control_Modo_OP excepcion:", e); }
@@ -2276,14 +2342,27 @@ async function renderPendientes() {
   opActions.innerHTML = "";
   opBody.innerHTML = '<div class="opEmpty">Cargando…</div>';
   await sessionReady;
+  /* v12.64 — `foto_factura_url` (la foto de la factura, cuando el doc es "Remito y
+     Factura") se pide en el select. Si la columna todavía no está creada, PostgREST
+     rechaza la consulta ENTERA y la pantalla de Pendientes quedaría vacía por una foto
+     — mucho peor que no tenerla. Por eso se reintenta sin ella. Con la columna creada
+     este segundo camino no se usa nunca. */
+  const _COLS_PEND = "id,fecha,tipo,nombre,linea,remito,detalle,cantidad_total,created_at,isis,control_partes,foto_url,foto_vista,codigo";
   let res;
-  try {
-    res = await supabase.from("Control_Modo_OP")
-      .select("id,fecha,tipo,nombre,linea,remito,detalle,cantidad_total,created_at,isis,control_partes,foto_url,foto_vista,codigo")
-      .eq("estado", "pendiente")
-      .order("created_at", { ascending: true })
-      .limit(300);
-  } catch (e) { res = { error: e }; }
+  async function _leerPend(cols) {
+    try {
+      return await supabase.from("Control_Modo_OP")
+        .select(cols)
+        .eq("estado", "pendiente")
+        .order("created_at", { ascending: true })
+        .limit(300);
+    } catch (e) { return { error: e }; }
+  }
+  res = await _leerPend(_COLS_PEND + ",foto_factura_url");
+  if (res && res.error && /foto_factura_url/.test(String(res.error.message || ""))) {
+    console.warn("Falta la columna foto_factura_url en Control_Modo_OP — Pendientes sigue sin la foto de la factura. Crearla con sql/control_modo_op_foto_factura.sql");
+    res = await _leerPend(_COLS_PEND);
+  }
   if (opState.step !== "pend") return;
   if (res.error) {
     opBody.innerHTML = '<div class="opEmpty" style="color:var(--danger)">No se pudo leer Pendientes (¿permisos de Control_Modo_OP?).<br><small>' + (res.error.message || "") + '</small></div>';
@@ -2341,7 +2420,7 @@ function pendTickElapsed() {
 }
 function pendCard(r) {
   const id = r.id;
-  _pendRows[id] = { isis: !!r.isis, partes: r.control_partes || null, foto_url: r.foto_url || null, foto_vista: !!r.foto_vista, codigo: r.codigo || null, sent: false, row: r };
+  _pendRows[id] = { isis: !!r.isis, partes: r.control_partes || null, foto_url: r.foto_url || null, foto_factura_url: r.foto_factura_url || null, foto_vista: !!r.foto_vista, codigo: r.codigo || null, sent: false, row: r };
   const tsMs = r.created_at ? new Date(r.created_at).getTime() : 0;
   const card = document.createElement("div"); card.className = "pendCard"; card.setAttribute("data-id", String(id));
   const head = document.createElement("div"); head.className = "pcHead";
@@ -2429,6 +2508,12 @@ function pendFotoRow(id) {
   const row = document.createElement("div"); row.className = "pcRow pcFotoRow";
   const lbl = document.createElement("span"); lbl.className = "pcLbl"; lbl.textContent = "Foto Mercadería";
   const fotoUrl = _pendRows[id].foto_url;
+  // v12.64 — cuando la recepción entró como "Remito y Factura" hay DOS fotos y las dos
+  // se muestran: la del remito y la de la factura, una al lado de la otra.
+  const fotoUrl2 = _pendRows[id].foto_factura_url;
+  const _fotos = [];
+  if (fotoUrl)  _fotos.push({ url: fotoUrl,  tit: fotoUrl2 ? "📄 Remito" : "Foto mercadería" });
+  if (fotoUrl2) _fotos.push({ url: fotoUrl2, tit: "🧾 Factura" });
   if (!fotoUrl) {
     // Legacy: item sin foto del operario — auto-check, no bloquea
     const noF = document.createElement("span"); noF.className = "fotoViewBtn noFoto"; noF.textContent = "Sin foto";
@@ -2437,14 +2522,25 @@ function pendFotoRow(id) {
   }
   const btn = document.createElement("button"); btn.type = "button";
   btn.className = "fotoViewBtn" + (_pendRows[id].foto_vista ? " viewed" : "");
-  btn.textContent = _pendRows[id].foto_vista ? "✓ Foto vista" : "👁 Ver foto";
+  const _nF = _fotos.length;
+  btn.textContent = _pendRows[id].foto_vista
+    ? (_nF > 1 ? "✓ Fotos vistas (" + _nF + ")" : "✓ Foto vista")
+    : (_nF > 1 ? "👁 Ver fotos (" + _nF + ")" : "👁 Ver foto");
   btn.onclick = function () {
     if (_pendRows[id].sent) return;
     const ov = document.createElement("div"); ov.className = "fotoOverlay";
     const box = document.createElement("div"); box.className = "fotoOverlayBox";
-    const imgWrap = document.createElement("div"); imgWrap.className = "fotoOverlayImg";
-    const img = document.createElement("img"); img.src = fotoUrl; img.alt = "Foto mercadería";
-    imgWrap.appendChild(img);
+    const imgWrap = document.createElement("div"); imgWrap.className = "fotoOverlayImg" + (_fotos.length > 1 ? " dos" : "");
+    _fotos.forEach(function (f) {
+      const cel = document.createElement("div"); cel.className = "fotoOverlayCel";
+      if (_fotos.length > 1) {
+        const t = document.createElement("div"); t.className = "fotoOverlayCelTit"; t.textContent = f.tit;
+        cel.appendChild(t);
+      }
+      const im = document.createElement("img"); im.src = f.url; im.alt = f.tit;
+      cel.appendChild(im);
+      imgWrap.appendChild(cel);
+    });
     const cl = document.createElement("button"); cl.className = "fotoOverlayClose"; cl.textContent = "✕";
     cl.onclick = async function () {
       ov.remove();

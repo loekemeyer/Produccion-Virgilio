@@ -1033,6 +1033,22 @@
 > cayera el timer, o sea rara vez acá y seguido en un runner lento — que es el patrón de la **CI, en
 > rojo desde antes de esta tanda**. Ahora los controles se **agregan** en vez de reemplazar el body.
 >
+> Nota **2026-09-03 — v12.64: Remito y Factura pide LAS DOS fotos, y las dos se ven.**
+> Pedido del dueño. En Recepción de Mercadería, cuando el operario elige el tipo de documento
+> **"📄🧾 Remito y Factura"**, ahora se le piden **dos fotos rotuladas** —una del remito y otra de la
+> factura— y **las dos son obligatorias**: "Confirmar y enviar" no se habilita hasta tener ambas.
+> Con un solo documento (sólo remito, o sólo factura) sigue siendo **una sola**, igual que siempre.
+> En **Pendientes** el botón dice "👁 Ver fotos (2)" y el visor muestra las dos, una al lado de la
+> otra en monitor y **una abajo de la otra en celular** (al lado quedarían de ~180 px y un remito no
+> se lee). Las recepciones anteriores siguen mostrando su única foto.
+> La segunda URL va en la columna nueva **`Control_Modo_OP.foto_factura_url`**; la primera sigue en
+> `foto_url`. **El SQL está en `sql/control_modo_op_foto_factura.sql` y NO se ejecutó** — se corre a
+> mano cuando el dueño quiera. **Mientras tanto la app no se rompe**: si la columna falta, el insert
+> se reintenta sin ella (se pierde la foto de la factura, nunca la recepción) y el `select` de
+> Pendientes también, porque sin ese respaldo PostgREST rechaza la consulta entera y la pantalla
+> quedaría vacía por una foto. Los dos caminos están cubiertos por
+> `tests/rcp-foto-remito-factura.cjs`. Bump a `v12.64`. Suite verde.
+>
 > Nota **2026-09-03 — v12.63: el filtro "Con faltante" vuelve a tener entrada.**
 > Estaba en el chip de `.fac-stats`, oculto desde la v12.53, así que el filtro andaba pero no había
 > cómo llegar a él (el test lo llamaba a mano y por eso pasaba en verde ocho versiones sin que

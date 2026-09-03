@@ -219,6 +219,9 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== fac-excel-isis (Paso 0 idea 3717: Excel de prueba para ISIS — dedup, split 18/15, orden real de ISIS) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/fac-excel-isis.cjs
 
+echo "== rcp-foto-remito-factura (Remito y Factura → 2 fotos, y las 2 en el visor de Pendientes) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/rcp-foto-remito-factura.cjs
+
 # El "TODO OK" va ÚLTIMO: estaba antes de este test y lo imprimía aunque el que seguía
 # fallara (set -e corta después, pero el cartel de OK ya salió y engaña al que mira).
 echo "== TODO OK =="
