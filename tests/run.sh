@@ -216,7 +216,9 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== cajped-canceladas (v12.22: el pop-up Cajas pedidas descuenta NP canceladas + RS de la base) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/cajped-canceladas.cjs
 
-echo "== TODO OK =="
-
-echo "== fac-excel-isis (Paso 0 idea 3717: Excel de prueba para ISIS — dedup, split 18/15, orden por código) =="
+echo "== fac-excel-isis (Paso 0 idea 3717: Excel de prueba para ISIS — dedup, split 18/15, orden real de ISIS) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/fac-excel-isis.cjs
+
+# El "TODO OK" va ÚLTIMO: estaba antes de este test y lo imprimía aunque el que seguía
+# fallara (set -e corta después, pero el cartel de OK ya salió y engaña al que mira).
+echo "== TODO OK =="

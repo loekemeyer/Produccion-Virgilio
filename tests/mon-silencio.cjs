@@ -13,7 +13,14 @@ catch (_e) { try { ({ chromium } = require("playwright")); } catch (_e2) { conso
   p.on("pageerror", (e) => errs.push(e.message));
   await p.goto("file://" + path.join(__dirname, "..", "index.html"), { waitUntil: "domcontentloaded" });
   const r = await p.evaluate(() => {
-    const now = Date.now(), iso = (m) => new Date(now - m * 60000).toISOString(), tk = isoToDayKey(now);
+    /* "Ahora" FIJO al mediodía argentino, no Date.now(). El test siembra eventos de
+       hasta 300 minutos atrás y _monEnSilencio sólo mira los de HOY en hora Argentina:
+       corriendo entre las 00:00 y las 05:00 ART esos eventos caen en el día ANTERIOR,
+       quedan todos filtrados y el test fallaba con la lista vacía aunque la función
+       esté bien (se detectó a las 00:33 ART del 03/09/2026). Con la hora clavada el
+       resultado no depende de cuándo se corra la suite. */
+    const now = new Date("2026-09-03T15:00:00Z").getTime();   // 12:00 ART
+    const iso = (m) => new Date(now - m * 60000).toISOString(), tk = isoToDayKey(now);
     const fj = new Set(["52"]);
     const evs = [
       { legajo: "50", opcion: "EP", ts_cliente: iso(120) },   // silencio 120' → SÍ

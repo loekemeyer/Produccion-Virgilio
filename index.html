@@ -2909,6 +2909,10 @@ table.facfc-tbl tr.facneto-row-falt td{ background: #fef2f2; }
   max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
+  /* border-box: sin esto el padding y el borde se suman POR FUERA del max-width y los
+     bloques asoman respecto de la tabla en pantalla ancha (medido a 1920px: el recuadro
+     de Cierre 13 px por lado, el "Sin tandas listas" 21 px). */
+  box-sizing: border-box;
 }
 .fac-banner{
   background: #fef3c7; border: 2px solid #f59e0b; color: #78350f;
@@ -2924,22 +2928,50 @@ table.facfc-tbl tr.facneto-row-falt td{ background: #fef2f2; }
    Hace falta el contenedor porque el button{width:100%} global empujaba a Cerrar
    a la línea de abajo en el celular. */
 .fac-top-acts{ display:flex; align-items:center; gap:8px; margin-left:auto; flex:0 0 auto; }
+/* Los dos botones del encabezado con la MISMA caja: sin esto "Cerrar" queda 6 px más
+   bajo (27 contra 33) y con otro radio, y se lee como si fuera de otra familia. 36 px
+   de alto es además lo mínimo cómodo para el dedo. */
+.fac-top-acts > button{ min-height:36px; border-radius:8px; padding:8px 14px; }
 .fac-top-acts #facBtnXlsIsis{
-  width:auto; flex:0 0 auto; margin:0; padding:8px 12px; font-size:13px; font-weight:800;
-  border:1px solid #fcd34d; border-radius:8px; background:#fffbeb; color:#78350f; cursor:pointer;
+  width:auto; flex:0 0 auto; margin:0; font-size:13px; font-weight:800;
+  border:1px solid #fcd34d; background:#fffbeb; color:#78350f; cursor:pointer;
 }
+/* Sin NP marcadas el botón NO se atenúa con opacity: al 55% el texto queda en ~2,7:1 de
+   contraste (AA pide 4,5:1) y se lee como deshabilitado, cuando en realidad responde al
+   clic y es el camino para descubrir la función. Se cambia la paleta, no la opacidad. */
+.fac-top-acts #facBtnXlsIsis.off{ background:#f8fafc; border-color:#cbd5e1; color:#475569; }
 .fac-top-acts .fac-close-btn{ margin:0; }
 /* Casilla "marcar para el Excel de prueba de ISIS" en cada fila de Facturación.
    Grande a propósito: se toca con el dedo desde el celular. */
-.fac-xls-cell{ padding:4px 2px !important; }
-.fac-xls-cell input, #facXlsChkAll{ width:20px; height:20px; cursor:pointer; accent-color:#78350f; }
+.fac-xls-cell input, #facXlsChkAll{
+  width:20px; height:20px; cursor:pointer; accent-color:#78350f;
+  /* margin:0 — el margen asimétrico que el navegador le pone por defecto a los
+     checkbox (3px 3px 3px 4px), sumado al padding distinto del th y del td, dejaba la
+     casilla del encabezado ~2 px corrida respecto de la columna. */
+  margin:0;
+}
+/* El dibujo queda en 20×20 (lo fijó el dueño) pero la zona TOCABLE es de 44 px, que es
+   el mínimo cómodo para el dedo (WCAG 2.2 AA pide 24; iOS/Android recomiendan 44/48).
+   En el celular la tabla scrollea en horizontal, así que errarle a la casilla arrastra
+   la tabla en vez de marcar la NP.
+   Se hace con un <label> que envuelve al input y NO con padding sobre el input: el
+   checkbox hereda box-sizing:border-box, así que el padding queda ADENTRO de los 20 px
+   y no agranda nada — y el margin negativo que lo acompañaba encima achicaba la caja. */
+.fac-xls-cell{ padding:0 !important; }
+.fac-xls-cell label{
+  display:flex; align-items:center; justify-content:center;
+  width:100%; min-height:44px; cursor:pointer; margin:0;
+}
 /* v12.53 — Los contadores y botones del encabezado de Facturación quedan OCULTOS por
    pedido del dueño (celular: ocupaban media pantalla). No se borran del HTML a
    propósito: el JS los sigue actualizando (facCntTandas/Pend/Done/Falt/Corr,
    facBtnRevertir, facDot, facStatusTxt) y no hay que tocarlo. Para volver a
    mostrarlos, sacar el display:none de acá.
-   ⚠ Con esto quedan sin acceso: el filtro "Con faltante", "Corregir códigos" y
-   "Revertir". Avisado y confirmado por el dueño. */
+   ⚠ Queda sin entrada DESDE ESTA PANTALLA el filtro "Con faltante" (facToggleSoloFalt).
+   "Corregir códigos" NO se perdió: sigue en Administración (openCorreccPanel), y
+   "Revertir" tampoco: se repuso ahí en v12.59 (facRevertirDesdeAdmin).
+   ⚠ Acá adentro también viven la línea de estado y el puntito de conexión, así que el
+   error de carga se pinta además en #facBanner (ver el catch de facTick). */
 .fac-stats{ display: none; gap: 6px; align-items: center; font-size: 13px; flex-wrap: wrap; }
 .fac-chip{ background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 10px; font-weight: bold; font-size: 12px; }
 .fac-chip.green{ border-color: #16a34a; color: #15803d; }
@@ -3084,6 +3116,28 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
   tr.fac-en-progreso td.fac-accion-cell{ background: #fefce8; }
   .fac-btn-tick{ padding: 8px 12px; min-height: 36px; }
   .fac-btn-fc{ padding: 5px 8px; min-height: 36px; justify-content: center; }
+
+  /* La casilla del Excel, sticky a la IZQUIERDA por el mismo motivo que Acción lo es a
+     la derecha: el flujo real es "leo Faltantes y Agregados → decido si esa NP va al
+     Excel", y con la casilla suelta hay que volver ~616 px de scroll por cada fila.
+     Los cuatro fondos por estado se replican igual que en Acción: sin fondo opaco
+     propio, el contenido de las columnas pasa por debajo y se lee encimado. */
+  table.fac-np-tbl th:first-child,
+  table.fac-np-tbl td.fac-xls-cell{
+    position: sticky; left: 0; z-index: 2;
+    background: #fff;
+    box-shadow: inset -6px 0 6px -6px rgba(15,23,42,.28);
+  }
+  table.fac-np-tbl th:first-child{ background: #f1f5f9; z-index: 3; }
+  table.fac-np-tbl tbody tr.fac-tanda-alt td.fac-xls-cell{ background: #f8fafc; }
+  tr.fac-has-falta td.fac-xls-cell{ background: #fff5f5; }
+  tr.fac-en-progreso td.fac-xls-cell{ background: #fefce8; }
+
+  /* Con DOS columnas fijas (casilla + Acción) el ancho útil para el dato baja de 980 a
+     ~870. Se ensancha la tabla en lugar de dejar que las columnas de texto se coman el
+     faltante: la cola de "Faltantes y Agregados" y de la Razón Social se metía DEBAJO
+     del bloque opaco de Acción y desaparecía sin ellipsis ni ninguna señal. */
+  table.fac-np-tbl{ min-width: 1090px; }
 }
 .fac-empty{ padding: 32px 20px; text-align: center; color: #64748b; font-size: 15px; background: #fff; border-radius: 8px; border: 1px solid #cbd5e1; }
 .fac-cierre{
@@ -3774,6 +3828,7 @@ table.facfc-tbl td.num, table.facfc-tbl th.num{ text-align:right; font-variant-n
       <button class="sup-action-btn" onclick="openColaImpresion()" style="position:relative;"><span class="sup-ico">🖨️</span><span>Cola de impresión NP</span><span id="colaImpBadge" class="dp-badge" style="display:none;" title="Notas de pedido armadas pendientes de imprimir (rojo = alguna hace +24 h)"></span></button>
       <button class="sup-action-btn" onclick="stkOpenNpFaltan()" style="position:relative;"><span class="sup-ico">⚠️</span><span>Pedidos sin cargar en PPP</span><span id="npFaltanBadge" class="dp-badge" style="display:none;"></span></button>
       <button class="sup-action-btn" onclick="stkOpenFaltFact()"><span class="sup-ico">📉</span><span>Faltantes facturados sin completar</span></button>
+      <button class="sup-action-btn" onclick="facRevertirDesdeAdmin(this)"><span class="sup-ico">↺</span><span>Revertir ticks de facturación</span></button>
       <button class="sup-action-btn" onclick="openPedidosImportacion()"><span class="sup-ico">📦</span><span>Importación — pedidos y proveedores</span></button>
       <button class="sup-action-btn" onclick="openAvisoProg()"><span class="sup-ico">📲</span><span>Avisar programación</span></button>
       <button class="sup-action-btn" onclick="openPlataPerdida()"><span class="sup-ico">💸</span><span>Plata perdida de facturar</span></button>
@@ -6580,7 +6635,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.58";
+const APP_VERSION = "v12.59";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -32925,9 +32980,13 @@ async function facMaybePrintFacturado(np, tanda){
 
    REGLAS (verificadas contra datos reales el 2026-09-03):
    - Tope de líneas por NP: 18 en Loekemeyer (NP 9xxxx) y 15 en CHEF (NP 4xxxx).
-   - La partición es por orden ASCENDENTE de código de artículo.
+     Probado tramo a tramo: LK orders 888 → 18+18+5, 1331 → 18+18+18+1; Chef
+     chef_orders 165 → 15+13, 183 → 15+6, 196 → 15+9.
+   - El orden de las líneas y el corte NO son por código de artículo: son el orden
+     en que las líneas viajan en el Excel. Se recupera de PPP_Base_Pedidos por id
+     (detalle en _facXlsOrdenIsis).
    - Una misma línea puede estar cargada dos veces en Entregas_Virgilio (28 NP
-     de 748 en 60 días, por re-armado): se toma la última y se topea contra lo
+     de 768 en 60 días, por re-armado): se toma la última y se topea contra lo
      pedido, para no facturar el doble.
    ========================================================================== */
 
@@ -32965,8 +33024,15 @@ function _facXlsDDMMYYYY(iso) {
    visor del iPhone no lo abre sin Excel instalado; el .xlsx sí se abre en
    cualquier lado. Cuál acepta ISIS está sin confirmar (ver docs), por eso se
    ofrecen los dos y se prueba.
-   SheetJS no se usa porque vendor/xlsx.full.min.js NO está en el repo (el
-   loader pppLoadXlsx lo busca ahí y hoy fallaría).
+   Por qué NO se usa SheetJS: vendor/xlsx.full.min.js SÍ está en el repo (930 kB,
+   versionado, lo carga pppLoadXlsx para importar la PPP y exportar el Excel de
+   Stock). Se evita a propósito acá porque este archivo son unas pocas decenas de
+   filas y traer 930 kB para armarlas es desproporcionado en el celular del
+   depósito, donde el módulo se usa. El generador de abajo son ~110 líneas sin
+   dependencias y está verificado contra openpyxl (test tests/fac-excel-isis.cjs,
+   caso F9). Si algún día hace falta algo que el ZIP a mano no da —formatos,
+   fórmulas, varias hojas con estilos— la salida es cambiar a SheetJS con
+   pppLoadXlsx(), que ya existe y no agrega dependencias nuevas.
    --------------------------------------------------------------------------- */
 const _FAC_CRC = (function () {
   const t = new Int32Array(256);
@@ -33029,7 +33095,10 @@ function _facHojaXml(filas) {         // filas: array de arrays de string
   const rows = filas.map(function (f, ri) {
     const celdas = f.map(function (v, ci) {
       const ref = _facColLetra(ci) + (ri + 1);
-      if (v === "" || v == null) return "";
+      // Celda vacía EXPLÍCITA, no salteada: si se saltea, Excel devuelve la fila con
+      // menos columnas y la última vacía (numOC) directamente no existe. El .xls XML
+      // 2003 emite <Cell/>, así que sin esto los dos formatos no son equivalentes.
+      if (v === "" || v == null) return '<c r="' + ref + '"/>';
       return esNum(v)
         ? '<c r="' + ref + '"><v>' + esc(v) + "</v></c>"
         : '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + esc(v) + "</t></is></c>";
@@ -33080,7 +33149,7 @@ function _facXlsDescargarXlsx(filas) {
   const desg = Object.keys(grupos).map(function (k) { return grupos[k]; }).sort(function (a, b) { return a.n - b.n; });
   const resumen = [
     ["PRUEBA DE FORMATO — NO IMPORTAR"],
-    ["Estas NP ya estan numeradas en ISIS: " + filas.map(function (r) { return r.np; }).join(", ")],
+    [_facXlsAvisoResumen(filas.map(function (r) { return r.np; }))],
     [],
     ["Pedidos", "NP"],
     [String(Object.keys(items.reduce(function (a, i) { a[i.cliente + "|" + i.sucursal] = 1; return a; }, {})).length), String(desg.length)],
@@ -33089,14 +33158,9 @@ function _facXlsDescargarXlsx(filas) {
     ["Cod Clte", "Num Ped", "Cant Items"]
   ].concat(desg.map(function (d) { return [d.c, String(d.n), String(d.q)]; }));
 
-  const hoy = _facXlsFechaAR(new Date());
-  const dd = _facXlsDDMMYYYY(hoy).replace(/\//g, "-").slice(0, 5) + "-" + hoy.slice(2, 4);
-  const blob = _facXlsxBlob([{ nombre: dd + " 9Hs", filas: filasHoja }, { nombre: "Resumen", filas: resumen }]);
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "PRUEBA_NO_IMPORTAR_" + dd + ".xlsx";
-  document.body.appendChild(a); a.click();
-  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  const nom = _facXlsNombre("xlsx");
+  const blob = _facXlsxBlob([{ nombre: nom.hoja, filas: filasHoja }, { nombre: "Resumen", filas: resumen }]);
+  _facXlsGuardar(blob, nom.archivo);
 }
 
 /* Port literal de generateExcel() de la Edge Function procesar-pedidos-db:
@@ -33130,7 +33194,7 @@ function _facXlsXml(items, dateLabel, npsReales) {
 
   const resumen = [
     '<Row><Cell ss:MergeAcross="2" ss:StyleID="Desglose"><Data ss:Type="String">PRUEBA DE FORMATO — NO IMPORTAR</Data></Cell></Row>',
-    '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">Estas NP ya estan numeradas y facturadas en ISIS: ' + esc(npsReales.join(", ")) + '</Data></Cell></Row>',
+    '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">' + esc(_facXlsAvisoResumen(npsReales)) + '</Data></Cell></Row>',
     "<Row/>",
     "<Row>" + cell("Pedidos", "Header") + cell("NP", "Header") + "</Row>",
     "<Row>" + cell(String(pedidosOrig), "Data") + cell(String(desglose.length), "Data") + "</Row>",
@@ -33182,14 +33246,21 @@ function facXlsBtnSync() {
   if (!b) return;
   const n = _facXlsSel.size;
   b.innerHTML = "⬇ Excel ISIS" + (n ? " (" + n + ")" : "") + ' <span style="font-weight:600;opacity:.85">(prueba)</span>';
-  b.style.opacity = n ? "1" : ".55";
+  // Estado inactivo por PALETA, no por opacidad: atenuado al 55% el texto quedaba en
+  // ~2,7:1 de contraste y el botón se leía como deshabilitado, cuando en realidad
+  // responde al clic y es la única pista de que la función existe.
+  b.style.opacity = "1";
+  b.classList.toggle("off", !n);
   b.title = n
     ? "Baja el Excel de prueba con las " + n + " NP marcadas en la lista."
     : "Marcá en la lista las NP que querés bajar y después tocá acá.";
   const th = document.getElementById("facXlsChkAll");
   if (th) {
-    const total = document.querySelectorAll("input.fac-xls-chk").length;
-    th.checked = total > 0 && n >= total;
+    const chks = document.querySelectorAll("input.fac-xls-chk");
+    let marcadas = 0;
+    chks.forEach(function (c) { if (c.checked) marcadas++; });
+    th.checked = chks.length > 0 && marcadas === chks.length;
+    th.indeterminate = marcadas > 0 && marcadas < chks.length;
   }
 }
 
@@ -33211,13 +33282,31 @@ async function facXlsBajar() {
     const filas = await _facXlsArmar(nps);
     if (!filas.length) { try { alert("Ninguna de las NP marcadas tiene artículos armados con cajas entregadas."); } catch (_e) {} return; }
 
+    // Las que se cayeron (sin líneas armadas) se avisan: antes bajaban 3 de 5 marcadas
+    // en silencio, y la prueba quedaba invalidada sin que nadie lo notara.
+    const traidas = new Set(filas.map(function (r) { return String(r.np); }));
+    const fuera = nps.filter(function (np) { return !traidas.has(String(np)); });
+    if (fuera.length) {
+      const ok = confirm("Quedan afuera " + fuera.length + " NP porque no tienen artículos armados con cajas entregadas:\n" +
+        fuera.join(", ") + "\n\n¿Bajo el archivo con las otras " + filas.length + "?");
+      if (!ok) return;
+    }
+    // Sin código de cliente no sirve para importar: la columna saldría vacía.
+    const sinCod = filas.filter(function (r) { return !r.cod; });
+    if (sinCod.length) {
+      const ok = confirm("Ojo: " + sinCod.length + " NP quedaron sin código de cliente (" +
+        sinCod.map(function (r) { return r.np; }).join(", ") + ").\n\n" +
+        "En el archivo esa columna va VACÍA y el ERP la va a rechazar.\n\n¿Bajo igual?");
+      if (!ok) return;
+    }
+
     // Único aviso que corta: la NP se armó dos veces y lo entregado supera lo pedido.
     // Raro (28 de 748 en 60 días) pero manda el doble de cajas si no se mira.
     const exc = filas.filter(function (r) { return r.excede; });
     if (exc.length) {
       const ok = confirm("Ojo: " + exc.length + " NP tienen más cajas armadas que pedidas (" +
         exc.map(function (r) { return r.np; }).join(", ") + ").\n\n" +
-        "Pasa cuando la NP se armó dos veces. En el archivo va lo PEDIDO, no la suma.\n\n¿Bajo igual?");
+        "Pasa cuando la NP se armó dos veces. En el archivo va la última carga, topeada contra lo pedido: nunca la suma.\n\n¿Bajo igual?");
       if (!ok) return;
     }
     if (FAC_XLS_FORMATO === "xls") _facXlsDescargar(filas); else _facXlsDescargarXlsx(filas);
@@ -33249,15 +33338,63 @@ function _facXlsFilasPlanas(filas) {
   return items;
 }
 
+/* ============================ ORDEN DE LAS LÍNEAS ============================
+   Las líneas de cada NP van al archivo en el orden REAL en que ISIS las tiene, que
+   se recupera de PPP_Base_Pedidos ordenada por id.
+
+   Antes se ordenaban por código ascendente. Estaba MAL y era invisible: se había
+   deducido mirando NP cuyas líneas ya venían ordenadas por código, que son la
+   mayoría, así que la regla equivocada coincidía casi siempre. Contra los datos:
+     · 145 de 801 NP de PPP_Base_Pedidos (18,1%) NO están en orden de código.
+     · La Edge Function procesar-pedidos-db, que es la que arma el Excel real que
+       hoy se manda por mail, NO ordena por código: escribe las líneas en el orden
+       en que vienen en sheets_payload.items (el orden del carrito) y corta de a 18
+       (15 en Chef) sobre ESE orden. ISIS no reordena: numera lo que recibe.
+   O sea que ordenar por código cambiaba el orden de las filas respecto del archivo
+   real en casi 1 de cada 5 NP. En un archivo cuyo único propósito es probar que
+   ISIS lo importa igual que al que manda hoy, eso invalida la prueba.
+
+   Para las NP que no están en PPP_Base_Pedidos (20 de 470 facturadas en 30 días) no
+   hay orden que recuperar y se cae a código ascendente, que es como se ven el 82%
+   de las NP. Un artículo que esté en la NP pero no en la base va al final, también
+   por código, para que el resultado sea determinístico. */
+function _facXlsOrdenIsis(base) {
+  const out = {};
+  (base || []).forEach(function (x) {
+    const np = String(x.pedido), art = _facXlsPadCod(x.articulo);
+    if (!np || !art) return;
+    if (!out[np]) out[np] = {};
+    // Primera aparición manda: si la NP repite un código (pasó en 98293 y 98501), la
+    // línea deduplicada va donde estaba la primera.
+    if (out[np][art] === undefined) out[np][art] = Object.keys(out[np]).length;
+  });
+  return out;
+}
+/* Comparador para una NP: por la posición de ISIS y, si falta, por código. */
+function _facXlsCmpLineas(orden) {
+  const GRANDE = 1e9;
+  return function (a, b) {
+    const pa = (orden && orden[a.art] !== undefined) ? orden[a.art] : GRANDE;
+    const pb = (orden && orden[b.art] !== undefined) ? orden[b.art] : GRANDE;
+    if (pa !== pb) return pa - pb;
+    return a.art < b.art ? -1 : a.art > b.art ? 1 : 0;
+  };
+}
+
 /* Trae los datos de las NP marcadas y arma las líneas (dedup, tope contra lo pedido,
-   orden por código). Los datos de cabecera salen de la lista ya cargada en pantalla. */
+   orden real de ISIS). Los datos de cabecera salen de la lista ya cargada en pantalla. */
 async function _facXlsArmar(nps) {
   const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
   const inList = "(" + nps.join(",") + ")";
 
   const [ent, base, uxb, vend, match] = await Promise.all([
-    fetch(SUPABASE_URL + "/rest/v1/Entregas_Virgilio?select=id,np,cod_art,cajas_pedidas,cajas_entregadas&np=in." + inList + "&order=id.asc&limit=20000", { headers: H, cache: "no-store" }).then(function (r) { return r.ok ? r.json() : []; }),
-    fetch(SUPABASE_URL + "/rest/v1/PPP_Base_Pedidos?select=pedido,fecha&pedido=in." + inList + "&limit=20000", { headers: H, cache: "no-store" }).then(function (r) { return r.ok ? r.json() : []; }),
+    // Por supaFetchAllSafe, que pagina con Range: PostgREST corta en 1000 filas y el
+    // limit no lo evita. Con 11,9 líneas por NP de promedio, 84 NP marcadas ya rozan el
+    // corte, y como el orden es por id, lo que se perdería son las líneas MÁS NUEVAS.
+    supaFetchAllSafe(SUPABASE_URL + "/rest/v1/Entregas_Virgilio", "select=id,np,cod_art,cod_cliente,cajas_pedidas,cajas_entregadas&np=in." + inList + "&order=id.asc"),
+    // id y articulo además de la fecha: ordenadas por id, estas filas conservan el
+    // orden REAL en que ISIS tiene las líneas de la NP (ver _facXlsOrdenIsis).
+    supaFetchAllSafe(SUPABASE_URL + "/rest/v1/PPP_Base_Pedidos", "select=id,pedido,articulo,fecha&pedido=in." + inList + "&order=id.asc"),
     supaFetchAllSafe(SUPABASE_URL + "/rest/v1/vista_uxb_articulo", "select=cod,uxb").catch(function () { return []; }),
     supaFetchAllSafe(SUPABASE_URL + "/rest/v1/clientes_vendedor", "select=cod_cliente,vend").catch(function () { return []; }),
     supaFetchAllSafe(SUPABASE_URL + "/rest/v1/lk_pedidos_match", "select=cod_cliente,empresa,fecha_pedido,sucursal_entrega,items_string,ambiguo,orden_en_dia").catch(function () { return []; })
@@ -33269,6 +33406,7 @@ async function _facXlsArmar(nps) {
     const f = String(x.fecha || "").slice(0, 10), k = String(x.pedido);
     if (f && (!fechaBy[k] || f < fechaBy[k])) fechaBy[k] = f;
   });
+  const ordenBy = _facXlsOrdenIsis(base);
 
   // Cabecera (cod cliente, razón social) desde la lista que ya está en pantalla
   const cab = {};
@@ -33278,10 +33416,11 @@ async function _facXlsArmar(nps) {
     });
   });
 
-  const porNp = {};
+  const porNp = {}, codPorNp = {};
   (ent || []).forEach(function (e) {
     const np = String(e.np), cod = String(e.cod_art || "");
     if (!np || !cod) return;
+    if (!codPorNp[np] && e.cod_cliente) codPorNp[np] = String(e.cod_cliente);
     if (!porNp[np]) porNp[np] = {};
     const prev = porNp[np][cod];
     const ce = Number(e.cajas_entregadas) || 0, cp = Number(e.cajas_pedidas) || 0;
@@ -33292,7 +33431,10 @@ async function _facXlsArmar(nps) {
   const out = [];
   nps.forEach(function (np) {
     np = String(np);
-    const c = cab[np] || { cod: "", rs: "" };
+    // Respaldo: si la NP ya no está en la lista de pantalla (la tabla se reemplaza cada
+    // 5 s), el código de cliente sale de Entregas_Virgilio, que también lo tiene. Sin
+    // esto la fila salía al archivo con la columna cliente VACÍA y sin avisar.
+    const c = cab[np] || { cod: String(codPorNp[np] || ""), rs: "" };
     const fecha = fechaBy[np] || "";
     const mapa = porNp[np] || {};
     const lineas = Object.keys(mapa).map(function (k) { return mapa[k]; })
@@ -33306,13 +33448,13 @@ async function _facXlsArmar(nps) {
           excede: x.sum > x.ped && x.ped > 0
         };
       })
-      .sort(function (a, b) { return a.art < b.art ? -1 : a.art > b.art ? 1 : 0; });   // ORDEN POR CÓDIGO
+      .sort(_facXlsCmpLineas(ordenBy[np]));   // ORDEN REAL DE ISIS (ver _facXlsOrdenIsis)
     if (!lineas.length) return;
 
     // Sucursal: pedido web del mismo cliente y empresa dentro de [fecha-3, fecha];
     // desempate por inclusión de los ítems de la NP (un pedido grande se parte en varias).
     const emp = _facXlsEmpresa(np);
-    let suc = "";
+    let suc = "", sucDudosa = false;
     const cands = (match || []).filter(function (m) {
       if (String(m.cod_cliente) !== c.cod || String(m.empresa) !== emp) return false;
       const f = String(m.fecha_pedido || "").slice(0, 10);
@@ -33321,56 +33463,80 @@ async function _facXlsArmar(nps) {
       return d >= 0 && d <= 3;
     });
     if (cands.length) {
-      const items = lineas.map(function (l) { return l.art.replace(/^0+/, "") + "x"; });
+      // El código va PADDED y entre comas: items_string guarda "031x4,056Ex2,…", así que
+      // buscar "31x" suelto matchea "531x2" y el filtro deja de discriminar (medido:
+      // '%31x%' da 350 pedidos contra 273 de '%031x%'; un código "005" matchearía 751
+      // de 1016). Con el delimitador el match es exacto.
+      const items = lineas.map(function (l) { return "," + l.art + "x"; });
       let best = null;
       cands.forEach(function (m) {
-        const score = items.length && items.every(function (it) { return String(m.items_string || "").indexOf(it) >= 0; }) ? 1 : 0;
-        if (!best || score > best.score) best = { m: m, score: score };
+        const str = "," + String(m.items_string || "") + ",";
+        const score = items.length && items.every(function (it) { return str.indexOf(it) >= 0; }) ? 1 : 0;
+        // Desempate real: mismo score → el pedido más cercano a la fecha de la NP y,
+        // si empatan, el primero del día. Antes ganaba el primero que devolvía la API,
+        // que no tiene orden garantizado. Hay 299 pares del mismo cliente en la ventana
+        // con sucursal DISTINTA, así que el desempate decide un dato que se ve bien igual.
+        const dif = Math.abs((new Date(fecha + "T00:00:00Z") - new Date(String(m.fecha_pedido || "").slice(0, 10) + "T00:00:00Z")) / 86400000) || 0;
+        const cand = { m: m, score: score, dif: dif, orden: Number(m.orden_en_dia || 0) };
+        if (!best || cand.score > best.score ||
+            (cand.score === best.score && cand.dif < best.dif) ||
+            (cand.score === best.score && cand.dif === best.dif && cand.orden < best.orden)) best = cand;
       });
       suc = String(best.m.sucursal_entrega || "");
+      // Sin match de ítems y con más de un pedido posible, la sucursal es una apuesta.
+      if (!best.score && cands.length > 1) sucDudosa = true;
     }
 
     out.push({
       np: np, cod: c.cod, rs: c.rs, fechaTxt: _facXlsDDMMYYYY(fecha),
-      vend: vendBy[c.cod] || "", suc: suc, tope: _facXlsTope(np), lineas: lineas,
+      vend: vendBy[c.cod] || "", suc: suc, sucDudosa: sucDudosa, tope: _facXlsTope(np), lineas: lineas,
       excede: lineas.some(function (l) { return l.excede; })
     });
   });
   return out;
 }
 
-function _facXlsDescargar(filas) {
-  // Un número de pedido por TRAMO: cada NP se corta de a 18 líneas (Loekemeyer)
-  // o 15 (Chef), en orden de código, igual que hace ISIS al importar.
-  const items = [];
-  let n = 0;
-  filas.forEach(function (r) {
-    for (let i = 0; i < r.lineas.length; i += r.tope) {
-      n++;
-      r.lineas.slice(i, i + r.tope).forEach(function (l) {
-        items.push({
-          fecha: r.fechaTxt, N_Pedido: n, cliente: r.cod, vend: r.vend,
-          articulo: l.art, cajas: String(l.cajas),
-          uni: l.uxb ? String(l.cajas * l.uxb) : "",
-          sucursal: r.suc,
-          leyenda2: "",            // deuda / límite de crédito / plazo viven sólo en LK
-          condPago: "",            // el código de condición no está espejado en Virgilio
-          pctDto: "2% Descuento Web", numOC: ""
-        });
-      });
-    }
-  });
+/* Nombre del archivo y etiqueta de la hoja, comunes a los dos formatos.
+   El sufijo _HHMM no es decorativo: sin él dos bajadas del mismo día pisan el
+   archivo anterior (o quedan como "(1)", "(2)"), y en una prueba donde se compara
+   lo bajado contra lo que entró al ERP eso hace perder cuál es cuál. */
+function _facXlsNombre(ext) {
   const hoy = _facXlsFechaAR(new Date());
   const dd = _facXlsDDMMYYYY(hoy).replace(/\//g, "-").slice(0, 5) + "-" + hoy.slice(2, 4);
   let hhmm = "";
-  try { hhmm = new Date().toLocaleTimeString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit", hour12: false }).replace(":", ""); } catch (_e) { hhmm = "0000"; }
-  const xml = _facXlsXml(items, dd + " 9Hs", filas.map(function (r) { return r.np; }));
-  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
+  try {
+    hhmm = new Date().toLocaleTimeString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", hour: "2-digit", minute: "2-digit", hour12: false }).replace(":", "");
+  } catch (_e) { hhmm = "0000"; }
+  return { dd: dd, hoja: dd + " 9Hs", archivo: "PRUEBA_NO_IMPORTAR_" + dd + "_" + hhmm + "." + ext };
+}
+
+/* Aviso de la hoja Resumen. Vive acá y no duplicado en cada generador: los dos
+   formatos son el MISMO archivo de prueba, y si los textos divergen el que abra el
+   .xlsx lee una advertencia distinta a la del .xls. */
+function _facXlsAvisoResumen(nps) {
+  return "Estas NP ya estan numeradas y facturadas en ISIS: " + nps.join(", ");
+}
+
+/* Dispara la descarga de un Blob. Los dos formatos hacían lo mismo con distinto
+   nombre de variable. */
+function _facXlsGuardar(blob, nombre) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "PRUEBA_NO_IMPORTAR_" + dd + "_" + hhmm + ".xls";
+  a.download = nombre;
   document.body.appendChild(a); a.click();
   setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+
+function _facXlsDescargar(filas) {
+  // Un número de pedido por TRAMO: cada NP se corta de a 18 líneas (Loekemeyer)
+  // o 15 (Chef), en orden de código, igual que hace ISIS al importar. El corte lo
+  // hace _facXlsFilasPlanas, que es la MISMA que usa el .xlsx: si cada formato
+  // aplanara por su cuenta, un cambio en el tope o en el orden de columnas se
+  // aplicaría a uno solo y los dos archivos dejarían de ser el mismo dato.
+  const items = _facXlsFilasPlanas(filas);
+  const nom = _facXlsNombre("xls");
+  const xml = _facXlsXml(items, nom.hoja, filas.map(function (r) { return r.np; }));
+  _facXlsGuardar(new Blob([xml], { type: "application/vnd.ms-excel" }), nom.archivo);
 }
 
 function facTodayKey(){
@@ -33487,13 +33653,19 @@ function openFacturacion(){
   if (!requireSupervisor()) return;
   document.getElementById("facturacionModal").classList.add("show");
   facTick();
-  facCorreccRefreshCount();   // v7.91: chip "🔀 Corregir códigos" (pedidos en secundario)
+  /* v12.59 — se sacó el facCorreccRefreshCount() que iba acá. Sólo pintaba el chip
+     "🔀 Corregir códigos", que vive dentro de .fac-stats y está oculto desde v12.53,
+     y para eso releía vista_pedidos_secundarios + Correcciones_Pedido — sin caché ni
+     dedup de vuelo, o sea una segunda lectura completa en paralelo con la que el
+     propio facTick() ya hace (índice 10 de su Promise.all). facTick actualiza el chip
+     igual, así que no se pierde nada. */
   if (_facIntervalId) clearInterval(_facIntervalId);
   _facIntervalId = setInterval(facTick, FAC_REFRESH_MS);
 }
 function closeFacturacion(){
   document.getElementById("facturacionModal").classList.remove("show");
   if (_facIntervalId){ clearInterval(_facIntervalId); _facIntervalId = null; }
+  if (_facXlsSel && _facXlsSel.size) { _facXlsSel.clear(); facXlsBtnSync(); }   // la selección del Excel no sobrevive al cierre
 }
 
 function facShowToast(msg){
@@ -34385,7 +34557,7 @@ function facRender(tandas){
     const _npTip = 'Tanda ' + String(f.tanda || '—') + ' · Salida ' + String(f.fechaSalida || '—');
     return `
       <tr data-fac-np="${escapeHtml(f.np)}" class="${altFlag ? 'fac-tanda-alt' : ''}${_ft ? ' fac-en-progreso' : (_ff ? ' fac-has-falta' : '')}">
-        <td class="center fac-xls-cell"><input type="checkbox" class="fac-xls-chk" data-np="${escapeHtml(f.np)}"${_facXlsSel.has(String(f.np)) ? ' checked' : ''} onchange="facXlsToggle(this.getAttribute('data-np'))" title="Marcar para el Excel de prueba de ISIS"></td>
+        <td class="center fac-xls-cell"><label><input type="checkbox" class="fac-xls-chk" data-np="${escapeHtml(f.np)}"${_facXlsSel.has(String(f.np)) ? ' checked' : ''} onchange="facXlsToggle(this.getAttribute('data-np'))" title="Marcar para el Excel de prueba de ISIS"></label></td>
         <td class="fac-np-cell" title="${escapeHtml(_npTip)}">${escapeHtml(f.np)}</td>
         <td class="fac-cod-cell">${escapeHtml(f.cod)}</td>
         <td class="fac-rs-cell"><span class="fac-rs-name">${escapeHtml(f.rs)}</span>${_ft ? facTareaBadge(f.np) : ''}</td>
@@ -34430,6 +34602,14 @@ function facRender(tandas){
   // v11.85 — Neto a facturar por NP: pinta lo cacheado y trae lo que falte (RPC backend).
   facPaintNeto();
   facFetchNeto(filasView.map(function(f){ return f.np; }));
+  // Podar la selección a las NP que siguen en pantalla. Sin esto, una NP marcada que se
+  // factura (y desaparece de la lista) queda contada para siempre: el botón muestra de
+  // más, el "marcar todas" aparece tildado sin estarlo, y esa NP viajaba al archivo sin
+  // código de cliente. La selección tampoco se limpiaba al cerrar el módulo.
+  if (_facXlsSel.size) {
+    const vivas = new Set(filas.map(function (f) { return String(f.np); }));
+    _facXlsSel.forEach(function (np) { if (!vivas.has(np)) _facXlsSel.delete(np); });
+  }
   facXlsBtnSync();   // el contador del botón "Excel ISIS" sigue vivo entre refrescos
 }
 
@@ -34831,6 +35011,29 @@ window.facRevertir = async function(){
   }
 };
 
+/* v12.59 — Entrada a "Revertir" desde Administración.
+   El botón original vive en .fac-stats, que está oculto desde v12.53, así que la
+   acción quedó sin ningún camino en la app. Se repone acá y NO en el encabezado de
+   Facturación, que el dueño pidió despejado.
+   El wrapper existe porque facRevertir() decide sobre _facNpsHoy, que sólo se llena
+   cuando corre facTick(): llamándolo sin haber abierto Facturación el set está vacío
+   y contestaría "No hay nada que revertir" aunque el server tenga ticks — un falso
+   negativo en una acción destructiva, que es la peor forma de fallar. */
+async function facRevertirDesdeAdmin(btn){
+  if (btn) { btn.disabled = true; btn.style.opacity = ".6"; }
+  try {
+    await fetchFacturadosHoy(true);   // force: ignora el TTL, lee el estado real
+  } catch (e) {
+    alert("No pude leer los ticks pendientes: " + ((e && e.message) || e) +
+          "\nProbá de nuevo en unos segundos.");
+    return;
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = ""; }
+  }
+  await facRevertir();
+}
+window.facRevertirDesdeAdmin = facRevertirDesdeAdmin;
+
 async function facTick(){
   try{
     // Reusa el cache de PPP del monitor (PPP_TTL_MS = 3s)
@@ -34911,6 +35114,21 @@ async function facTick(){
     }
   } catch (e){
     facSetStatus(false, "Error: " + e.message);
+    // La línea de estado vive dentro de .fac-stats, que está OCULTO (v12.53): si el
+    // error sólo se escribiera ahí, la pantalla quedaría en "Cargando tandas…" para
+    // siempre y sin ninguna señal. Se pinta en el banner, que sí se ve.
+    try {
+      const bn = document.getElementById("facBanner");
+      if (bn) {
+        bn.textContent = "🚨 No se pudo cargar Facturación: " + String((e && e.message) || e) +
+          " · Reintentá en unos segundos; si sigue, avisá.";
+        bn.style.display = "block";
+      }
+      const cont = document.getElementById("facContainer");
+      if (cont && /Cargando tandas/.test(cont.textContent || "")) {
+        cont.innerHTML = '<div class="fac-empty">🚨 No se pudo cargar Facturación. Reintentando…</div>';
+      }
+    } catch (_e2) {}
     console.error("[fac]", e);
   }
 }

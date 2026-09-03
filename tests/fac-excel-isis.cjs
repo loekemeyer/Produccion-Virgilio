@@ -9,9 +9,12 @@
    F2) SPLIT por empresa: 18 líneas por NP en Loekemeyer (9xxxx) y 15 en CHEF (4xxxx).
        Verificado contra datos reales: 253 NP de LK con exactamente 18 líneas y 25 de
        Chef con exactamente 15.
-   F3) ORDEN por código ascendente, que es como parte ISIS (NP 98680/98681 y
-       98682/98683 del 02/09). Con otro orden coincide la cantidad de pedidos pero no
-       su contenido.
+   F3) ORDEN de las líneas = el orden REAL de ISIS, que se lee de PPP_Base_Pedidos
+       por id. NO es código ascendente: 145 de 801 NP (18,1%) no están ordenadas por
+       código, y la Edge Function que arma el Excel real no ordena nada (escribe el
+       orden del carrito y corta de a 18/15 sobre ése). Con el orden equivocado
+       coincide la cantidad de pedidos pero no su contenido. Sin fila en la base
+       (20 de 470 NP facturadas en 30 días) se cae a código ascendente.
    F4) FORMATO XML Spreadsheet 2003 fiel: 12 columnas en orden, "029" como String
        (empieza con cero), celda vacía <Cell/>, hoja "Resumen" con la advertencia.
    F5) El archivo se llama PRUEBA_NO_IMPORTAR_* (esas NP ya están numeradas en ISIS).
@@ -54,7 +57,14 @@ catch (_e) { try { ({ chromium } = require("playwright")); } catch (_e2) { conso
       url = String(url);
       if (url.indexOf("Entregas_Virgilio") >= 0) return J(ent);
       if (url.indexOf("PPP_Base_Pedidos") >= 0) return J([
-        { pedido: "98001", fecha: "2026-08-25" }, { pedido: "98002", fecha: "2026-08-26" }, { pedido: "44001", fecha: "2026-08-27" }
+        { id: 1, pedido: "98001", articulo: "501", fecha: "2026-08-25" },
+        // 98002 va DESORDENADA respecto del código (438E, 029, 056E): es el caso que
+        // distingue "orden real de ISIS" de "orden por código". Si alguien vuelve a
+        // poner el sort por art, F3 falla.
+        { id: 10, pedido: "98002", articulo: "438E", fecha: "2026-08-26" },
+        { id: 11, pedido: "98002", articulo: "29",   fecha: "2026-08-26" },
+        { id: 12, pedido: "98002", articulo: "56E",  fecha: "2026-08-26" },
+        { id: 20, pedido: "44001", articulo: "601",  fecha: "2026-08-27" }
       ]);
       if (url.indexOf("vista_uxb_articulo") >= 0) return J([{ cod: "501", uxb: 12 }, { cod: "56E", uxb: 6 }]);
       if (url.indexOf("clientes_vendedor") >= 0) return J([{ cod_cliente: "111", vend: "7" }]);
@@ -95,6 +105,16 @@ catch (_e) { try { ({ chromium } = require("playwright")); } catch (_e2) { conso
     out.f3_arts = byNp["98002"] ? byNp["98002"].lineas.map(function (l) { return l.art; }) : null;
     out.f3_parcial = byNp["98002"] ? byNp["98002"].lineas.filter(function (l) { return l.art === "029"; }).map(function (l) { return l.cajas; })[0] : null;
 
+    // F3-bis: sin filas en PPP_Base_Pedidos no hay orden que recuperar → código ascendente.
+    const fetchConBase = window.fetch;
+    window.fetch = function (url) {
+      if (String(url).indexOf("PPP_Base_Pedidos") >= 0) return J([]);
+      return fetchConBase(url);
+    };
+    const sinBase = await _facXlsArmar(["98002"]);
+    out.f3_sinBase = sinBase.length ? sinBase[0].lineas.map(function (l) { return l.art; }) : null;
+    window.fetch = fetchConBase;
+
     // F4/F5: bajar y leer el XML
     let blob = null, nombre = "";
     const origCreate = URL.createObjectURL;
@@ -124,6 +144,25 @@ catch (_e) { try { ({ chromium } = require("playwright")); } catch (_e2) { conso
       out.f9_codTexto = txt.indexOf("<t xml:space=\"preserve\">029</t>") >= 0;   // 029 va como texto, no número
     }
 
+    // F10: el BOTÓN (facXlsBajar) — hasta ahora sólo se probaban las piezas sueltas.
+    // Se le pone a mano la selección y se verifica que baje un archivo.
+    blob = null; nombre = "";
+    URL.createObjectURL = function (x) { blob = x; return "blob:test"; };
+    _facXlsSel = new Set(["98001", "98002", "44001"]);
+    await facXlsBajar();
+    URL.createObjectURL = origCreate;
+    out.f10_nombre = nombre;
+    out.f10_bajo = !!blob;
+    out.f10_formato = (typeof FAC_XLS_FORMATO === "string") ? FAC_XLS_FORMATO : null;
+
+    // F10-bis: sin nada marcado NO baja nada (avisa y corta).
+    blob = null; nombre = "";
+    URL.createObjectURL = function (x) { blob = x; return "blob:test"; };
+    _facXlsSel = new Set();
+    await facXlsBajar();
+    URL.createObjectURL = origCreate;
+    out.f10_vacioBajo = !!blob;
+
     return out;
   });
 
@@ -140,8 +179,13 @@ catch (_e) { try { ({ chromium } = require("playwright")); } catch (_e2) { conso
   ck(r.f2_topeCh === 15, "F2: tope Chef = " + r.f2_topeCh + " (esperaba 15)");
   ck(r.f2_lineasLk === 20, "F2: la NP de LK quedó con " + r.f2_lineasLk + " líneas (esperaba 20 tras dedup)");
   ck(r.f2_lineasCh === 16, "F2: la NP de Chef quedó con " + r.f2_lineasCh + " líneas (esperaba 16)");
-  ck(JSON.stringify(r.f3_arts) === JSON.stringify(["029", "056E", "438E"]),
-     "F3: orden/padCodArt dio " + JSON.stringify(r.f3_arts) + " (esperaba 029,056E,438E, sin el de 0 entregadas)");
+  ck(JSON.stringify(r.f3_arts) === JSON.stringify(["438E", "029", "056E"]),
+     "F3: el orden dio " + JSON.stringify(r.f3_arts) + " — esperaba 438E,029,056E, que es el " +
+     "orden de PPP_Base_Pedidos por id, NO el alfabético 029,056E,438E. Si salió el alfabético, " +
+     "alguien repuso el .sort() por código y el archivo dejó de reproducir el que ISIS tiene.");
+  ck(JSON.stringify(r.f3_sinBase) === JSON.stringify(["029", "056E", "438E"]),
+     "F3: sin filas en PPP_Base_Pedidos el orden dio " + JSON.stringify(r.f3_sinBase) +
+     " (esperaba el alfabético 029,056E,438E como respaldo)");
   ck(r.f3_parcial === 1, "F3: el parcial 029 llevó " + r.f3_parcial + " cajas (esperaba 1, lo entregado)");
   ck(xml.indexOf('<?mso-application progid="Excel.Sheet"?>') >= 0, "F4: falta la cabecera mso-application");
   ck(xml.indexOf('<Data ss:Type="String">029</Data>') >= 0, "F4: el código 029 no salió como String");
@@ -160,9 +204,22 @@ catch (_e) { try { ({ chromium } = require("playwright")); } catch (_e2) { conso
   ck(r.f9_partes === 6, "F9: el .xlsx tiene " + r.f9_partes + " de las 6 partes obligatorias");
   ck(r.f9_codTexto === true, "F9: en el .xlsx el código 029 no quedó como texto (Excel lo mostraría como 29)");
   ck((r.f9_bytes || 0) > 1000, "F9: el .xlsx pesa " + r.f9_bytes + " bytes");
+  // F10: el botón, extremo a extremo
+  ck(r.f10_bajo === true, "F10: facXlsBajar() con 3 NP marcadas no bajó ningún archivo");
+  ck(r.f10_vacioBajo === false, "F10: facXlsBajar() sin nada marcado bajó un archivo igual");
+  // El botón tiene que respetar FAC_XLS_FORMATO: si la constante dice xlsx y baja un
+  // .xls (o al revés), la rama que se está probando con ISIS no es la que se baja.
+  ck(new RegExp("\\." + (r.f10_formato || "xlsx") + "$").test(r.f10_nombre || ""),
+     "F10: FAC_XLS_FORMATO=" + r.f10_formato + " pero el botón bajó '" + r.f10_nombre + "'");
+  // F11: los dos formatos llevan _HHMM. Sin eso, dos bajadas del mismo día colisionan
+  // y en una prueba contra el ERP se pierde cuál archivo es cuál.
+  ck(/^PRUEBA_NO_IMPORTAR_\d{2}-\d{2}-\d{2}_\d{4}\.xls$/.test(r.f5_nombre || ""),
+     "F11: el .xls se llama '" + r.f5_nombre + "' (esperaba PRUEBA_NO_IMPORTAR_DD-MM-YY_HHMM.xls)");
+  ck(/^PRUEBA_NO_IMPORTAR_\d{2}-\d{2}-\d{2}_\d{4}\.xlsx$/.test(r.f9_nombre || ""),
+     "F11: el .xlsx se llama '" + r.f9_nombre + "' (esperaba PRUEBA_NO_IMPORTAR_DD-MM-YY_HHMM.xlsx)");
   ck(errs.length === 0, "errores de página: " + errs.join(" | "));
 
   await b.close();
   if (fails.length) { console.error("fac-excel-isis: FALLÓ\n - " + fails.join("\n - ")); process.exit(1); }
-  console.log("fac-excel-isis: OK (selección en la lista, dedup, split 18/15, orden por código, XML 2003 y xlsx real)");
+  console.log("fac-excel-isis: OK (selección, dedup, split 18/15, orden real de ISIS, XML 2003, xlsx real y el botón)");
 })();

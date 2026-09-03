@@ -1025,6 +1025,37 @@
 > ahora suma `oc_proy: it.proy`. Así el «Pedido» y el contexto (máximo−stock−pedidos) cuadran de la
 > misma foto (ej. cód 104: oc_max 40 − oc_stock 24 = 16 pedido).
 >
+> Nota **2026-09-03 — v12.59: el Excel de prueba para ISIS respeta el orden REAL de las líneas, y arreglos del módulo Facturación.**
+> El botón **⬇ Excel ISIS (prueba)** (Paso 0 de la idea 3717) ordenaba las líneas de cada NP por
+> **código de artículo ascendente**. Estaba **mal**: la Edge Function `procesar-pedidos-db` del
+> proyecto LK, que arma el Excel que hoy sale por mail a las 12:30, **no ordena nada** — escribe las
+> líneas en el orden de `sheets_payload.items` (el orden del carrito) y corta de a **18** (Loekemeyer)
+> o **15** (Chef) sobre *ese* orden; ISIS numera lo que recibe. La regla equivocada coincidía casi
+> siempre porque el 95 % de los carritos ya viene ordenado por código, así que ningún conteo la
+> delataba. Contra los datos: **145 de 801 NP de `PPP_Base_Pedidos` (18,1 %) NO están en orden de
+> código**. Ahora el orden se **recupera de `PPP_Base_Pedidos` ordenada por `id`**, que conserva el
+> orden con que ISIS tiene las líneas (`_facXlsOrdenIsis` / `_facXlsCmpLineas`); las NP sin fila ahí
+> (20 de 470 facturadas en 30 días) caen a código ascendente como respaldo. Todos los códigos de
+> artículo son de **3 dígitos** (16.105 líneas, 0 excepciones), así que con el `padStart(3,"0")` el
+> orden alfabético y el numérico son el mismo: **no hace falta** un comparador numérico.
+> Además: el `.xls` y el `.xlsx` se unificaron (mismo aplanado, mismo aviso del Resumen y **mismo
+> nombre con `_HHMM`** — sin eso dos bajadas del mismo día se pisaban); el test `fac-excel-isis.cjs`
+> cubre ahora el botón entero y el orden real; y `version.json` estaba clavado en **v12.48** desde
+> la v12.49, o sea que el banner **🔄 Actualizar** llevaba diez versiones sin dispararse — se
+> corrigió y `tests/version-sync.cjs` ahora lo verifica junto con `APP_VERSION` y `SW_VERSION`.
+> Arreglos de render de Facturación: zona tocable de la casilla de **44 px** (el dibujo sigue en 20),
+> casilla **sticky a la izquierda** en celular (antes había que volver 616 px de scroll por fila),
+> `box-sizing: border-box` en los bloques con `max-width` (el recuadro de Cierre asomaba 13 px por
+> lado a 1920 px), los dos botones del encabezado con la misma caja (36 px), y el botón sin NP
+> marcadas cambia de **paleta** en vez de bajar a `opacity:.55` (quedaba en 2,7:1 de contraste y se
+> leía como deshabilitado). **Revertir** volvió a tener entrada: está en **Administración**
+> (`facRevertirDesdeAdmin`), porque su botón vivía en `.fac-stats`, oculto desde v12.53.
+> Se sacó de `openFacturacion()` un `facCorreccRefreshCount()` que releía dos tablas para pintar un
+> chip invisible, en paralelo con la lectura que `facTick()` ya hace. `tests/mon-silencio.cjs` era
+> flaky: sembraba eventos con `Date.now()` y fallaba corrido entre las 00:00 y las 05:00 ART, cuando
+> esos eventos caen en el día anterior; ahora tiene la hora clavada al mediodía.
+> Bump `APP_VERSION` + `SW_VERSION` + `version.json` a `v12.59`. Suite verde.
+>
 > Nota **2026-09-02 — v12.50: gate anti TAP-sin-Entregas en Fin de Jornada (rescatado de una rama nunca mergeada).**
 > Escrito el 31/08 en `claude/missing-prices` como "v12.17"; ese número lo usó otra sesión en
 > paralelo para otra cosa (*facturación solo muestra NPs con ítems armados*) y el gate nunca llegó
