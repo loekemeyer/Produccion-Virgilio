@@ -6661,7 +6661,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.77";
+const APP_VERSION = "v12.78";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -11223,7 +11223,7 @@ function ocBodyGeneral() {
   if (!items.length) h += '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:14px;">Sin ítems</td></tr>';
   return h + "</tbody></table></div>";
 }
-function ocOpen(kEnc) { if (!_oc) return; _oc.openKey = decodeURIComponent(kEnc); const g = ocGroups(), x = g[_oc.openKey]; if (x && x.fecha) _oc.openFecha = x.fecha; _oc.view = "detail"; _oc.detEdit = {}; if (_oc.detMeses == null) _oc.detMeses = 6; ocRender(); ocEnsureProyHoy(); ocEnsureCap(); }
+function ocOpen(kEnc) { if (!_oc) return; _oc.openKey = decodeURIComponent(kEnc); const g = ocGroups(), x = g[_oc.openKey]; if (x && x.fecha) _oc.openFecha = x.fecha; _oc.view = "detail"; _oc.detEdit = {}; if (_oc.detMeses == null) _oc.detMeses = 6; ocRender(); ocEnsureProyHoy(); ocEnsureCap(); ocEnsureArts(); }
 /* v11.82 — capacidad de góndola (Capacidad_Sector) por código, para el ajuste "llenar
    a N meses" en la vista de la OC. Se trae una vez y re-renderiza el detalle. */
 async function ocEnsureCap() {
@@ -11231,6 +11231,20 @@ async function ocEnsureCap() {
   _oc._capLoading = true;
   try { _oc.capMap = await ocgFetchCapacidad(); } catch (_e) { _oc.capMap = {}; }
   _oc._capLoading = false;
+  if (_oc && _oc.view === "detail") ocRender();
+}
+/* v12.78 — TODOS los artículos que hace el tallerista (vista_generador_oc, con el mismo
+   reparto por Proveedor 1/2 que usa el generador). Sirve para la sección "Otros artículos
+   de <tallerista>" que va DEBAJO del detalle de la OC: mismos datos que la OC, pero de HOY.
+   Se trae una vez por apertura del módulo y re-renderiza el detalle. */
+async function ocEnsureArts() {
+  if (!_oc || _oc.artsAll || _oc._artsLoading) return;
+  _oc._artsLoading = true;
+  try {
+    const rows = await supaFetchAllSafe(SUPABASE_GENERADOR_ENDPOINT, "select=cod,descripcion,proveedor,tiene_prov_real,pr1,proveedor2,pr2,indice,proy,cap,maximo,pedidos,stock,uni_x_caja,n_caja,total&activo=eq.true&order=total.desc");
+    if (_oc) _oc.artsAll = _ocgBuildItemsAll(rows);
+  } catch (_e) { if (_oc) _oc.artsAll = []; }
+  if (_oc) _oc._artsLoading = false;
   if (_oc && _oc.view === "detail") ocRender();
 }
 /* v11.65 — proyección de HOY (proyeccion_madre) para caer en OC viejas sin snapshot oc_proy.
@@ -11260,9 +11274,9 @@ function ocBodyDetail() {
   h += '<div class="oc-tools" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px">' +
     '<span style="font-size:13px;font-weight:700;color:#065f46">⛽ Llenar góndola:</span>' +
     '<span style="font-size:13px">hasta</span> <input id="ocDetMeses" class="oc-inp" style="width:64px" type="number" min="0.5" step="0.5" value="' + (Number(_oc.detMeses) || 6) + '" oninput="ocDetMeses(this.value)"> <span style="font-size:13px">meses de proyección</span>' +
-    '<button class="oc-btn" onclick="ocDetFillAll()" title="Recalcula la cantidad de TODAS las líneas con góndola a MENOR(capacidad, proy×meses) − stock">⛽ Aplicar a todas</button>' +
+    '<button class="oc-btn" onclick="ocDetFillAll()" title="Recalcula la cantidad de las líneas con Falta &gt; 0 y góndola cargada, a MENOR(capacidad, proy×meses) − stock">⛽ Aplicar a las que faltan</button>' +
     '<button id="ocDetSaveBtn" class="oc-btn ok" onclick="ocDetSave()"' + (_detCh ? '' : ' style="display:none"') + '>💾 Guardar cantidades' + (_detCh ? ' (' + _detCh + ')' : '') + '</button>' +
-    '<span style="flex-basis:100%;font-size:11.5px;color:#475569">Cambia solo esta OC. Objetivo = MENOR(capacidad de góndola, proyección × meses). Editá la cantidad a mano o usá ⛽ por línea.</span>' +
+    '<span style="flex-basis:100%;font-size:11.5px;color:#475569">Cambia solo esta OC. Objetivo = MENOR(capacidad de góndola, proyección × meses). <b>Solo se aplica a líneas con Falta &gt; 0</b> (lo ya recibido completo no se toca). Editá la cantidad a mano o usá ⛽ por línea.</span>' +
     '</div>';
   h += '<div class="oc-meta">Proveedor <b>' + escapeHtml(x.proveedor || "—") + '</b> · Fecha <b>' + escapeHtml(x.fecha || "—") + '</b> · Rubro <b>' + escapeHtml(x.rubro || "—") + '</b> · Pedido <b>' + st.ped + '</b> · Recibido <b class="oc-ok">' + st.rec + '</b> · Falta <b class="' + (st.falta > 0 ? "oc-falt" : "oc-ok") + '">' + (st.falta > 0 ? st.falta : 0) + '</b> · Recepción <b style="color:' + _ocPctCol(_ocPct(st.rec, st.ped)) + '">' + _ocPct(st.rec, st.ped) + '%</b></div>';
   h += '<div class="oc-note" style="margin-top:0;margin-bottom:8px"><b>Recibido</b> = lo que registró la Recepción de Mercadería para este tallerista y código, <b>dentro del período de esta OC</b> (no acumula entregas anteriores ni de otra OC). Se alimenta solo.</div>';
@@ -11291,7 +11305,10 @@ function ocBodyDetail() {
     const codn = _ocgNorm(r.codigo);
     const cap = (_oc.capMap && _oc.capMap[codn] != null) ? Math.round(_oc.capMap[codn]) : null;
     const sug = ocDetTarget(r);   // null si no se puede calcular (sin capacidad / sin datos)
-    const fillBtn = (sug == null) ? '<span title="No aplica: sin capacidad de góndola cargada o sin proyección" style="opacity:.4">⛽</span>'
+    // v12.78 — el ⛽ SOLO aplica a líneas con Falta > 0 (pedido − recibido). Si ya se recibió
+    // todo, tocar la cantidad de esa línea no tiene sentido → botón deshabilitado.
+    const fillBtn = (falt <= 0) ? '<span title="No aplica: esta línea ya está recibida completa (Falta 0)" style="opacity:.35">⛽</span>'
+      : (sug == null) ? '<span title="No aplica: sin capacidad de góndola cargada o sin proyección" style="opacity:.4">⛽</span>'
       : '<button class="oc-fillbtn" title="Llenar a ' + (Number(_oc.detMeses) || 6) + ' meses: cantidad = MENOR(cap ' + cap + ', proy×meses) − stock = ' + sug + '" onclick="ocDetFill(' + r.id + ')">⛽</button>';
     h += '<tr><td class="oc-cod">' + escapeHtml(codCanon(r.codigo) || "—") + '</td><td class="oc-desc">' + escapeHtml(artNombre(r.codigo, r.descripcion) || "") + '</td>' +
       '<td class="num"><input class="oc-rinp" style="width:64px' + (ch ? ';background:#fef3c7' : '') + '" type="number" min="0" inputmode="numeric" value="' + ped + '" oninput="ocDetEditCant(' + r.id + ',this.value)"></td>' +
@@ -11301,7 +11318,53 @@ function ocBodyDetail() {
       '<td class="num oc-xtra">' + (cap == null ? "…" : (cap || "—")) + '</td>' +
       _gv(r, "oc_pedidos", "") + _proyCell(r) + '</tr>';
   });
-  return h + '</tbody></table></div><div class="oc-note" style="margin-top:8px">Las columnas <b style="color:#6d28d9">Stock · Máximo · Pedidos · Proyección</b> son del <b>momento en que se generó la OC</b> (no de hoy) — así se ve por qué se pidió lo que se pidió (a pedir ≈ Máximo − Stock − Pedidos). En OC viejas (previas a guardar el dato) la <b>Proyección</b> muestra la de <b>hoy</b> con «<b>~</b>»; Stock/Máximo/Pedidos viejos quedan en «—». <b>Cap gónd.</b> es la capacidad de HOY (Capacidad_Sector).</div>';
+  h += '</tbody></table></div><div class="oc-note" style="margin-top:8px">Las columnas <b style="color:#6d28d9">Stock · Máximo · Pedidos · Proyección</b> son del <b>momento en que se generó la OC</b> (no de hoy) — así se ve por qué se pidió lo que se pidió (a pedir ≈ Máximo − Stock − Pedidos). En OC viejas (previas a guardar el dato) la <b>Proyección</b> muestra la de <b>hoy</b> con «<b>~</b>»; Stock/Máximo/Pedidos viejos quedan en «—». <b>Cap gónd.</b> es la capacidad de HOY (Capacidad_Sector).</div>';
+  h += ocDetOtros(x);   // v12.78 — resto de los artículos que hace este tallerista
+  return h;
+}
+/* v12.78 — SECCIÓN "Otros artículos de <tallerista>", debajo del detalle de la OC.
+   Muestra TODO lo que hace ese tallerista (config OC_Maximos vía vista_generador_oc, con el
+   mismo reparto Prov 1/Prov 2 del generador) que NO está en esta OC, con los mismos datos que
+   la OC pero de HOY: Stock · Máximo · Cap góndola · Pedidos · Proyección · A pedir.
+   Es solo lectura: sirve para ver qué quedó afuera de la orden. */
+function _ocProvKey(p) { return String(p || "").toUpperCase().trim().replace(/\s+/g, " "); }
+function ocDetOtrosToggle() { if (!_oc) return; _oc.detOtrosOpen = !(_oc.detOtrosOpen !== false); ocRender(); }
+function ocDetOtros(x) {
+  const prov = x.proveedor || "";
+  if (!prov) return "";
+  if (!_oc.artsAll) return '<div class="oc-meta" style="margin-top:18px;border-top:2px solid #e2e8f0;padding-top:12px;color:#94a3b8">👷 Otros artículos de <b>' + escapeHtml(prov) + '</b>: cargando…</div>';
+  const enOC = {};
+  x.rows.forEach(function (r) { enOC[_ocgNorm(r.codigo)] = true; });
+  const pk = _ocProvKey(prov);
+  let items = _oc.artsAll.filter(function (it) { return _ocProvKey(it.prov) === pk && !enOC[_ocgNorm(it.cod)]; });
+  const nTotal = items.length;
+  const f = (_oc.detOtrosF || "").trim().toLowerCase();
+  if (f) items = items.filter(function (it) { return (codCanon(it.cod) + " " + (it.desc || "")).toLowerCase().indexOf(f) >= 0; });
+  items.sort(function (a, b) { return (b.falta - a.falta) || codCanon(a.cod).localeCompare(codCanon(b.cod)); });
+  const abierto = (_oc.detOtrosOpen !== false);
+  let h = '<div class="oc-meta" style="margin-top:18px;border-top:2px solid #e2e8f0;padding-top:12px">' +
+    '<button class="oc-btn" onclick="ocDetOtrosToggle()">' + (abierto ? "▾" : "▸") + ' 👷 Otros artículos de <b>' + escapeHtml(prov) + '</b> (' + nTotal + ')</button>' +
+    ' <span style="font-size:12px;color:#475569">lo que también hace este tallerista y <b>no</b> entró en esta OC — datos de <b>hoy</b>.</span></div>';
+  if (!abierto) return h;
+  if (!nTotal) return h + '<div class="oc-empty" style="padding:12px">Este tallerista no tiene otros artículos configurados: toda su config está en esta OC.</div>';
+  const nPedir = items.filter(function (it) { return it.falta > 0; }).length;
+  h += '<div class="oc-tools" style="margin-top:6px"><input class="oc-filtro" type="search" placeholder="🔎 Buscar código / descripción" value="' + escapeHtml(_oc.detOtrosF || "") + '" oninput="if(_oc){_oc.detOtrosF=this.value;ocRender();}"></div>';
+  h += '<div class="oc-meta" style="margin-top:0"><b>' + items.length + '</b> artículo(s)' + (f ? " (de " + nTotal + ")" : "") + ' · <b class="oc-falt">' + nPedir + '</b> con algo a pedir hoy</div>';
+  if (!items.length) return h + '<div class="oc-empty" style="padding:12px">Nada coincide con la búsqueda.</div>';
+  h += '<div class="oc-tblwrap"><table class="oc-tbl oc-tbl-det"><thead><tr><th>Código</th><th class="oc-desc">Descripción</th><th class="num" title="Lo que daría a pedir hoy (Máximo − Stock − Pedidos)">A pedir hoy</th><th class="num oc-xtra oc-xtra-first" title="Stock de hoy">Stock</th><th class="num oc-xtra" title="Máximo de hoy (proyección × índice, topado a la góndola)">Máximo</th><th class="num oc-xtra" title="Capacidad de góndola (Capacidad_Sector)">Cap gónd.</th><th class="num oc-xtra" title="Pedidos pendientes (demanda) de hoy">Pedidos</th><th class="num oc-xtra" title="Proyección de hoy (cajas/mes)">Proyección</th></tr></thead><tbody>';
+  items.forEach(function (it) {
+    const codn = _ocgNorm(it.cod);
+    const cap = (it.cap != null) ? it.cap : ((_oc.capMap && _oc.capMap[codn] != null) ? Math.round(_oc.capMap[codn]) : null);
+    const proy = (it.proy != null && it.proy > 0) ? Math.round(it.proy) : 0;
+    const parcial = (it.prop != null && it.prop < 100) ? ' <span style="color:#7c3aed;font-weight:800" title="Este artículo se reparte entre dos talleristas: a ' + escapeHtml(prov) + ' le toca el ' + it.prop + '%">' + it.prop + '%</span>' : '';
+    h += '<tr><td class="oc-cod">' + escapeHtml(codCanon(it.cod)) + parcial + '</td><td class="oc-desc">' + escapeHtml(artNombre(it.cod, it.desc) || "") + '</td>' +
+      '<td class="num ' + (it.falta > 0 ? "oc-falt" : "") + '">' + (it.falta > 0 ? it.falta : '<span style="color:#cbd5e1">0</span>') + '</td>' +
+      '<td class="num oc-xtra oc-xtra-first">' + it.stock + '</td><td class="num oc-xtra">' + it.max + (it.capped ? ' <span style="color:#b45309;font-weight:800" title="Topado a la capacidad de góndola">⤓</span>' : '') + '</td>' +
+      '<td class="num oc-xtra">' + (cap == null ? "—" : (cap || "—")) + '</td>' +
+      '<td class="num oc-xtra">' + it.demanda + '</td><td class="num oc-xtra">' + (proy || '<span style="color:#94a3b8" title="Sin ventas: el Máximo sale de la capacidad de góndola">0</span>') + '</td></tr>';
+  });
+  h += '</tbody></table></div><div class="oc-note" style="margin-top:6px">Solo lectura. <b>Pedido · Recibido · Falta</b> no aplican acá: estos artículos <b>no están</b> en esta OC. Para pedirlos, generá una OC nueva desde <b>⚙ Generar OCs</b>.</div>';
+  return h;
 }
 /* v11.82 — ajuste de cantidades en la OC puntual ("llenar góndola a N meses").
    Objetivo = MENOR(capacidad de góndola, proyección × meses); cantidad a pedir =
@@ -11350,6 +11413,8 @@ function ocDetFill(id) {
   if (!_oc || !_oc.openKey) return;
   const g = ocGroups(), x = g[_oc.openKey]; if (!x) return;
   const r = x.rows.find(function (a) { return a.id === id; }); if (!r) return;
+  // v12.78 — solo líneas con Falta > 0 (pedido − recibido).
+  if ((_ocDetCantEff(r) - ocRecEff(r)) <= 0) { alert("Esa línea ya está recibida completa (Falta 0): el llenado de góndola no aplica."); return; }
   const t = ocDetTarget(r); if (t == null) { alert("Ese código no tiene capacidad de góndola cargada (Capacidad_Sector)."); return; }
   if (!_oc.detEdit) _oc.detEdit = {};
   _oc.detEdit[r.id] = t;
@@ -11360,10 +11425,14 @@ function ocDetFillAll() {
   const g = ocGroups(), x = g[_oc.openKey]; if (!x) return;
   if (!_oc.capMap) { alert("Esperá a que cargue la capacidad de góndola y probá de nuevo."); return; }
   if (!_oc.detEdit) _oc.detEdit = {};
-  let n = 0;
-  x.rows.forEach(function (r) { const t = ocDetTarget(r); if (t != null) { _oc.detEdit[r.id] = t; n++; } });
+  let n = 0, saltadas = 0;
+  x.rows.forEach(function (r) {
+    // v12.78 — solo las que tienen Falta > 0 (pedido − recibido); lo recibido completo no se toca.
+    if ((_ocDetCantEff(r) - ocRecEff(r)) <= 0) { saltadas++; return; }
+    const t = ocDetTarget(r); if (t != null) { _oc.detEdit[r.id] = t; n++; }
+  });
   ocRender();
-  if (!n) alert("Ninguna línea de esta OC tiene capacidad de góndola cargada.");
+  if (!n) alert(saltadas ? ("No hay líneas con Falta > 0 y capacidad de góndola cargada (" + saltadas + " ya recibida(s) completa(s)).") : "Ninguna línea de esta OC tiene capacidad de góndola cargada.");
 }
 async function ocDetSave() {
   if (!_oc || !_oc.openKey) return;
@@ -12029,6 +12098,42 @@ async function ocgFetchImportados() {
   });
   return { items: items, meses: meses };
 }
+/* v12.78 — armado de los ítems del generador (reparto por proveedor 1/2) extraído de
+   ocgEnter() para poder reusarlo desde la OC ("Otros artículos del tallerista"). */
+function _ocgBuildItemsAll(rows) {
+  const itemsAll = [];
+  (rows || []).forEach(function (r) {
+    const cod = String(r.cod).toUpperCase().trim();
+    const maxCajas = Math.round(Number(r.maximo) || 0);
+    const demanda = Math.round(Number(r.pedidos) || 0);
+    const stock = Math.round(Number(r.stock) || 0);
+    const totalFalta = Math.round(Number(r.total) || 0);
+    const pc = Number(r.proy) || 0;                 // proyección cajas/mes (0 = sin ventas)
+    const indice = (Number(r.indice) > 0) ? Number(r.indice) : OCG_FACTOR_MAXIMO;
+    const cap = Number(r.cap) || 0;
+    // fuente: proy (vende) · capacidad (objetivo = góndola) · sin (sin proveedor, no se envía)
+    const fuente = (pc > 0) ? "proy" : (r.tiene_prov_real ? "capacidad" : "sin");
+    const capped = (pc > 0 && cap > 0 && Math.ceil(pc * indice) > cap);
+    // v7.66 — REPARTO por proveedor: Prov 1 (pr1 %) + Prov 2 (pr2 %). Único → 100% al 1.
+    // "(sin proveedor)" se muestra pero no se envía; Racks queda excluido (por sub).
+    const p1 = String(r.proveedor || "").trim(), p2 = String(r.proveedor2 || "").trim();
+    const pr1 = (r.pr1 == null ? 100 : Number(r.pr1)), pr2 = (r.pr2 == null ? 0 : Number(r.pr2));
+    const subs = (p2 && pr2 > 0)
+      ? [{ prov: p1 || "(sin proveedor)", prop: pr1, resto: false }, { prov: p2, prop: pr2, resto: true }]
+      : [{ prov: p1 || "(sin proveedor)", prop: 100, resto: false }];
+    let acc = 0;
+    subs.forEach(function (sub) {
+      const faltaSub = sub.resto ? (totalFalta - acc) : Math.round(totalFalta * sub.prop / 100);
+      if (!sub.resto) acc += faltaSub;
+      if (_ocgExcluido(sub.prov)) return;   // Racks no va al generador (se importa por otra vía)
+      const k = sub.prop / 100;
+      // v11.67 — se incluyen también los de falta 0 (para la vista Por tallerista). El armado
+      // de `items` (a pedir > 0) filtra después, así lo que se genera/manda queda idéntico.
+      itemsAll.push({ cod: cod, desc: r.descripcion || "", prov: sub.prov, max: Math.round(maxCajas * k), fuente: fuente, indice: indice, proy: (pc > 0 ? pc : null), demanda: Math.round(demanda * k), stock: Math.round(stock * k), falta: Math.max(0, faltaSub), cap: (cap > 0 ? cap : null), capped: capped, uni: Number(r.uni_x_caja) || 0, ncaja: (r.n_caja != null ? r.n_caja : null), prop: sub.prop, sinProv: (sub.prov === "(sin proveedor)") });
+    });
+  });
+  return itemsAll;
+}
 async function ocgEnter() {
   if (!_oc) return;
   _oc.view = "gen"; _oc.gen = null; _oc.genFiltro = ""; ocRender();   // muestra "calculando…"
@@ -12042,37 +12147,7 @@ async function ocgEnter() {
     //   itemsAll = todo (incl. falta 0)  ·  items = solo a pedir > 0 (lo que se genera/manda).
     const rows = await supaFetchAllSafe(SUPABASE_GENERADOR_ENDPOINT, "select=cod,descripcion,proveedor,tiene_prov_real,pr1,proveedor2,pr2,indice,proy,cap,maximo,pedidos,stock,uni_x_caja,n_caja,total&activo=eq.true&order=total.desc");
     if (!_oc) return;   // se cerró el generador mientras calculaba
-    const itemsAll = [];
-    (rows || []).forEach(function (r) {
-      const cod = String(r.cod).toUpperCase().trim();
-      const maxCajas = Math.round(Number(r.maximo) || 0);
-      const demanda = Math.round(Number(r.pedidos) || 0);
-      const stock = Math.round(Number(r.stock) || 0);
-      const totalFalta = Math.round(Number(r.total) || 0);
-      const pc = Number(r.proy) || 0;                 // proyección cajas/mes (0 = sin ventas)
-      const indice = (Number(r.indice) > 0) ? Number(r.indice) : OCG_FACTOR_MAXIMO;
-      const cap = Number(r.cap) || 0;
-      // fuente: proy (vende) · capacidad (objetivo = góndola) · sin (sin proveedor, no se envía)
-      const fuente = (pc > 0) ? "proy" : (r.tiene_prov_real ? "capacidad" : "sin");
-      const capped = (pc > 0 && cap > 0 && Math.ceil(pc * indice) > cap);
-      // v7.66 — REPARTO por proveedor: Prov 1 (pr1 %) + Prov 2 (pr2 %). Único → 100% al 1.
-      // "(sin proveedor)" se muestra pero no se envía; Racks queda excluido (por sub).
-      const p1 = String(r.proveedor || "").trim(), p2 = String(r.proveedor2 || "").trim();
-      const pr1 = (r.pr1 == null ? 100 : Number(r.pr1)), pr2 = (r.pr2 == null ? 0 : Number(r.pr2));
-      const subs = (p2 && pr2 > 0)
-        ? [{ prov: p1 || "(sin proveedor)", prop: pr1, resto: false }, { prov: p2, prop: pr2, resto: true }]
-        : [{ prov: p1 || "(sin proveedor)", prop: 100, resto: false }];
-      let acc = 0;
-      subs.forEach(function (sub) {
-        const faltaSub = sub.resto ? (totalFalta - acc) : Math.round(totalFalta * sub.prop / 100);
-        if (!sub.resto) acc += faltaSub;
-        if (_ocgExcluido(sub.prov)) return;   // Racks no va al generador (se importa por otra vía)
-        const k = sub.prop / 100;
-        // v11.67 — se incluyen también los de falta 0 (para la vista Por tallerista). El armado
-        // de `items` (a pedir > 0) filtra después, así lo que se genera/manda queda idéntico.
-        itemsAll.push({ cod: cod, desc: r.descripcion || "", prov: sub.prov, max: Math.round(maxCajas * k), fuente: fuente, indice: indice, proy: (pc > 0 ? pc : null), demanda: Math.round(demanda * k), stock: Math.round(stock * k), falta: Math.max(0, faltaSub), cap: (cap > 0 ? cap : null), capped: capped, uni: Number(r.uni_x_caja) || 0, ncaja: (r.n_caja != null ? r.n_caja : null), prop: sub.prop, sinProv: (sub.prov === "(sin proveedor)") });
-      });
-    });
+    const itemsAll = _ocgBuildItemsAll(rows);
     const items = itemsAll.filter(function (it) { return it.falta > 0; });
     _oc.gen = { items: items, itemsAll: itemsAll, fecha: new Date().toISOString().slice(0, 10) };
     ocRender();

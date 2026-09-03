@@ -231,6 +231,9 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== hg-horas-guardado (consulta de horas por depósito y, sobre todo, que NO registre tiempo) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/hg-horas-guardado.cjs
 
+echo "== oc-otros-tallerista (otros artículos del tallerista bajo la OC + ⛽ solo si Falta > 0) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/oc-otros-tallerista.cjs
+
 # El "TODO OK" va ÚLTIMO: estaba antes de este test y lo imprimía aunque el que seguía
 # fallara (set -e corta después, pero el cartel de OK ya salió y engaña al que mira).
 echo "== TODO OK =="

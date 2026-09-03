@@ -1053,6 +1053,31 @@
 > vieja `stkDescargarExcel()` v7.77 sigue huérfana desde v8.93 y re-filtraba con lógica vieja —
 > por eso NO se reusó.)
 >
+> Nota **2026-09-03 — v12.78: en la OC, "Otros artículos del tallerista" + ⛽ solo con Falta > 0.**
+> Dos pedidos del dueño sobre 📑 **Órdenes de Compra → detalle de un tallerista** (`ocBodyDetail`).
+>
+> **(1) Sección "👷 Otros artículos de \<tallerista\>"** (nueva, debajo de la tabla de la OC y
+> separada por una línea). Lista **todo lo demás que hace ese tallerista** y que **NO entró en
+> esta OC**, con los **mismos datos** que la OC pero **de hoy**: `A pedir hoy · Stock · Máximo ·
+> Cap gónd. · Pedidos · Proyección`. Fuente: la misma vista `vista_generador_oc` que usa el
+> generador, con el **mismo reparto Prov 1 / Prov 2** (si el artículo se comparte 50/50 con otro
+> tallerista, se ve el badge `50%` y los números ya vienen proporcionados). Implementación:
+> `_ocgBuildItemsAll(rows)` (el armado de ítems se **extrajo** de `ocgEnter()` para reusarlo),
+> `ocEnsureArts()` (trae la vista una vez por apertura del módulo → `_oc.artsAll`, se dispara
+> desde `ocOpen()`), `ocDetOtros(x)` (render) y `ocDetOtrosToggle()` / `_oc.detOtrosF` (colapsar
+> y buscar). Es **solo lectura**: `Pedido · Recibido · Falta` no aplican porque esas líneas no
+> están en `Ordenes_Compra`; para pedirlas hay que generar una OC nueva.
+>
+> **(2) ⛽ "Llenar góndola" solo en líneas con Falta > 0** (`Falta = Pedido − Recibido`). Antes el
+> ⛽ por línea y el "Aplicar a todas" recalculaban **cualquier** línea, incluidas las **ya
+> recibidas completas** — cambiarles la cantidad no tiene sentido (y descuadra el % de recepción).
+> Ahora el botón por línea queda **deshabilitado** cuando `Falta = 0`, `ocDetFill()` rebota con
+> aviso, y `ocDetFillAll()` (renombrado a **"⛽ Aplicar a las que faltan"**) las **saltea** e
+> informa cuántas omitió. Todo lo demás del cálculo v11.82 sigue igual
+> (`objetivo = MENOR(cap góndola, proyección × meses)`, `cantidad = max(0, objetivo + pedidos − stock)`).
+>
+> Test `tests/oc-otros-tallerista.cjs` cubre las dos cosas. Bump a `v12.78`.
+>
 > Nota **2026-09-03 — v12.77: botón "⏱ Horas guardado" en la botonera del operario (consulta, NO registra).**
 > Pedido del dueño. Box chico en las secundarias (`row4`, al lado de 🔀 Mover racks) que abre un modal
 > con el **total de guardado pendiente** y su **desglose por depósito**: 📥 mercadería a guardar,
