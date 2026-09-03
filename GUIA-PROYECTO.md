@@ -1053,6 +1053,25 @@
 > vieja `stkDescargarExcel()` v7.77 sigue huérfana desde v8.93 y re-filtraba con lógica vieja —
 > por eso NO se reusó.)
 >
+> Nota **2026-09-03 — v12.77: botón "⏱ Horas guardado" en la botonera del operario (consulta, NO registra).**
+> Pedido del dueño. Box chico en las secundarias (`row4`, al lado de 🔀 Mover racks) que abre un modal
+> con el **total de guardado pendiente** y su **desglose por depósito**: 📥 mercadería a guardar,
+> 🗄 racks y 📦 excedente, cada uno con sus cajas y sus horas. Usa el mismo ratio de siempre
+> (`Stock_Config.guardado_cajas_por_hora`), no hay cálculo nuevo.
+> **⚠ Lo esencial: NO REGISTRA NADA**, que es lo que se pidió explícito (*"que no genere registro de
+> cuánto tiempo le dedicó a ver eso"*). No pasa por `selectOption` —así tampoco lo frenan las reglas
+> de tiempo muerto—, no emite evento, no encola nada, no escribe historial y no abre toggle. Es sólo
+> lectura. `tests/hg-horas-guardado.cjs` **espía** `enqueueReport`, `pushHistoryForLegajo`, todo
+> `fetch` que no sea GET y el estado del legajo, y falla si alguno se mueve: si mañana alguien le
+> cuelga un evento, el test lo caza.
+> **Números del 03/09 y por qué el desglose importa:** total **80,8 h**, pero **racks son 70,6 h**
+> (16.658 cajas, el 87%). Racks y excedente son stock guardado que baja cuando se necesita, **no
+> trabajo para hoy** — lo urgente son las **5 h** de mercadería a guardar. El modal lo dice con todas
+> las letras, porque un "80,8 h" pelado se lee como un atraso enorme y no lo es. Es la misma razón
+> por la que el switch "Incluir racks" del supervisor viene **apagado** por defecto.
+> El modal aclara además que mirarlo no descuenta horas. `row4` pasa a 8 boxes (6 + 2), así que la
+> segunda fila queda con dos en vez de uno solo. Bump a `v12.77`.
+>
 > Nota **2026-09-03 — v12.76: el operario ve cuántas horas hay para guardar.**
 > Pedido del dueño. La tarjeta **"⏱ Hay para guardar"** aparece arriba de la lista del módulo
 > **Guardar a góndola** (MG), con las horas, las cajas y el ritmo (`5 h · 1185 cajas ÷ 236 cajas/h`).

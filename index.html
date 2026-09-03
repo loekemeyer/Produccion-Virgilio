@@ -5682,6 +5682,22 @@ try {
   if (r4) r4.appendChild(mov);
 } catch (_e) { /* no-op */ }
 
+/* v12.77 (pedido del dueño) — "⏱ Horas guardado": consulta de cuánto trabajo de guardado
+   hay, abierto por depósito (a guardar / racks / excedente).
+   Es SOLO LECTURA y NO REGISTRA NADA: no pasa por selectOption, no emite evento, no abre
+   toggle y no cuenta como tiempo trabajado. Mirar cuánto falta no es una tarea, así que no
+   tiene que descontarle horas al operario. Mismo patrón que 🔀 Mover racks: box chico que
+   abre su modal directo. */
+try {
+  const hgb = document.createElement("div");
+  hgb.className = "box box-sm";
+  hgb.setAttribute("data-code", "HG");
+  hgb.innerHTML = `<div class="box-title" style="font-size:15px">⏱</div><div class="box-desc">Horas guardado</div>`;
+  hgb.onclick = () => showHorasGuardado();
+  const r4b = document.getElementById("row4");
+  if (r4b) r4b.appendChild(hgb);
+} catch (_e) { /* no-op */ }
+
 // v9.15: Planilla Conteo removida — no se usa
 // try {
 //   const pcm = document.createElement("div");
@@ -6645,7 +6661,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.76";
+const APP_VERSION = "v12.77";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -20581,6 +20597,106 @@ async function showMGModal(legajo, _resume) {
     mgCargarRitmo();   // v12.76 — en segundo plano: no puede demorar la lista de guardado
   } catch (e) { const b = document.getElementById("mgBody"); if (b) b.innerHTML = '<div class="mg-loading">Error: ' + escapeHtml(e.message || String(e)) + '</div>'; }
 }
+/* ===================== ⏱ HORAS DE GUARDADO (consulta) =====================
+   v12.77 — Pedido del dueño: que el operario pueda ver cuánto trabajo de guardado hay
+   y de qué se compone (a guardar / racks / excedente).
+
+   ⚠ NO REGISTRA NADA. No emite evento, no abre toggle, no toca `getLegajoState` ni la
+   cola de envíos, y no pasa por `selectOption` (así tampoco lo frenan las reglas de
+   tiempo muerto). Mirar cuánto falta no es una tarea: no tiene que contarle horas al
+   operario. Si algún día alguien le agrega un `enqueueReport` acá, rompe justamente lo
+   que se pidió.
+
+   Las horas salen del MISMO ratio que el resto del proyecto
+   (`Stock_Config.guardado_cajas_por_hora`, hoy 236, que el cron recalcula con las
+   sesiones reales de `Guardado_Sesiones`). No hay un cálculo nuevo. */
+async function showHorasGuardado() {
+  let ov = document.getElementById("hgModal");
+  if (!ov) { ov = document.createElement("div"); ov.id = "hgModal"; document.body.appendChild(ov); }
+  ov.style.cssText = "position:fixed;inset:0;z-index:1298;background:rgba(2,6,23,.78);overflow:auto;padding:12px;display:block;";
+  const _card = function (inner) {
+    return '<div style="max-width:460px;margin:0 auto;background:#f8fafc;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:linear-gradient(90deg,#0f766e,#115e59);color:#fff;">'
+      + '<b style="font-size:17px;">⏱ Horas de guardado</b>'
+      + '<button onclick="closeHorasGuardado()" style="width:auto;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800;cursor:pointer;">Cerrar</button></div>'
+      + '<div style="padding:13px 14px;">' + inner + '</div></div>';
+  };
+  ov.innerHTML = _card('<div style="text-align:center;color:#64748b;padding:26px;">Calculando…</div>');
+
+  try {
+    const res = await Promise.all([
+      stockFetchSaldos(),
+      (async function () {
+        try {
+          const r = await fetch(SUPABASE_URL + "/rest/v1/Stock_Config?clave=eq.guardado_cajas_por_hora&select=valor",
+            { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, cache: "no-store" });
+          if (!r.ok) return 0;
+          const j = await r.json();
+          const v = (j && j[0]) ? parseFloat(j[0].valor) : NaN;
+          return (v > 0) ? v : 0;
+        } catch (_e) { return 0; }
+      })()
+    ]);
+    const saldos = res[0] || {}, rate = res[1] || 0;
+    let cAg = 0, cRk = 0, cEx = 0;
+    Object.keys(saldos).forEach(function (k) {
+      const a = saldos[k];
+      cAg += Math.max(0, Number(a.a_guardar) || 0);
+      cRk += Math.max(0, Number(a.racks) || 0);
+      cEx += Math.max(0, Number(a.excedente) || 0);
+    });
+    ov.innerHTML = _card(hgBody(cAg, cRk, cEx, rate));
+  } catch (e) {
+    ov.innerHTML = _card('<div style="text-align:center;color:#b91c1c;padding:22px;">No se pudo calcular: '
+      + escapeHtml(e && e.message ? e.message : String(e)) + '</div>');
+  }
+}
+function closeHorasGuardado() { const ov = document.getElementById("hgModal"); if (ov) ov.style.display = "none"; }
+window.showHorasGuardado = showHorasGuardado;
+window.closeHorasGuardado = closeHorasGuardado;
+
+/* Cuerpo del modal. Aparte para poder probarlo con números fijos. */
+function hgBody(cAg, cRk, cEx, rate) {
+  const fmt = function (cajas) {
+    if (!(rate > 0)) return "—";
+    const h = cajas / rate;
+    if (h <= 0) return "0";
+    return (h < 1) ? (Math.round(h * 60) + " min") : ((Math.round(h * 10) / 10) + " h");
+  };
+  const tot = cAg + cRk + cEx;
+  if (!(rate > 0)) {
+    return '<div style="text-align:center;color:#b45309;padding:22px;">No pude traer el ritmo de guardado (cajas/h).<br>Probá de nuevo en un rato.</div>';
+  }
+  const fila = function (ico, nom, cajas, nota, fuerte) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:8px;">'
+      + '<div style="font-size:22px;flex:0 0 auto;">' + ico + '</div>'
+      + '<div style="flex:1 1 auto;min-width:0;">'
+      +   '<div style="font-weight:800;font-size:14px;color:#0f172a;">' + nom + '</div>'
+      +   '<div style="font-size:11.5px;color:#64748b;">' + Math.round(cajas) + ' cajas' + (nota ? ' · ' + nota : '') + '</div>'
+      + '</div>'
+      + '<div style="flex:0 0 auto;font-size:' + (fuerte ? '22' : '18') + 'px;font-weight:800;color:' + (fuerte ? '#0f766e' : '#334155') + ';font-variant-numeric:tabular-nums;">' + fmt(cajas) + '</div>'
+      + '</div>';
+  };
+  return ''
+    + '<div style="background:#ecfeff;border:1.5px solid #67e8f9;border-radius:12px;padding:12px 14px;margin-bottom:12px;text-align:center;">'
+    +   '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#64748b;font-weight:800;">Total de guardado pendiente</div>'
+    +   '<div style="font-size:32px;font-weight:800;color:#0f766e;font-variant-numeric:tabular-nums;line-height:1.1;">' + fmt(tot) + '</div>'
+    +   '<div style="font-size:12px;color:#64748b;">' + Math.round(tot) + ' cajas ÷ ' + Math.round(rate) + ' cajas/h</div>'
+    + '</div>'
+    + fila("📥", "Mercadería a guardar", cAg, "lo que entró y va a góndola", true)
+    + fila("🗄", "Racks", cRk, "stock del depósito, baja cuando hace falta", false)
+    + fila("📦", "Excedente", cEx, "lo que no entró en góndola", false)
+    + '<div style="font-size:11.5px;color:#64748b;line-height:1.45;margin-top:4px;">'
+    +   '<b>📥 Mercadería a guardar</b> es lo urgente: entró y todavía no está en góndola. '
+    +   '<b>🗄 Racks</b> y <b>📦 excedente</b> son stock guardado que se baja a medida que se necesita, '
+    +   'no trabajo para hoy — por eso el total es tan grande.'
+    + '</div>'
+    + '<div style="font-size:11.5px;color:#0f766e;background:#f0fdfa;border:1px solid #99f6e4;border-radius:9px;padding:8px 10px;margin-top:9px;">'
+    +   '👁 Mirar esta pantalla <b>no registra tiempo</b>: no cuenta como una tarea ni te descuenta horas.'
+    + '</div>';
+}
+window.hgBody = hgBody;
+
 /* v12.76 — Ritmo de guardado (cajas/h) para la tarjeta de horas. Es el MISMO dato que
    usa la tarjeta del supervisor: `Stock_Config.guardado_cajas_por_hora`, que el cron
    `guardado-recalc-ratio` reemplaza por el MEDIDO de `Guardado_Sesiones` (hoy 236, no la

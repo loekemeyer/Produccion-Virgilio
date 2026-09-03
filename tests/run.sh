@@ -228,6 +228,9 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== mg-horas-pendientes (el operario ve cuántas horas hay para guardar, con el ratio medido) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/mg-horas-pendientes.cjs
 
+echo "== hg-horas-guardado (consulta de horas por depósito y, sobre todo, que NO registre tiempo) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/hg-horas-guardado.cjs
+
 # El "TODO OK" va ÚLTIMO: estaba antes de este test y lo imprimía aunque el que seguía
 # fallara (set -e corta después, pero el cartel de OK ya salió y engaña al que mira).
 echo "== TODO OK =="
