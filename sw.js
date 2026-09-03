@@ -8,7 +8,7 @@
    (Además admin/admin.js tiene la anon key del proyecto LK — esa es aparte.)
    ========================================================= */
 importScripts("supabase-config.js");
-const SW_VERSION = "v12.70-vir";
+const SW_VERSION = "v12.71-vir";
 /* nota: v7.68 — generador de OCs desde stock (vista_generador_oc). */
 
 const SUPABASE_URL = self.VIR_SUPABASE_URL;
