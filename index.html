@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.67";
+const APP_VERSION = "v12.68";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -15969,7 +15969,21 @@ function stkExportarExcelVista() {
   try {
     // Anchos en unidades "Excel" (las que se ven en el diálogo Ancho de columna). textCols
     // = 0,1,2 (Código/LK-CH/Descripción) van SIEMPRE como texto (ej. "026" no debe volverse número).
-    const widths = [7.63, 3.88, 30.5, 8.88, 6.25, 6.63];
+    const baseW = [7.63, 3.88, 30.5, 8.88, 6.25, 6.63];
+    // Auto-ajuste SOLO si hace falta en las columnas numéricas (Proy. caj/mes, Total Stock,
+    // Cajas Pedidas): si la cifra más larga de la columna no entra en el ancho fijo, se ensancha
+    // a lo justo (piso = ancho fijo). El encabezado (que envuelve) NO cuenta para ensanchar.
+    const autoCols = { 3: 1, 4: 1, 5: 1 };
+    const widths = baseW.map(function (w, ci) {
+      if (!autoCols[ci]) return w;
+      var maxLen = 0;
+      for (var i = 1; i < aoa.length; i++) {
+        var v = aoa[i][ci];
+        var s = (v === "" || v == null) ? "" : String(v);
+        if (s.length > maxLen) maxLen = s.length;
+      }
+      return Math.max(w, maxLen + 1.3);   // +1.3 = padding para el número centrado
+    });
     const blob = _stkXlsxStyledBlob(aoa, widths, { 0: 1, 1: 1, 2: 1 });
     const fname = "Stocks_" + new Date().toISOString().split("T")[0] + ".xlsx";
     const url = URL.createObjectURL(blob);

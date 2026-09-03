@@ -1033,7 +1033,7 @@
 > cayera el timer, o sea rara vez acá y seguido en un runner lento — que es el patrón de la **CI, en
 > rojo desde antes de esta tanda**. Ahora los controles se **agregan** en vez de reemplazar el body.
 >
-> Nota **2026-09-03 — v12.67: encabezado del Excel de Stocks en NEGRITA (fontId 1). v12.66: formato (bordes + alineación + ajustar texto).**
+> Nota **2026-09-03 — v12.68: auto-ajuste de ancho (solo si hace falta) en Proy. caj/mes, Total Stock y Cajas Pedidas: si la cifra más larga no entra en el ancho fijo, se ensancha a lo justo (piso = ancho fijo). v12.67: encabezado del Excel de Stocks en NEGRITA (fontId 1). v12.66: formato (bordes + alineación + ajustar texto).**
 > Pedido del dueño. El export ya no usa SheetJS: el community NO escribe estilos (bordes/alineación
 > son feature Pro) y no se quiso sumar `xlsx-js-style`. Se agregó un generador `.xlsx` OOXML propio
 > **`_stkXlsxStyledBlob()`** (reusa `_facZip`/`_facCrc32`/`_facColLetra`, sin dependencias). Formato:
