@@ -1053,6 +1053,24 @@
 > vieja `stkDescargarExcel()` v7.77 sigue huérfana desde v8.93 y re-filtraba con lógica vieja —
 > por eso NO se reusó.)
 >
+> Nota **2026-09-03 — v12.76: el operario ve cuántas horas hay para guardar.**
+> Pedido del dueño. La tarjeta **"⏱ Hay para guardar"** aparece arriba de la lista del módulo
+> **Guardar a góndola** (MG), con las horas, las cajas y el ritmo (`5 h · 1185 cajas ÷ 236 cajas/h`).
+> **No es un cálculo nuevo**: reusa el de la v6.30/v8.91 — backlog ÷ `Stock_Config.guardado_cajas_por_hora`,
+> el ratio que el cron `guardado-recalc-ratio` recalcula con las sesiones reales de
+> `Guardado_Sesiones`. Mismos umbrales de color que la tarjeta del supervisor (verde <4 h, ámbar
+> ≥4 h, rojo >6 h) para que las dos pantallas no se contradigan, y menos de una hora se muestra en
+> minutos. El backlog son las cajas de ESA lista, así que el número siempre cuadra con lo que el
+> operario tiene delante; **filtrar por código no lo cambia** (es el trabajo total, no lo que se ve).
+> **Dos decisiones que importan.** (1) El ritmo se pide **en segundo plano** (`mgCargarRitmo`), NO en
+> el `Promise.all` de `showMGModal`: la lista de lo que hay que guardar es la función crítica de la
+> pantalla y no puede esperar por un dato informativo — meterlo en el `Promise.all` demoraba el
+> modal entero y rompió `dual-ubic-mg-draft`, que fue quien lo detectó. (2) Hasta que llega el ritmo
+> real, la tarjeta **no se muestra**: `stkGRate()` devuelve la semilla de **380** cuando `_stk.gConf`
+> no está cargado —que es siempre en el celular del operario— y con esa semilla el número sale
+> **~60% bajo** (3,1 h en vez de 5 h). Mostrarlo y corregirlo un segundo después es peor que
+> esperar. Test `tests/mg-horas-pendientes.cjs` cubre las dos cosas. Bump a `v12.76`.
+>
 > Nota **2026-09-03 — v12.75: la ubicación del excedente en el picking se entiende.**
 > Un operario mandó la foto de la tanda D59A: donde va la ubicación del excedente decía
 > **`P9 · LK · P8 · LK · P9`**. Causa: en `Movimientos_Stock` hay ubicaciones con el **sufijo de

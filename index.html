@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.75";
+const APP_VERSION = "v12.76";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -20538,7 +20538,7 @@ let _mg = null;
 async function showMGModal(legajo, _resume) {
   if (!document.getElementById("mgCss")) {
     const s = document.createElement("style"); s.id = "mgCss";
-    s.textContent = "#mgModal{display:none;position:fixed;inset:0;z-index:1290;background:rgba(2,6,23,.74);overflow:auto;padding:12px;}#mgModal.show{display:block;}.mg-card{background:#f8fafc;max-width:460px;margin:0 auto;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);}.mg-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:linear-gradient(90deg,#16a34a,#15803d);color:#fff;}.mg-title{font-size:18px;font-weight:800;}.mg-close{background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800;cursor:pointer;width:auto;}.mg-body{padding:13px 14px;}.mg-loading,.mg-empty{padding:26px;text-align:center;color:#64748b;font-size:15px;}.mg-hint{font-size:12.5px;color:#64748b;margin-bottom:10px;}.mg-row{display:flex;flex-direction:column;gap:9px;border:1px solid #e2e8f0;border-radius:13px;padding:11px 12px;margin-bottom:9px;background:#fff;}.mg-headline{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}.mg-agu{font-size:11.5px;color:#64748b;white-space:nowrap;}.mg-agu b{color:#0f172a;font-size:14px;}.mg-box{font-size:19px;line-height:1;}.mg-info{flex:1 1 110px;min-width:0;}.mg-def{display:flex;gap:10px;align-items:stretch;}.mg-gond-box{flex:1.7;display:flex;flex-direction:column;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:11px 8px;}.mg-exc-q{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;background:#fffbeb;border:1.5px dashed #f59e0b;border-radius:12px;padding:11px 8px;color:#92400e;font-weight:800;font-size:12.5px;text-align:center;cursor:pointer;line-height:1.15;}.mg-exc-q-b{height:50px;display:flex;align-items:center;justify-content:center;}.mg-exc-q .mg-box{font-size:30px;}.mg-exp{display:flex;gap:10px;align-items:stretch;}.mg-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;border-radius:12px;padding:9px 6px;}.mg-col.g{background:#f0fdf4;border:1px solid #bbf7d0;}.mg-col.e{background:#fff;border:1px solid #e2e8f0;}.mg-exc-hdr{background:none;border:none;color:#b45309;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;padding:0;width:auto;}.mg-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px;min-height:22px;}.mg-foot .mg-faltan{font-size:13px;white-space:nowrap;}.mg-foot .mg-faltan.ok{color:#15803d;}.mg-stp.big .mg-inp{width:62px;height:50px;font-size:23px;}.mg-stp.big .mg-sb{width:44px;height:50px;font-size:25px;}.mg-cod{font-size:16px;font-weight:800;font-family:Consolas,Menlo,monospace;}.mg-desc{font-size:12px;color:#475569;}.mg-faltan{font-size:11.5px;font-weight:800;color:#b45309;margin-top:1px;}.mg-faltan.ok{color:#15803d;}.mg-stp{display:flex;align-items:center;gap:5px;}.mg-sb{display:flex;align-items:center;justify-content:center;line-height:1;padding:0;margin:0;width:36px;height:40px;border:none;border-radius:9px;font-size:22px;font-weight:800;cursor:pointer;background:#e2e8f0;color:#475569;}.mg-inp{width:48px;height:40px;box-sizing:border-box;margin:0;text-align:center;font-size:18px;font-weight:800;border:2px solid #cbd5e1;border-radius:9px;padding:0;-moz-appearance:textfield;}.mg-inp::-webkit-outer-spin-button,.mg-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.mg-fin{width:100%;margin-top:10px;padding:14px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:17px;font-weight:800;cursor:pointer;}.mg-fin:disabled{background:#cbd5e1;color:#64748b;cursor:not-allowed;}.mg-lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#64748b;}.mg-lbl.gond{color:#15803d;}.mg-lbl.exc{color:#b45309;}.mg-search{width:100%;height:44px;border:2px solid #cbd5e1;border-radius:11px;padding:0 13px;font-size:16px;font-weight:700;margin-bottom:10px;box-sizing:border-box;}.mg-addrow{background:#fffbeb;border:1px solid #fcd34d;border-radius:11px;padding:11px 12px;margin-bottom:10px;font-size:13px;color:#92400e;}.mg-add-btn{margin-left:6px;background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:800;cursor:pointer;width:auto;}.mg-add-note{font-size:11.5px;color:#b45309;margin-top:7px;}.mg-disp-x{color:#b45309;font-weight:800;}.mg-ubic{flex-basis:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed #fcd34d;font-size:12.5px;color:#92400e;}.mg-ubic-lbl{font-weight:800;}.mg-ubic-lbl small{font-weight:700;opacity:.8;}.mg-ubic-inp{width:84px;height:40px;border:2px solid #f59e0b;border-radius:9px;padding:0;font-size:20px;font-weight:800;text-align:center;letter-spacing:4px;text-transform:uppercase;box-sizing:border-box;}.mg-gfill{display:inline-block;margin-top:4px;font-size:11px;font-weight:800;padding:1px 8px;border-radius:8px;}.mg-gfill.lo{background:#fee2e2;color:#b91c1c;}.mg-gfill.mid{background:#fef3c7;color:#92400e;}.mg-gfill.hi{background:#dcfce7;color:#15803d;}.mg-gfill.unk{background:#f1f5f9;color:#64748b;}.mg-gfill.loc{display:block;background:#e0f2fe;color:#075985;margin-top:5px;}.mg-gfill.loc b{color:#0c4a6e;}.mg-prio{display:inline-block;margin-right:6px;font-size:10px;font-weight:900;color:#fff;background:#b91c1c;border-radius:6px;padding:1px 6px;vertical-align:middle;}.mg-mchint-row{margin-top:-2px;}.mg-mchint{font-size:11.5px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:3px 8px;display:inline-block;}";
+    s.textContent = "#mgModal{display:none;position:fixed;inset:0;z-index:1290;background:rgba(2,6,23,.74);overflow:auto;padding:12px;}#mgModal.show{display:block;}.mg-card{background:#f8fafc;max-width:460px;margin:0 auto;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);}.mg-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:linear-gradient(90deg,#16a34a,#15803d);color:#fff;}.mg-title{font-size:18px;font-weight:800;}.mg-close{background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800;cursor:pointer;width:auto;}.mg-body{padding:13px 14px;}.mg-loading,.mg-empty{padding:26px;text-align:center;color:#64748b;font-size:15px;}.mg-hint{font-size:12.5px;color:#64748b;margin-bottom:10px;}.mg-row{display:flex;flex-direction:column;gap:9px;border:1px solid #e2e8f0;border-radius:13px;padding:11px 12px;margin-bottom:9px;background:#fff;}.mg-headline{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}.mg-agu{font-size:11.5px;color:#64748b;white-space:nowrap;}.mg-agu b{color:#0f172a;font-size:14px;}.mg-box{font-size:19px;line-height:1;}.mg-info{flex:1 1 110px;min-width:0;}.mg-def{display:flex;gap:10px;align-items:stretch;}.mg-gond-box{flex:1.7;display:flex;flex-direction:column;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:11px 8px;}.mg-exc-q{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;background:#fffbeb;border:1.5px dashed #f59e0b;border-radius:12px;padding:11px 8px;color:#92400e;font-weight:800;font-size:12.5px;text-align:center;cursor:pointer;line-height:1.15;}.mg-exc-q-b{height:50px;display:flex;align-items:center;justify-content:center;}.mg-exc-q .mg-box{font-size:30px;}.mg-exp{display:flex;gap:10px;align-items:stretch;}.mg-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;border-radius:12px;padding:9px 6px;}.mg-col.g{background:#f0fdf4;border:1px solid #bbf7d0;}.mg-col.e{background:#fff;border:1px solid #e2e8f0;}.mg-exc-hdr{background:none;border:none;color:#b45309;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;padding:0;width:auto;}.mg-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px;min-height:22px;}.mg-foot .mg-faltan{font-size:13px;white-space:nowrap;}.mg-foot .mg-faltan.ok{color:#15803d;}.mg-stp.big .mg-inp{width:62px;height:50px;font-size:23px;}.mg-stp.big .mg-sb{width:44px;height:50px;font-size:25px;}.mg-cod{font-size:16px;font-weight:800;font-family:Consolas,Menlo,monospace;}.mg-desc{font-size:12px;color:#475569;}.mg-faltan{font-size:11.5px;font-weight:800;color:#b45309;margin-top:1px;}.mg-faltan.ok{color:#15803d;}.mg-stp{display:flex;align-items:center;gap:5px;}.mg-sb{display:flex;align-items:center;justify-content:center;line-height:1;padding:0;margin:0;width:36px;height:40px;border:none;border-radius:9px;font-size:22px;font-weight:800;cursor:pointer;background:#e2e8f0;color:#475569;}.mg-inp{width:48px;height:40px;box-sizing:border-box;margin:0;text-align:center;font-size:18px;font-weight:800;border:2px solid #cbd5e1;border-radius:9px;padding:0;-moz-appearance:textfield;}.mg-inp::-webkit-outer-spin-button,.mg-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.mg-fin{width:100%;margin-top:10px;padding:14px;border:none;border-radius:12px;background:#16a34a;color:#fff;font-size:17px;font-weight:800;cursor:pointer;}.mg-fin:disabled{background:#cbd5e1;color:#64748b;cursor:not-allowed;}.mg-lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#64748b;}.mg-lbl.gond{color:#15803d;}.mg-lbl.exc{color:#b45309;}.mg-search{width:100%;height:44px;border:2px solid #cbd5e1;border-radius:11px;padding:0 13px;font-size:16px;font-weight:700;margin-bottom:10px;box-sizing:border-box;}.mg-addrow{background:#fffbeb;border:1px solid #fcd34d;border-radius:11px;padding:11px 12px;margin-bottom:10px;font-size:13px;color:#92400e;}.mg-add-btn{margin-left:6px;background:#16a34a;color:#fff;border:none;border-radius:9px;padding:8px 13px;font-weight:800;cursor:pointer;width:auto;}.mg-add-note{font-size:11.5px;color:#b45309;margin-top:7px;}.mg-disp-x{color:#b45309;font-weight:800;}.mg-ubic{flex-basis:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px dashed #fcd34d;font-size:12.5px;color:#92400e;}.mg-ubic-lbl{font-weight:800;}.mg-ubic-lbl small{font-weight:700;opacity:.8;}.mg-ubic-inp{width:84px;height:40px;border:2px solid #f59e0b;border-radius:9px;padding:0;font-size:20px;font-weight:800;text-align:center;letter-spacing:4px;text-transform:uppercase;box-sizing:border-box;}.mg-gfill{display:inline-block;margin-top:4px;font-size:11px;font-weight:800;padding:1px 8px;border-radius:8px;}.mg-gfill.lo{background:#fee2e2;color:#b91c1c;}.mg-gfill.mid{background:#fef3c7;color:#92400e;}.mg-gfill.hi{background:#dcfce7;color:#15803d;}.mg-gfill.unk{background:#f1f5f9;color:#64748b;}.mg-gfill.loc{display:block;background:#e0f2fe;color:#075985;margin-top:5px;}.mg-gfill.loc b{color:#0c4a6e;}.mg-prio{display:inline-block;margin-right:6px;font-size:10px;font-weight:900;color:#fff;background:#b91c1c;border-radius:6px;padding:1px 6px;vertical-align:middle;}.mg-mchint-row{margin-top:-2px;}.mg-mchint{font-size:11.5px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:3px 8px;display:inline-block;}.mg-horas{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-radius:12px;padding:10px 14px;margin-bottom:10px;}.mg-horas-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#64748b;font-weight:800;}.mg-horas-n{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;}.mg-horas-sub{font-size:12.5px;color:#64748b;}";
     document.head.appendChild(s);
   }
   let ov = document.getElementById("mgModal");
@@ -20576,15 +20576,74 @@ async function showMGModal(legajo, _resume) {
       if (a.prio !== b.prio) return a.prio - b.prio;   // góndola más vacía primero
       return (parseInt(a.cod, 10) || 0) - (parseInt(b.cod, 10) || 0);
     });
-    _mg = { legajo: String(legajo || ""), items: items, filtro: "", tsInicio: Date.now() };
+    _mg = { legajo: String(legajo || ""), items: items, filtro: "", tsInicio: Date.now(), rate: null };
     mgRender();
+    mgCargarRitmo();   // v12.76 — en segundo plano: no puede demorar la lista de guardado
   } catch (e) { const b = document.getElementById("mgBody"); if (b) b.innerHTML = '<div class="mg-loading">Error: ' + escapeHtml(e.message || String(e)) + '</div>'; }
 }
+/* v12.76 — Ritmo de guardado (cajas/h) para la tarjeta de horas. Es el MISMO dato que
+   usa la tarjeta del supervisor: `Stock_Config.guardado_cajas_por_hora`, que el cron
+   `guardado-recalc-ratio` reemplaza por el MEDIDO de `Guardado_Sesiones` (hoy 236, no la
+   semilla de 380). Hay que pedirlo acá porque `stkGRate()` lee `_stk.gConf`, que sólo está
+   cargado si el supervisor abrió el módulo Stock: en el celular del operario está vacío y
+   caería a la semilla, o sea ~60% menos horas de las reales.
+
+   Va en SEGUNDO PLANO y no en el Promise.all de showMGModal a propósito: la lista de lo
+   que hay que guardar es la función crítica de esta pantalla y no puede esperar por un
+   dato informativo. Con la red lenta del depósito la tarjeta aparece unos segundos
+   después; si el pedido falla, no aparece y no pasa nada más. */
+function mgCargarRitmo() {
+  const _lg = _mg;   // si el operario cierra y reabre, no pisamos el estado nuevo
+  const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  const to = ctrl ? setTimeout(function () { try { ctrl.abort(); } catch (_e) {} }, 6000) : null;
+  fetch(SUPABASE_URL + "/rest/v1/Stock_Config?clave=eq.guardado_cajas_por_hora&select=valor",
+    { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }, cache: "no-store",
+      signal: ctrl ? ctrl.signal : undefined })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      const v = (j && j[0]) ? parseFloat(j[0].valor) : NaN;
+      if (!(v > 0) || !_mg || _mg !== _lg) return;
+      _mg.rate = v;
+      mgRender();
+    })
+    .catch(function () {})
+    .then(function () { if (to) clearTimeout(to); });
+}
+
 function mgRender() {
   if (!_mg) return; const body = document.getElementById("mgBody"); if (!body) return;
   // NO cortamos cuando la lista está vacía: el buscador tiene que estar igual para
   // poder guardar un código fuera de lista (avisa Telegram).
-  let h = '<div class="mg-hint">Ordenado por <b>prioridad</b>: primero lo que tiene la <b>góndola más vacía</b> (stock ÷ capacidad). Marcá cuántas cajas van a <b>Góndola</b>; si está <b>llena</b>, tocá <b>“¿Hay Excedente?”</b> (avisa al supervisor).</div>';
+  /* v12.76 (pedido del dueño) — CUÁNTAS HORAS HAY PARA GUARDAR, en la pantalla del
+     operario. No es un cálculo nuevo: es el MISMO que la tarjeta "⏱ Horas de guardado
+     pendientes" del supervisor (v6.30/v8.91) — backlog ÷ `Stock_Config.guardado_cajas_por_hora`,
+     que el cron recalcula con las sesiones reales de `Guardado_Sesiones`.
+     El backlog son las cajas de ESTA lista (lo que el operario tiene delante), igual que
+     la del supervisor usa las de su tabla: así el número siempre cuadra con lo que se ve.
+     Se muestra el TOTAL, no lo filtrado: buscar un código no cambia cuánto trabajo hay. */
+  let h = "";
+  const _mgPend = _mg.items.reduce(function (t, it) { return t + (Number(it.disponible) || 0); }, 0);
+  /* Sólo con el ritmo REAL. `stkGRate()` devuelve la semilla de 380 cuando `_stk.gConf` no
+     está cargado —que es siempre en el celular del operario—, y con la semilla el número
+     sale ~60% bajo: 3,1 h en vez de 5 h. Mostrarlo y corregirlo un segundo después cuando
+     llega el ritmo medido es peor que no mostrar nada: el operario ya leyó el número
+     equivocado. Así que si todavía no está, la tarjeta no aparece. */
+  const _mgRate = (_mg.rate > 0) ? _mg.rate
+    : ((_stk && _stk.gConf && _stk.gConf.length) ? stkGRate() : 0);
+  if (_mgPend > 0 && _mgRate > 0) {
+    const _hs = _mgPend / _mgRate;
+    // Menos de una hora se muestra en minutos: "0,4 h" no le dice nada a nadie.
+    const _txt = (_hs < 1) ? (Math.round(_hs * 60) + " min") : ((Math.round(_hs * 10) / 10) + " h");
+    const _col = _hs > 6 ? "#b91c1c" : (_hs >= 4 ? "#b45309" : "#166534");
+    const _bg  = _hs > 6 ? "#fef2f2" : (_hs >= 4 ? "#fffbeb" : "#f0fdf4");
+    const _bd  = _hs > 6 ? "#fca5a5" : (_hs >= 4 ? "#fcd34d" : "#86efac");
+    h += '<div class="mg-horas" style="background:' + _bg + ';border:1.5px solid ' + _bd + ';">'
+      +  '<div><span class="mg-horas-lbl">⏱ Hay para guardar</span><br>'
+      +  '<span class="mg-horas-n" style="color:' + _col + ';">' + _txt + '</span> '
+      +  '<span class="mg-horas-sub">' + Math.round(_mgPend) + ' cajas ÷ ' + Math.round(_mgRate) + ' cajas/h</span></div>'
+      +  '</div>';
+  }
+  h += '<div class="mg-hint">Ordenado por <b>prioridad</b>: primero lo que tiene la <b>góndola más vacía</b> (stock ÷ capacidad). Marcá cuántas cajas van a <b>Góndola</b>; si está <b>llena</b>, tocá <b>“¿Hay Excedente?”</b> (avisa al supervisor).</div>';
   h += '<input id="mgSearch" class="mg-search" type="search" inputmode="numeric" autocomplete="off" placeholder="🔎 Buscar código…" value="' + escapeHtml(_mg.filtro || "") + '" oninput="mgSearchInput(this.value)">';
   const fq = String(_mg.filtro || "").trim(), fLo = fq.toLowerCase(), fUp = fq.toUpperCase();
   const shown = fq ? _mg.items.filter(function (it) { return String(it.cod).toLowerCase().indexOf(fLo) >= 0; }) : _mg.items;
