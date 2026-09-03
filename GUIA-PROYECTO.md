@@ -1053,6 +1053,24 @@
 > vieja `stkDescargarExcel()` v7.77 sigue huérfana desde v8.93 y re-filtraba con lógica vieja —
 > por eso NO se reusó.)
 >
+> Nota **2026-09-03 — v12.75: la ubicación del excedente en el picking se entiende.**
+> Un operario mandó la foto de la tanda D59A: donde va la ubicación del excedente decía
+> **`P9 · LK · P8 · LK · P9`**. Causa: en `Movimientos_Stock` hay ubicaciones con el **sufijo de
+> empresa pegado y escrito con el MISMO separador** (`"P8 · LK"`, `"P12 · CH"`) que el código usaba
+> para **unir varias** (`ubics.join(" · ")`), así que no se distinguía dónde terminaba un lugar y
+> empezaba el otro. Y encima `P9` y `P9 · LK` son **el mismo estante**, o sea que el operario veía
+> la misma balda dos veces. El artículo de la foto es el **186**, que en la base tiene tres
+> entradas: `P8 · LK`, `P9`, `P9 · LK`.
+> Se agregaron `pkUbicNorm()` (saca el sufijo `· LK` / `· CH` —y la variante sin punto— más los
+> guiones) y `pkUbicLista()` (deduplica y une como **"P8 y P9"**, "P8, P9 y P13"), y se usan en los
+> **cinco** lugares donde se mostraba la ubicación. El 186 pasa de `P9 · LK · P8 · LK · P9` a
+> **`P8 y P9`**; el peor caso de la base, el **731**, de 9 entradas a **7 lugares reales**.
+> La empresa no se pierde: ya se ve en el código y en el cartel de origen Loeke/Chef.
+> **Es un arreglo de PANTALLA: no se tocó ningún dato.** Las ubicaciones siguen guardadas con el
+> sufijo. **Pendiente para el dueño:** decidir si se normalizan también en `Movimientos_Stock`, para
+> que el excedente de un mismo estante deje de contarse como dos ubicaciones distintas.
+> Test `tests/pk-ubic-excedente.cjs` con los casos reales (186, 246, 731). Bump a `v12.75`.
+>
 > Nota **2026-09-03 — v12.64: Remito y Factura pide LAS DOS fotos, y las dos se ven.**
 > Pedido del dueño. En Recepción de Mercadería, cuando el operario elige el tipo de documento
 > **"📄🧾 Remito y Factura"**, ahora se le piden **dos fotos rotuladas** —una del remito y otra de la

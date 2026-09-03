@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.74";
+const APP_VERSION = "v12.75";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -8233,7 +8233,7 @@ async function showPickingList(tanda, legajo, opts) {
     // v4.26: adjuntar el excedente (cajas + ubicación) a cada artículo.
     try {
       const excMap = await pkFetchExcedente(Object.keys(agg));
-      items.forEach(function (it) { const e = excMap[String(it.art).toUpperCase()]; if (e) { it.exc = e.cajas; it.excUbic = e.ubics.join(" · "); } });
+      items.forEach(function (it) { const e = excMap[String(it.art).toUpperCase()]; if (e) { it.exc = e.cajas; it.excUbic = pkUbicLista(e.ubics); } });
     } catch (_e) {}
     // Excedente: se agarra PRIMERO del excedente (al final) y, si no alcanza, el
     // RESTO de góndola. Ej: piden 15, hay 10 en excedente → góndola pide 5 (en su
@@ -8309,6 +8309,30 @@ function pkFmt(n) { const r = Math.round(n * 100) / 100; return (r === Math.roun
 /* v4.26: saldo de EXCEDENTE por artículo + ubicaciones (el excedente no tiene lugar
    fijo: la ubicación se cargó en el MG). Devuelve { ART: {cajas, ubics:[]} } solo
    para los que tienen saldo > 0. Best-effort. */
+/* v12.75 — Ubicación de excedente lista para mostrar: saca el sufijo de empresa
+   (" · LK" / " · CH", y también " LK" / " CH" sueltos) y los guiones. Sin esto la
+   misma balda aparece dos veces ("P9" y "P9 · LK") y, al unir varias, el separador
+   del sufijo se confunde con el de la lista. */
+function pkUbicNorm(u) {
+  return String(u == null ? "" : u)
+    .replace(/-/g, "")
+    .replace(/\s*·\s*(LK|CH)\s*$/i, "")   // "P9 · LK" → "P9"
+    .replace(/\s+(LK|CH)\s*$/i, "")        // "P9 LK"   → "P9"
+    .trim();
+}
+
+/* Une varias ubicaciones de forma que se lean como lugares distintos: "P8 y P9",
+   "P8, P9 y P13". Con " · " —que es lo que había— se mezclaba con el separador que
+   algunas ubicaciones traen adentro. */
+function pkUbicLista(arr) {
+  const a = (arr || []).map(pkUbicNorm).filter(Boolean);
+  const u = [];
+  a.forEach(function (x) { if (u.indexOf(x) < 0) u.push(x); });
+  if (!u.length) return "";
+  if (u.length === 1) return u[0];
+  return u.slice(0, -1).join(", ") + " y " + u[u.length - 1];
+}
+
 async function pkFetchExcedente(arts) {
   try {
     if (!arts || !arts.length) return {};
@@ -8329,7 +8353,14 @@ async function pkFetchExcedente(arts) {
       const k = String(mv.cod_art).toUpperCase();
       if (!m[k]) m[k] = { cajas: 0, ubics: [] };
       m[k].cajas += Number(mv.delta || 0);
-      const u = String(mv.ubicacion || "").trim();
+      /* v12.75 — La ubicación se NORMALIZA antes de guardarla. En la base hay
+         ubicaciones con el sufijo de empresa pegado y escrito con el MISMO separador
+         que después usamos para unir varias ("P8 · LK", "P12 · CH"), así que juntarlas
+         daba cosas como "P9 · LK · P8 · LK · P9": no se entiende dónde termina un
+         lugar y empieza el otro. Además "P9" y "P9 · LK" son el MISMO estante, y salían
+         las dos. Sacando el sufijo, el dedup de abajo las une solas. La empresa no se
+         pierde: ya se ve en el código y en el cartel de origen Loeke/Chef. */
+      const u = pkUbicNorm(mv.ubicacion);
       if (Number(mv.delta) > 0 && u && m[k].ubics.indexOf(u) < 0) m[k].ubics.push(u);   // ubicaciones de las entradas, recientes primero
     });
     const out = {};
@@ -8360,7 +8391,7 @@ function pkRender() {
   // v4.26: artículo cuyo excedente cubre TODO lo pedido → en góndola se SALTEA
   // ("se busca al final"); el pick real va en el paso de excedente del final.
   if (it.skip) {
-    const exu = String(it.excUbic || it.sector || "—").replace(/-/g, "");
+    const exu = pkUbicNorm(it.excUbic || it.sector) || "—";
     body.innerHTML = `<div class="pk-flow">${nav}
       <div class="pk-big-row">
         <div class="pk-big-col"><span class="pk-cod-lbl">📦 EXCEDENTE</span><span class="pk-sector-big exc">${escapeHtml(exu)}</span></div>
@@ -8389,7 +8420,7 @@ function pkRender() {
   // SECTOR (sin guion) a la IZQUIERDA y CÓDIGO a la DERECHA, ambos grandes. Mismo
   // bloque para el paso normal y para la pantalla de "Faltan". En el paso de excedente
   // el "sector" es la ubicación del excedente (no la góndola).
-  const sectorTxt = String(it.isExc ? (it.excUbic || it.sector || "—") : (it.sector || "—")).replace(/-/g, "");
+  const sectorTxt = (it.isExc ? pkUbicNorm(it.excUbic || it.sector) : String(it.sector || "").replace(/-/g, "")) || "—";
   const sectorBig = `<span class="pk-sector-big${it.isExc ? " exc" : ""}">${escapeHtml(sectorTxt)}</span>`;
   const equivHint = it.real
     ? `<div style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;border-radius:10px;padding:9px 11px;margin-top:8px;font-size:14px;font-weight:800;text-align:center;line-height:1.25;">👉 Levantá el <b>${escapeHtml(it.real)}</b>${it.realNota ? " — " + escapeHtml(it.realNota) : ""}<br><small style="font-weight:700;opacity:.85;">(el cliente lo pidió como ${escapeHtml(it.art)})</small></div>`
@@ -8437,7 +8468,7 @@ function pkRender() {
   body.innerHTML = `<div class="pk-flow">${nav}
     ${bigRow}
     ${dualTag}
-    <div class="pk-cajas">Levantá <b>${pkFmt(it.esp)}</b> cajas${it.isExc ? " <span class='pk-cajas-exc'>(en el excedente)</span>" : (it.excHint ? ` <span class='pk-cajas-exc'>(hay ${pkFmt(it.excHint)} en excedente ${escapeHtml(String(it.excUbic || "").replace(/-/g, ""))} — al final)</span>` : (it.hasManualExc ? ` <span class='pk-cajas-exc'>(+ excedente @ ${escapeHtml(it.manualExcUbic || "")}, al final)</span>` : ""))}</div>
+    <div class="pk-cajas">Levantá <b>${pkFmt(it.esp)}</b> cajas${it.isExc ? " <span class='pk-cajas-exc'>(en el excedente)</span>" : (it.excHint ? ` <span class='pk-cajas-exc'>(hay ${pkFmt(it.excHint)} en excedente ${escapeHtml(pkUbicNorm(it.excUbic))} — al final)</span>` : (it.hasManualExc ? ` <span class='pk-cajas-exc'>(+ excedente @ ${escapeHtml(it.manualExcUbic || "")}, al final)</span>` : ""))}</div>
     ${it.forcedGond ? `<div class="pk-forced-note">🟢 Estás retirando de <b>góndola</b> (había excedente) — se avisó al supervisor</div>` : ``}
     ${it.orig ? (it.orig.mixed
       ? `<div class="pk-orig mix">⚠ <b>Mezcla Loeke/Chef</b> — <b>Loeke ×${pkFmt(it.orig.nL)}</b> en ${escapeHtml(it.orig.loekeRango)} · <b>Chef ×${pkFmt(it.orig.nC)}</b> en ${escapeHtml(it.orig.chefRango)}</div>`
@@ -8661,7 +8692,7 @@ function pkNextHtml() {
   if (!up.length) return "";
   let h = '<div class="pk-next"><div class="pk-next-h">📍 Próximas ubicaciones</div>';
   up.forEach(function (x) {
-    const sec = String(x.isExc ? (x.excUbic || x.sector || "—") : (x.sector || "—")).replace(/-/g, "");
+    const sec = (x.isExc ? pkUbicNorm(x.excUbic || x.sector) : String(x.sector || "").replace(/-/g, "")) || "—";
     h += '<div class="pk-next-row"><span class="pk-next-sec' + (x.isExc ? " exc" : "") + '">' + escapeHtml(sec) + '</span><span class="pk-next-cod">' + escapeHtml(x.art) + (x.isExc ? ' <span class="pk-next-tag">excedente</span>' : "") + '</span><span class="pk-next-q">' + pkFmt(x.esp) + ' caj</span></div>';
   });
   return h + "</div>";
@@ -8706,7 +8737,7 @@ function pkForzarGondola(idx) {
   const it = _pk.items[idx];
   if (!it || !it.skip) return;   // solo aplica al paso salteado por excedente (evita doble tap)
   let ok = true;
-  try { ok = confirm("¿Retirar de GÓNDOLA en lugar del excedente?\n\nEl artículo " + it.art + " tenía excedente en " + String(it.excUbic || it.sector || "—").replace(/-/g, "") + ". Si lo sacás de góndola, se le AVISA al supervisor.\n\nTocá Cancelar para levantarlo del excedente (al final)."); } catch (_e) { ok = true; }
+  try { ok = confirm("¿Retirar de GÓNDOLA en lugar del excedente?\n\nEl artículo " + it.art + " tenía excedente en " + pkUbicNorm(it.excUbic || it.sector) || "—" + ". Si lo sacás de góndola, se le AVISA al supervisor.\n\nTocá Cancelar para levantarlo del excedente (al final)."); } catch (_e) { ok = true; }
   if (!ok) return;
   it.skip = false; it.forcedGond = true;
   if (!_pk.forced) _pk.forced = {};

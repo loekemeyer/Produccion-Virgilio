@@ -222,6 +222,9 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node te
 echo "== rcp-foto-remito-factura (Remito y Factura → 2 fotos, y las 2 en el visor de Pendientes) =="
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/rcp-foto-remito-factura.cjs
 
+echo "== pk-ubic-excedente (la ubicación del excedente se lee: sin sufijo de empresa ni repetidos) =="
+PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}" node tests/pk-ubic-excedente.cjs
+
 # El "TODO OK" va ÚLTIMO: estaba antes de este test y lo imprimía aunque el que seguía
 # fallara (set -e corta después, pero el cartel de OK ya salió y engaña al que mira).
 echo "== TODO OK =="
