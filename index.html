@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.66";
+const APP_VERSION = "v12.67";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -16008,12 +16008,13 @@ function _stkXlsxStyledBlob(aoa, widths, textCols) {
   };
   // ---- Estilos de celda (xf), uno por borde; misma alineación para todos ----
   const xfDefs = [], xfIdx = {};
-  const needXf = function (borderId) {
-    if (xfIdx[borderId] == null) {
-      xfIdx[borderId] = xfDefs.length;
-      xfDefs.push('<xf numFmtId="0" fontId="0" fillId="0" borderId="' + borderId + '" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>');
+  const needXf = function (borderId, bold) {
+    const k = borderId + "|" + (bold ? "b" : "n");
+    if (xfIdx[k] == null) {
+      xfIdx[k] = xfDefs.length;
+      xfDefs.push('<xf numFmtId="0" fontId="' + (bold ? 1 : 0) + '" fillId="0" borderId="' + borderId + '" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>');
     }
-    return xfIdx[borderId];
+    return xfIdx[k];
   };
   const styleFor = function (isHeader, ci, isLastRow) {
     var l, r, t, b;
@@ -16024,7 +16025,7 @@ function _stkXlsxStyledBlob(aoa, widths, textCols) {
       t = "thin";                              // el divisor con el encabezado ya lo pinta grueso el header
       b = isLastRow ? "thick" : "thin";
     }
-    return needXf(needBorder(l, r, t, b));
+    return needXf(needBorder(l, r, t, b), isHeader);   // encabezado en NEGRITA (fontId 1)
   };
   // ---- Celdas / filas ----
   const cellXml = function (ref, val, sIdx, forceText) {
@@ -16054,7 +16055,7 @@ function _stkXlsxStyledBlob(aoa, widths, textCols) {
     colsXml + "<sheetData>" + rowsXml + "</sheetData></worksheet>";
   const stylesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>' +
+    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
     '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
     '<borders count="' + borderDefs.length + '">' + borderDefs.join("") + "</borders>" +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
