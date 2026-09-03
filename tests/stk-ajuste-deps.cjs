@@ -33,8 +33,16 @@ catch (_e) { try { ({ chromium } = require("playwright")); } catch (_e2) { conso
     out.racksch809 = sd["809E"].racks_ch === 12;
 
     // 3) stockAjustar usa el depósito elegido en el <select> (escribe deposito=para_envasar)
-    document.body.innerHTML = '<select id="stkAjDep"><option value="para_envasar" selected>x</option></select>' +
+    /* Se AGREGAN los controles; antes acá había un `document.body.innerHTML = ...` que
+       borraba el DOM entero de la app. Cualquier timer de la página que corriera después
+       se encontraba con sus elementos desaparecidos y tiraba "Cannot read properties of
+       null", que el test cuenta como pageerror y hace fallar algo que no tiene que ver.
+       Era una carrera: fallaba según cuándo cayera el timer, o sea rara vez en una
+       máquina rápida y seguido en un runner lento. */
+    const _cont = document.createElement("div");
+    _cont.innerHTML = '<select id="stkAjDep"><option value="para_envasar" selected>x</option></select>' +
       '<input id="stkAjCod" value="035E"><input id="stkAjCant" value="5">';
+    document.body.appendChild(_cont);
     _stk = { movs: movs, cutoff: 0 };
     let posted = null;
     window.stkInsertMov = function (rows) { posted = rows; return Promise.resolve(); };

@@ -6635,7 +6635,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.61";
+const APP_VERSION = "v12.62";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -33322,26 +33322,27 @@ async function facXlsBajar() {
       if (!confirm("Ojo:\n\n" + msg + "¿Bajo igual?")) return;
     }
 
-    // Sin vendedor la columna sale vacía. Es un dato de `clientes_vendedor`, no del
-    // pedido, así que falta cuando el cliente no tiene ficha ahí.
-    const sinVend = filas.filter(function (r) { return !r.vend; }).map(function (r) { return r.np; });
-    if (sinVend.length) {
-      if (!confirm("Ojo: " + sinVend.length + " NP sin vendedor (" + sinVend.join(", ") +
-        ").\n\nEn el archivo esa columna va VACÍA.\n\n¿Bajo igual?")) return;
-    }
-
-    // Sin uxb la columna "uni" (unidades pedidas) va VACÍA. No corta la bajada —el ERP
-    // puede recalcularla— pero se avisa: antes era un hueco silencioso y en una prueba
-    // de importación un hueco que nadie vio es un resultado que no significa nada.
+    /* Columnas que salen VACÍAS: se avisan JUNTAS y en UN solo confirm.
+       Antes iban en avisos separados y eso las volvía ruido: en Chef el vendedor falta
+       en 40 de 65 NP (62%), o sea que el cartel salía casi siempre. Un aviso que
+       aparece siempre enseña a apretar "Aceptar" sin leer, y el que se pierde con eso
+       es el único que de verdad importa: el de más armado que pedido, que manda el
+       doble de cajas. Por eso van en un solo cartel y el de Chef dice que es lo
+       ESPERADO, no un problema — en Loekemeyer falta en 24 de 405 (6%) y ahí sí es
+       una excepción que conviene mirar. */
+    const vacias = [];
+    const sinVendLk = filas.filter(function (r) { return !r.vend && _facXlsEmpresa(r.np) === "lk"; }).map(function (r) { return r.np; });
+    const sinVendCh = filas.filter(function (r) { return !r.vend && _facXlsEmpresa(r.np) === "chef"; }).map(function (r) { return r.np; });
+    if (sinVendLk.length) vacias.push("· Vendedor: " + sinVendLk.length + " NP de Loekemeyer sin vendedor (" + sinVendLk.join(", ") + "). Raro: en Loekemeyer casi todos tienen.");
+    if (sinVendCh.length) vacias.push("· Vendedor: " + sinVendCh.length + " NP de Chef sin vendedor. Es lo NORMAL en Chef (la mayoría no lo tiene cargado).");
     const sinUxb = [];
-    filas.forEach(function (r) {
-      r.lineas.forEach(function (l) { if (!l.uxb) sinUxb.push(r.np + "/" + l.art); });
-    });
+    filas.forEach(function (r) { r.lineas.forEach(function (l) { if (!l.uxb) sinUxb.push(r.np + "/" + l.art); }); });
     if (sinUxb.length) {
       const muestra = sinUxb.slice(0, 8).join(", ") + (sinUxb.length > 8 ? " y " + (sinUxb.length - 8) + " más" : "");
-      const ok = confirm("Ojo: " + sinUxb.length + " línea(s) no tienen unidades por caja cargadas (" +
-        muestra + ").\n\nEn el archivo la columna de unidades va VACÍA para esas líneas.\n\n¿Bajo igual?");
-      if (!ok) return;
+      vacias.push("· Unidades: " + sinUxb.length + " línea(s) sin unidades por caja cargadas (" + muestra + ").");
+    }
+    if (vacias.length) {
+      if (!confirm("Estas columnas van VACÍAS en el archivo:\n\n" + vacias.join("\n") + "\n\n¿Bajo igual?")) return;
     }
 
     // Único aviso que corta: la NP se armó dos veces y lo entregado supera lo pedido.
@@ -33401,7 +33402,17 @@ function _facXlsFilasPlanas(filas) {
    Para las NP que no están en PPP_Base_Pedidos (20 de 470 facturadas en 30 días) no
    hay orden que recuperar y se cae a código ascendente, que es como se ven el 82%
    de las NP. Un artículo que esté en la NP pero no en la base va al final, también
-   por código, para que el resultado sea determinístico. */
+   por código, para que el resultado sea determinístico.
+
+   El respaldo compara los códigos como TEXTO, no como número, y alcanza: con el
+   padStart(3,"0") los dos órdenes son el mismo mientras todos los códigos tengan la
+   misma cantidad de dígitos, que es el caso en 9.417 de las 9.418 líneas de
+   Entregas_Virgilio (3 dígitos + letras opcionales, de "026" a "998E"). La única
+   excepción es un "55215" suelto en la NP 98109 — el mismo registro de picking que
+   figura como incidente de dato en el CLAUDE.md, o sea basura, no un artículo. Con
+   códigos de 4-5 dígitos de verdad el texto los intercalaría mal ("1063" antes que
+   "110") y ahí sí haría falta comparar por número; hoy no pasa, y además el camino
+   principal ni siquiera usa esta comparación. */
 function _facXlsOrdenIsis(base) {
   const out = {};
   (base || []).forEach(function (x) {

@@ -58,8 +58,17 @@ catch (_e) {
 
     out.changedN = Object.keys(_oc.cfg.changed).length === 2;   // 107 y 202
 
-    // Índice a todos (necesita el input #ociAll en el DOM)
-    document.body.innerHTML = '<input id="ociAll" value="3">';
+    // Índice a todos (necesita el input #ociAll en el DOM).
+    // Se AGREGA el input; antes acá había un `document.body.innerHTML = ...` que borraba
+    // el DOM entero de la app. Cualquier timer de la página que corriera después
+    // (el refresco de Facturación, el chequeo de versión, los badges) se encontraba con
+    // sus elementos desaparecidos y tiraba "Cannot read properties of null", que el test
+    // cuenta como pageerror y hace fallar algo que no tiene nada que ver. Era una carrera:
+    // fallaba según cuándo cayera el timer, o sea rara vez en una máquina rápida y seguido
+    // en un runner lento — el patrón de la CI, que está en rojo hace rato.
+    const _inpAll = document.createElement("input");
+    _inpAll.id = "ociAll"; _inpAll.value = "3";
+    document.body.appendChild(_inpAll);
     ocCfgSetAllIndice();
     out.setAll = _oc.cfg.rows.every((a) => a.indice === 3) &&
                  _oc.cfg.changed["107"].indice === 3 && _oc.cfg.changed["202"].indice === 3;

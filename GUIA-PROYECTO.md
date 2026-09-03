@@ -1025,6 +1025,24 @@
 > ahora suma `oc_proy: it.proy`. Así el «Pedido» y el contexto (máximo−stock−pedidos) cuadran de la
 > misma foto (ej. cód 104: oc_max 40 − oc_stock 24 = 16 pedido).
 >
+> En la misma versión se sacaron dos `document.body.innerHTML = ...` de la suite
+> (`tests/ocg-config.cjs` y `tests/stk-ajuste-deps.cjs`) que **borraban el DOM entero de la app**
+> para plantar un input: cualquier timer de la página que corriera después se encontraba con sus
+> elementos desaparecidos y tiraba `Cannot read properties of null`, que el test cuenta como
+> pageerror y hace fallar algo que no tiene nada que ver. Era una **carrera**: fallaba según cuándo
+> cayera el timer, o sea rara vez acá y seguido en un runner lento — que es el patrón de la **CI, en
+> rojo desde antes de esta tanda**. Ahora los controles se **agregan** en vez de reemplazar el body.
+>
+> Nota **2026-09-03 — v12.62: los avisos de columna vacía van en UNO solo, para que no sean ruido.**
+> Los avisos repuestos en v12.61 salían por separado y medidos contra los datos eran demasiado
+> frecuentes: en **Chef el vendedor falta en 40 de 65 NP (62 %)**, o sea que el cartel aparecía casi
+> siempre. Un aviso que sale siempre enseña a apretar "Aceptar" sin leer, y el que se pierde con eso
+> es el que de verdad importa: **más armado que pedido**, que manda el doble de cajas. Ahora
+> "vendedor" y "unidades por caja" van juntos en un solo `confirm()`, y el de Chef aclara que es lo
+> **esperado**; en Loekemeyer el vendedor falta en 24 de 405 (6 %), así que ahí sí se marca como
+> excepción. Los que sí cortan aparte siguen siendo los que rompen la importación: sin código de
+> cliente, sucursal vacía o dudosa, y más armado que pedido. Bump a `v12.62`. Suite verde.
+>
 > Nota **2026-09-03 — v12.61: vuelven los avisos que el Excel de ISIS había perdido.**
 > El rewrite de la v12.54 (selección por casillas en vez de pantalla intermedia) se llevó puestos
 > los avisos por fila que tenía el checklist. Quedaba **uno solo** (más armado que pedido), así que
@@ -1049,8 +1067,10 @@
 > Se documentó además que `_facXlsPadCod` da vuelta los códigos que empiezan con letra
 > (`XXX4` → `004XXX`) igual que el `padCodArt` de la Edge Function: se deja así **a propósito**,
 > porque el archivo tiene que reproducir el que ISIS recibe hoy — arreglarlo de un solo lado haría
-> que los códigos dejen de coincidir. Hoy no afecta a nada (los 16.105 códigos de pedidos son
-> 3 dígitos + letras opcionales). Bump a `v12.60`. Suite verde.
+> que los códigos dejen de coincidir. Hoy no afecta a nada: los códigos de los pedidos web son
+> **3 dígitos + letras opcionales** (16.105 líneas, 0 excepciones) y en `Entregas_Virgilio` lo son
+> **9.417 de 9.418** — la única excepción es un `55215` suelto en la NP 98109, que es el mismo
+> registro que figura como incidente de dato en el `CLAUDE.md`, o sea basura y no un artículo. Bump a `v12.60`. Suite verde.
 >
 > Nota **2026-09-03 — v12.59: el Excel de prueba para ISIS respeta el orden REAL de las líneas, y arreglos del módulo Facturación.**
 > El botón **⬇ Excel ISIS (prueba)** (Paso 0 de la idea 3717) ordenaba las líneas de cada NP por
