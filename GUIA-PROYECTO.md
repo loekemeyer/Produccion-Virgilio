@@ -1062,8 +1062,11 @@
 > otra en monitor y **una abajo de la otra en celular** (al lado quedarían de ~180 px y un remito no
 > se lee). Las recepciones anteriores siguen mostrando su única foto.
 > La segunda URL va en la columna nueva **`Control_Modo_OP.foto_factura_url`**; la primera sigue en
-> `foto_url`. **El SQL está en `sql/control_modo_op_foto_factura.sql` y NO se ejecutó** — se corre a
-> mano cuando el dueño quiera. **Mientras tanto la app no se rompe**: si la columna falta, el insert
+> `foto_url`. **El SQL (`sql/control_modo_op_foto_factura.sql`) SE EJECUTÓ el 2026-09-03** con
+> autorización del dueño: columna creada, 369 filas intactas, permisos heredados por `anon`/
+> `authenticated`/`service_role` (son a nivel tabla) y `notify pgrst, 'reload schema'` mandado.
+> Los respaldos por si la columna falta se dejan igual, porque cubren el caso de un clon o un
+> entorno donde todavía no se corrió: **la app no se rompe sin ella**: si la columna falta, el insert
 > se reintenta sin ella (se pierde la foto de la factura, nunca la recepción) y el `select` de
 > Pendientes también, porque sin ese respaldo PostgREST rechaza la consulta entera y la pantalla
 > quedaría vacía por una foto. Los dos caminos están cubiertos por

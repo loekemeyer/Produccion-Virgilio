@@ -1,6 +1,17 @@
 -- ============================================================================
 -- Control_Modo_OP · foto de la FACTURA (v12.64)
 -- ============================================================================
+-- ✅ EJECUTADO el 2026-09-03 en el proyecto Virgilio (hrxfctzncixxqmpfhskv), con
+--    autorización del dueño. Verificado después de correrlo:
+--      · la columna existe, es `text` y nullable;
+--      · 369 filas intactas, 295 con foto de remito, 0 con foto de factura
+--        (lo esperado: la columna es nueva);
+--      · `anon`, `authenticated` y `service_role` la heredaron en SELECT/INSERT/
+--        UPDATE — los permisos de la tabla son a nivel tabla, no por columna, así
+--        que no hubo que otorgar nada;
+--      · se mandó `notify pgrst, 'reload schema'` para que la API la vea de una.
+--    Queda acá como registro; correrlo de nuevo es inocuo (`add column if not exists`).
+-- ============================================================================
 -- POR QUÉ: en Recepción de Mercadería, cuando el operario elige "📄🧾 Remito y
 -- Factura", ahora se le piden las DOS fotos (una de cada papel) y las dos se ven
 -- en la pantalla de Pendientes. La primera sigue yendo a `foto_url`; la segunda
