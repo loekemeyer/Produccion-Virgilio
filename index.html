@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.73";
+const APP_VERSION = "v12.74";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -15989,9 +15989,9 @@ function stkExportarExcelVista() {
     const widths = baseW.map(function (w, ci) {
       // Col 0 (Código): también auto-ajuste, pero con piso de 4 dígitos; se expande si el
       // código es más largo (ej. "035E" = 4, un código de 5 → se agranda).
-      if (ci === 0) return Math.max(4, _maxLenCol(0)) + 1.7;
+      if (ci === 0) return Math.max(4, _maxLenCol(0)) + 1.3;
       if (!autoCols[ci]) return w;
-      return Math.max(w, _maxLenCol(ci) + 1.7);   // +1.7 = margen del número centrado (fuente 14)
+      return Math.max(w, _maxLenCol(ci) + 1.3);   // +1.3 = margen del contenido al borde (fuente 14)
     });
     const blob = _stkXlsxStyledBlob(aoa, widths, { 0: 1, 1: 1, 2: 1 });
     const fname = "Stocks_" + new Date().toISOString().split("T")[0] + ".xlsx";
