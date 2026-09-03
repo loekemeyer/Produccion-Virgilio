@@ -1033,6 +1033,15 @@
 > cayera el timer, o sea rara vez acá y seguido en un runner lento — que es el patrón de la **CI, en
 > rojo desde antes de esta tanda**. Ahora los controles se **agregan** en vez de reemplazar el body.
 >
+> Nota **2026-09-03 — v12.66: formato del Excel de Stocks (bordes + alineación + ajustar texto).**
+> Pedido del dueño. El export ya no usa SheetJS: el community NO escribe estilos (bordes/alineación
+> son feature Pro) y no se quiso sumar `xlsx-js-style`. Se agregó un generador `.xlsx` OOXML propio
+> **`_stkXlsxStyledBlob()`** (reusa `_facZip`/`_facCrc32`/`_facColLetra`, sin dependencias). Formato:
+> **toda** celda con *alinear al medio + centrar + ajustar texto*; encabezado (fila 1) con borde
+> **grueso negro en las 4 aristas** (interior y exterior); **perímetro** de la tabla grueso; grilla
+> interna de datos **fina**. Anchos de columna (unidades Excel): 7.63 / 3.88 / 30.5 / 8.88 / 6.25 /
+> 6.63. Códigos van como texto (no se numerizan). Verificado con openpyxl.
+>
 > Nota **2026-09-03 — v12.65: botón "📥 Excel" en la hoja Stocks (Stock y Compras).**
 > Pedido del dueño. En la barra de filtros de la solapa **Stocks** hay un botón que descarga un
 > `.xlsx` real (vía SheetJS, `pppLoadXlsx`) con **exactamente lo que se ve en pantalla**: respeta

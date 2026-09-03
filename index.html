@@ -6645,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.65";
+const APP_VERSION = "v12.66";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -15966,15 +15966,126 @@ function stkExportarExcelVista() {
       (Number(r.ped) || 0) > 0.05 ? num(r.ped) : ""
     ]);
   });
-  pppLoadXlsx().then(function (XLSX) {
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{ wch: 9 }, { wch: 6 }, { wch: 34 }, { wch: 13 }, { wch: 11 }, { wch: 13 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Stocks");
-    XLSX.writeFile(wb, "Stocks_" + new Date().toISOString().split("T")[0] + ".xlsx");
-  }).catch(function (e) {
+  try {
+    // Anchos en unidades "Excel" (las que se ven en el diálogo Ancho de columna). textCols
+    // = 0,1,2 (Código/LK-CH/Descripción) van SIEMPRE como texto (ej. "026" no debe volverse número).
+    const widths = [7.63, 3.88, 30.5, 8.88, 6.25, 6.63];
+    const blob = _stkXlsxStyledBlob(aoa, widths, { 0: 1, 1: 1, 2: 1 });
+    const fname = "Stocks_" + new Date().toISOString().split("T")[0] + ".xlsx";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  } catch (e) {
     alert("No pude generar el Excel: " + (e && e.message ? e.message : e));
-  });
+  }
+}
+// v12.66 — Generador .xlsx propio CON estilos (SheetJS community no escribe bordes/alineación).
+// Reusa _facZip/_facCrc32/_facColLetra (ZIP + OOXML a mano, sin dependencias). Aplica a TODAS
+// las celdas: alinear al medio + centrar + ajustar texto. Bordes: encabezado (fila 1) grueso
+// negro en las 4 aristas (interior y exterior); perímetro de la tabla grueso; grilla interna de
+// datos fina. `aoa` = [headerRow, ...dataRows]; `widths` = anchos Excel por columna; `textCols`
+// = mapa {colIdx:1} de columnas forzadas a texto (para no numerizar códigos).
+function _stkXlsxStyledBlob(aoa, widths, textCols) {
+  const esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+  const esNum = function (v) {
+    const t = String(v == null ? "" : v).trim();
+    if (t === "") return false;
+    if (t.length > 1 && t.charAt(0) === "0" && t.slice(0, 2) !== "0.") return false;
+    return /^-?\d+(\.\d+)?$/.test(t);
+  };
+  textCols = textCols || {};
+  const nCols = (aoa[0] || []).length;
+  const nData = aoa.length - 1;   // filas de datos (sin encabezado)
+  // ---- Bordes (dedup) ----
+  const borderDefs = [], borderIdx = {};
+  const seg = function (tag, st) { return st ? "<" + tag + ' style="' + st + '"><color rgb="FF000000"/></' + tag + ">" : "<" + tag + "/>"; };
+  const needBorder = function (l, r, t, b) {
+    const k = l + "|" + r + "|" + t + "|" + b;
+    if (borderIdx[k] == null) { borderIdx[k] = borderDefs.length; borderDefs.push("<border>" + seg("left", l) + seg("right", r) + seg("top", t) + seg("bottom", b) + "<diagonal/></border>"); }
+    return borderIdx[k];
+  };
+  // ---- Estilos de celda (xf), uno por borde; misma alineación para todos ----
+  const xfDefs = [], xfIdx = {};
+  const needXf = function (borderId) {
+    if (xfIdx[borderId] == null) {
+      xfIdx[borderId] = xfDefs.length;
+      xfDefs.push('<xf numFmtId="0" fontId="0" fillId="0" borderId="' + borderId + '" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>');
+    }
+    return xfIdx[borderId];
+  };
+  const styleFor = function (isHeader, ci, isLastRow) {
+    var l, r, t, b;
+    if (isHeader) { l = r = t = b = "thick"; }
+    else {
+      l = (ci === 0) ? "thick" : "thin";
+      r = (ci === nCols - 1) ? "thick" : "thin";
+      t = "thin";                              // el divisor con el encabezado ya lo pinta grueso el header
+      b = isLastRow ? "thick" : "thin";
+    }
+    return needXf(needBorder(l, r, t, b));
+  };
+  // ---- Celdas / filas ----
+  const cellXml = function (ref, val, sIdx, forceText) {
+    const s = ' s="' + sIdx + '"';
+    if (val === "" || val == null) return '<c r="' + ref + '"' + s + "/>";
+    const asNum = !forceText && esNum(val);
+    return asNum
+      ? '<c r="' + ref + '"' + s + "><v>" + esc(val) + "</v></c>"
+      : '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + esc(val) + "</t></is></c>";
+  };
+  const rowsXml = aoa.map(function (fila, ri) {
+    const isHeader = ri === 0;
+    const isLastRow = ri === aoa.length - 1;
+    const cells = fila.map(function (v, ci) {
+      const ref = _facColLetra(ci) + (ri + 1);
+      const sIdx = styleFor(isHeader, ci, isLastRow);
+      return cellXml(ref, v, sIdx, isHeader || textCols[ci]);
+    }).join("");
+    return '<row r="' + (ri + 1) + '">' + cells + "</row>";
+  }).join("");
+  // ---- <cols> con anchos ----
+  const colsXml = "<cols>" + (widths || []).map(function (w, i) {
+    return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>';
+  }).join("") + "</cols>";
+  const sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    colsXml + "<sheetData>" + rowsXml + "</sheetData></worksheet>";
+  const stylesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>' +
+    '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+    '<borders count="' + borderDefs.length + '">' + borderDefs.join("") + "</borders>" +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="' + xfDefs.length + '">' + xfDefs.join("") + "</cellXfs>" +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+    "</styleSheet>";
+  const arch = [
+    { nombre: "[Content_Types].xml", texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      "</Types>" },
+    { nombre: "_rels/.rels", texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      "</Relationships>" },
+    { nombre: "xl/workbook.xml", texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheets><sheet name="Stocks" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+    { nombre: "xl/_rels/workbook.xml.rels", texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      "</Relationships>" },
+    { nombre: "xl/styles.xml", texto: stylesXml },
+    { nombre: "xl/worksheets/sheet1.xml", texto: sheetXml }
+  ];
+  return new Blob([_facZip(arch)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 /* v7.87 — Crear código nuevo (mercadería o insumo) */
 function stkCrearCodigoNuevo() {
