@@ -1025,6 +1025,17 @@
 > ahora suma `oc_proy: it.proy`. Así el «Pedido» y el contexto (máximo−stock−pedidos) cuadran de la
 > misma foto (ej. cód 104: oc_max 40 − oc_stock 24 = 16 pedido).
 >
+> Nota **2026-09-03 — v12.60: unidades por caja del Excel de ISIS, sin adivinar.**
+> El respaldo que buscaba el `uxb` de un código con letra sacándole la letra y usando el del
+> artículo numérico homónimo (`102E` → `102`, `438E` → `438`) tomaba el de **otro producto**: la
+> columna de unidades salía con un número plausible y equivocado. Ahora se busca **sólo por el
+> código exacto** y, si falta la ficha, la columna va vacía **con aviso** en vez de en silencio.
+> Se documentó además que `_facXlsPadCod` da vuelta los códigos que empiezan con letra
+> (`XXX4` → `004XXX`) igual que el `padCodArt` de la Edge Function: se deja así **a propósito**,
+> porque el archivo tiene que reproducir el que ISIS recibe hoy — arreglarlo de un solo lado haría
+> que los códigos dejen de coincidir. Hoy no afecta a nada (los 16.105 códigos de pedidos son
+> 3 dígitos + letras opcionales). Bump a `v12.60`. Suite verde.
+>
 > Nota **2026-09-03 — v12.59: el Excel de prueba para ISIS respeta el orden REAL de las líneas, y arreglos del módulo Facturación.**
 > El botón **⬇ Excel ISIS (prueba)** (Paso 0 de la idea 3717) ordenaba las líneas de cada NP por
 > **código de artículo ascendente**. Estaba **mal**: la Edge Function `procesar-pedidos-db` del

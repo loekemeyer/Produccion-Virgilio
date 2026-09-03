@@ -6635,7 +6635,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.59";
+const APP_VERSION = "v12.60";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -32991,7 +32991,16 @@ async function facMaybePrintFacturado(np, tanda){
    ========================================================================== */
 
 /* Mismo padCodArt que la Edge Function: 3 dígitos + letras, sin uppercase.
-   Antes saca el sufijo de empresa (" LK" / " CH") que usa el stock de Virgilio. */
+   Antes saca el sufijo de empresa (" LK" / " CH") que usa el stock de Virgilio.
+
+   ⚠ Recompone el código como "primer bloque de dígitos + primer bloque de letras", así
+   que un código que EMPIEZA con letra sale dado vuelta ("XXX4" → "004XXX") y uno con
+   guión lo pierde ("500-A" → "500A"). Es el mismo comportamiento de padCodArt en la
+   Edge Function, y se deja igual A PROPÓSITO: el archivo tiene que reproducir el que
+   ISIS recibe hoy, no una versión mejorada. Si alguna vez se arregla, hay que
+   arreglar las DOS o los códigos dejan de coincidir. Hoy no aplica a nada: los 16.105
+   códigos de los pedidos son 3 dígitos + letras opcionales (mín "026", máx "999E").
+   `vista_uxb_articulo` sí tiene un "XXX4", pero no aparece en Entregas_Virgilio. */
 function _facXlsPadCod(cod) {
   const s = String(cod == null ? "" : cod).trim().replace(/\s+(LK|CH)$/i, "");
   const d = (s.match(/\d+/) || [""])[0];
@@ -33300,6 +33309,20 @@ async function facXlsBajar() {
       if (!ok) return;
     }
 
+    // Sin uxb la columna "uni" (unidades pedidas) va VACÍA. No corta la bajada —el ERP
+    // puede recalcularla— pero se avisa: antes era un hueco silencioso y en una prueba
+    // de importación un hueco que nadie vio es un resultado que no significa nada.
+    const sinUxb = [];
+    filas.forEach(function (r) {
+      r.lineas.forEach(function (l) { if (!l.uxb) sinUxb.push(r.np + "/" + l.art); });
+    });
+    if (sinUxb.length) {
+      const muestra = sinUxb.slice(0, 8).join(", ") + (sinUxb.length > 8 ? " y " + (sinUxb.length - 8) + " más" : "");
+      const ok = confirm("Ojo: " + sinUxb.length + " línea(s) no tienen unidades por caja cargadas (" +
+        muestra + ").\n\nEn el archivo la columna de unidades va VACÍA para esas líneas.\n\n¿Bajo igual?");
+      if (!ok) return;
+    }
+
     // Único aviso que corta: la NP se armó dos veces y lo entregado supera lo pedido.
     // Raro (28 de 748 en 60 días) pero manda el doble de cajas si no se mira.
     const exc = filas.filter(function (r) { return r.excede; });
@@ -33444,7 +33467,12 @@ async function _facXlsArmar(nps) {
         return {
           art: art,
           cajas: Math.min(x.ent, x.ped > 0 ? x.ped : x.ent),
-          uxb: uxbBy[art.replace(/^0+/, "")] || uxbBy[art.replace(/^0+/, "").replace(/[a-zA-Z]+$/, "")] || null,
+          // Sólo por el código EXACTO (sin los ceros de relleno). El respaldo que
+          // había antes le sacaba la letra al código y usaba el uxb del artículo
+          // numérico homónimo, que es OTRO producto: 102E y 102, 438E y 438 existen
+          // los dos, así que la columna "uni" (cajas × uxb) salía con un número
+          // plausible y equivocado. Sin ficha, mejor vacía y avisada que inventada.
+          uxb: uxbBy[art.replace(/^0+/, "")] || null,
           excede: x.sum > x.ped && x.ped > 0
         };
       })
