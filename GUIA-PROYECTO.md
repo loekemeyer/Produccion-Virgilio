@@ -1053,6 +1053,44 @@
 > vieja `stkDescargarExcel()` v7.77 sigue huérfana desde v8.93 y re-filtraba con lógica vieja —
 > por eso NO se reusó.)
 >
+> Nota **2026-09-03 — Fix de datos: código fantasma `522S` → `522ES` (importado suelto).**
+> Ver `sql/fix_522S_a_522ES_20260903.sql` (backup + cambios + revert + verificación).
+>
+> **Qué pasó.** El 23/07 el legajo 104 cargó un ingreso a racks AD2 tipeando **`522S`**, un
+> código que **no existe en ningún maestro** → quedó como fila fantasma en la pantalla de
+> Stocks (80 en RACKS, sin descripción, sin proyección, sin capacidad de góndola).
+>
+> **El código real es `522ES`** — *"Sac. Doble Aleta Premium Suelto"* (`Importados`: LK,
+> Hugo Wong, FOB 1,15 USD/u). Caja según `Importados_Volumen`: **inner 25 u · master 100 u
+> → 4 inner/master**, master 38×24×32 cm = 0,029184 m³. El hermano **`522E`** (el
+> **encajado**) es **inner 12 · master 120 → 10 inner/master**, FOB 1,40. El ref decía
+> "20 master" y el delta era 80 → 20 × 4 = 80 inner ✔ es el suelto, no el encajado.
+>
+> **Regla que deja este caso — dónde vive un importado a granel.** `Insumos` y
+> `Movimientos_Stock` **comparten el espacio de códigos**; lo que separa las pantallas es el
+> **`deposito`**: `deposito='insumos'` → pestaña **Insumos**; `terminado/racks/…` → pestaña
+> **Stocks**. El importado a granel entra como **`deposito='insumos'` en UNIDADES
+> (`unidad='Uni'`)** y, al envasarse, sale como el código terminado en cajas. Mismo patrón
+> que `584E`, `590E`, `437E`, `440E`, `035E`. Acá el chino vende **dos SKU distintos**
+> (`522ES` suelto / `522E` encajado), así que el granel va con su propio código.
+> Se corrigió el movimiento 12344 a `522ES · insumos · 2000 Uni` y se dio de alta `522ES` en
+> `Insumos` (`categoria='importados'`, ubicación `AD2`) + `Importados.uni_x_caja=25`.
+>
+> ⚠ **`stocks_carga_rapida` es un CACHÉ y hay que limpiarlo a mano al renombrar un código.**
+> `actualizar_saldo_trigger` sólo hace **UPSERT del código nuevo** — la fila del código viejo
+> queda **huérfana** y la pantalla la sigue mostrando. Al corregir un `cod_art` en
+> `Movimientos_Stock` hay que hacer el `DELETE FROM stocks_carga_rapida WHERE cod='<viejo>'`.
+> El flag **`es_insumo`** de esa tabla es el que alimenta el filtro que saca los insumos de la
+> pantalla de Stocks (`_stk.insumosCods`), así que también hay que ponerlo.
+>
+> 🐞 **Deuda detectada (NO corregida, hace falta permiso).** `actualizar_saldo_trigger` llena
+> `stocks_carga_rapida.insumos_dep` filtrando por **`deposito='insumos_dep'`**, un depósito que
+> **no existe** (los reales son `a_facturar · separar_pedidos · terminado · excedente ·
+> a_guardar · racks · insumos · para_envasar · racks_ch`). Consecuencia: `insumos_dep` queda
+> siempre en 0, pero `stock_total` **sí** suma los movimientos de `insumos` (es un `SUM(delta)`
+> sin filtro) → para un código que es insumo, `stock_total` no es confiable. No afecta la
+> visibilidad en pantalla (el front decide por `SECTKEYS`, que no incluye insumos).
+>
 > Nota **2026-09-03 — v12.78: en la OC, "Otros artículos del tallerista" + ⛽ solo con Falta > 0.**
 > Dos pedidos del dueño sobre 📑 **Órdenes de Compra → detalle de un tallerista** (`ocBodyDetail`).
 >
