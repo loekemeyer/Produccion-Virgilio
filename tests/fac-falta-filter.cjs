@@ -65,7 +65,14 @@ catch (_e) {
        está en display:none). Si algún día se repone la entrada en la UI, `chipVisible`
        pasa a true solo y ahí conviene exigirlo. */
     out.chipShown = (document.getElementById("facChipFalt") || {}).style.display !== "none";    // true
-    out.chipVisible = !!(document.getElementById("facChipFalt") || {}).offsetParent;            // false hoy (padre oculto)
+    out.chipVisible = !!(document.getElementById("facChipFalt") || {}).offsetParent;            // false (padre .fac-stats oculto)
+    /* La entrada REAL al filtro es la barra de arriba de la tabla (v12.63): el chip
+       viejo sigue existiendo pero es invisible desde v12.53. Se exige que la barra se
+       VEA de verdad (offsetParent), no que exista en el DOM — que fue justamente el
+       agujero por el que el filtro quedó inalcanzable ocho versiones sin que el test
+       se enterara. */
+    out.barraVisible = !!(document.querySelector(".fac-filtro-bar") || {}).offsetParent;
+    out.barraCuenta = ((document.querySelector(".fac-filtro-falta") || {}).textContent || "").indexOf("1") >= 0;
     out.rowsAll   = nRows();                                                                    // 2
     out.class500  = /fac-has-falta/.test((document.querySelector('#facContainer tr[data-fac-np="500"]') || {}).className || "");
     // v12.23: una sola columna "Faltantes y Agregados" (fac-falta-col) con ambos
@@ -102,14 +109,19 @@ catch (_e) {
     out.dist501empty = ((_row501 && _row501.querySelector("td.fac-falta-col") || {}).innerHTML || "") === "";
     out.chipOffBefore = !(document.getElementById("facChipFalt") || { classList: { contains: function () { return false; } } }).classList.contains("on");
 
-    // 2) Filtro ON: solo la 500
-    facToggleSoloFalt();
+    // 2) Filtro ON: solo la 500. Se dispara con un CLIC real en la barra, no llamando a
+    //    facToggleSoloFalt(): así el test recorre el camino del usuario y no puede pasar
+    //    en verde con el botón desaparecido, que es lo que estuvo pasando.
+    document.querySelector(".fac-filtro-falta").click();
     out.rowsFiltered = nRows();                                                                 // 1
     out.only500      = has("500") && !has("501");                                               // true
     out.chipOnAfter  = document.getElementById("facChipFalt").classList.contains("on");         // true
 
-    // 3) Filtro OFF: vuelven las 2
-    facToggleSoloFalt();
+    out.barraPrendida = !!document.querySelector(".fac-filtro-falta.on");
+    out.hayVerTodas = !!document.querySelector(".fac-filtro-quitar");
+
+    // 3) Filtro OFF: vuelven las 2, por el botón "Ver todas"
+    document.querySelector(".fac-filtro-quitar").click();
     out.rowsBack = nRows();                                                                     // 2
     out.chipOffAfter = !document.getElementById("facChipFalt").classList.contains("on");        // true
 
@@ -135,15 +147,10 @@ catch (_e) {
     r.rowsFiltered === 1 && r.only500 === true && r.chipOnAfter === true &&
     r.rowsBack === 2 && r.chipOffAfter === true &&
     r.chipHiddenNoFalt === true && r.rows999 === 1 &&
+    r.barraVisible === true && r.barraCuenta === true &&
+    r.barraPrendida === true && r.hayVerTodas === true &&
     errs.length === 0;
   console.log("fac-falta-filter:", JSON.stringify(r));
-  /* Recordatorio visible en cada corrida: el filtro pasa, pero desde v12.53 el usuario
-     no tiene cómo llegar a él (el chip está adentro de .fac-stats, oculto). El test lo
-     llama a mano. Que esté en verde NO quiere decir que la función sea alcanzable. */
-  if (r.chipVisible === false) {
-    console.log("  ⚠ el chip 'Con faltante' NO es visible en pantalla (padre .fac-stats en display:none):");
-    console.log("    el filtro anda, pero hoy no tiene entrada desde la UI. Este test lo invoca a mano.");
-  }
   console.log("  pageerrors:", errs.length ? errs.join("|") : "none", "·", pass ? "✓ OK" : "✗ FAIL");
   await b.close();
   process.exit(pass ? 0 : 1);

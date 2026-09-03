@@ -2941,6 +2941,15 @@ table.facfc-tbl tr.facneto-row-falt td{ background: #fef2f2; }
    clic y es el camino para descubrir la función. Se cambia la paleta, no la opacidad. */
 .fac-top-acts #facBtnXlsIsis.off{ background:#f8fafc; border-color:#cbd5e1; color:#475569; }
 .fac-top-acts .fac-close-btn{ margin:0; }
+/* Barra de filtro pegada a la tabla de Facturación (v12.63). Los botones del módulo
+   son width:100% por la regla global de `button`, así que hay que soltarlos a mano. */
+.fac-filtro-bar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 8px; }
+.fac-filtro-bar button{ width:auto; flex:0 0 auto; margin:0; cursor:pointer; font-size:12.5px;
+  font-weight:800; padding:7px 13px; border-radius:999px; min-height:36px; }
+.fac-filtro-falta{ background:#fef2f2; border:1.5px solid #fca5a5; color:#991b1b; }
+/* Prendido: invertido, para que se vea de un vistazo que la tabla está filtrada. */
+.fac-filtro-falta.on{ background:#dc2626; border-color:#dc2626; color:#fff; }
+.fac-filtro-quitar{ background:#fff; border:1.5px solid #cbd5e1; color:#334155; }
 /* Casilla "marcar para el Excel de prueba de ISIS" en cada fila de Facturación.
    Grande a propósito: se toca con el dedo desde el celular. */
 .fac-xls-cell input, #facXlsChkAll{
@@ -2967,9 +2976,10 @@ table.facfc-tbl tr.facneto-row-falt td{ background: #fef2f2; }
    propósito: el JS los sigue actualizando (facCntTandas/Pend/Done/Falt/Corr,
    facBtnRevertir, facDot, facStatusTxt) y no hay que tocarlo. Para volver a
    mostrarlos, sacar el display:none de acá.
-   ⚠ Queda sin entrada DESDE ESTA PANTALLA el filtro "Con faltante" (facToggleSoloFalt).
-   "Corregir códigos" NO se perdió: sigue en Administración (openCorreccPanel), y
-   "Revertir" tampoco: se repuso ahí en v12.59 (facRevertirDesdeAdmin).
+   Nada quedó sin entrada: "Corregir códigos" sigue en Administración (openCorreccPanel),
+   "Revertir" se repuso ahí en v12.59 (facRevertirDesdeAdmin) y el filtro "Con faltante"
+   se repuso en v12.63 arriba de la tabla (.fac-filtro-bar, la arma facRender), que es
+   donde se usa — no acá, que el dueño pidió despejado.
    ⚠ Acá adentro también viven la línea de estado y el puntito de conexión, así que el
    error de carga se pinta además en #facBanner (ver el catch de facTick). */
 .fac-stats{ display: none; gap: 6px; align-items: center; font-size: 13px; flex-wrap: wrap; }
@@ -6635,7 +6645,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.62";
+const APP_VERSION = "v12.63";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -34643,7 +34653,24 @@ function facRender(tandas){
       </tr>`;
   }).join("");
 
+  /* v12.63 — Entrada al filtro "Con faltante". Vivía en el chip de .fac-stats, oculto
+     desde v12.53, así que el filtro quedó sin forma de llegar (andaba, pero había que
+     llamarlo a mano). NO vuelve al encabezado —esa fila el dueño la pidió despejada—
+     sino acá, pegado a la tabla que filtra, que es donde se usa. Y SOLO aparece cuando
+     hay al menos una NP con faltante: el día que no hay ninguna no ocupa nada. */
+  const _barFalt = filasFalt.length
+    ? `<div class="fac-filtro-bar">
+         <button type="button" class="fac-filtro-falta${_facSoloFalt ? " on" : ""}"
+                 onclick="facToggleSoloFalt()"
+                 title="Pedidos que salieron con faltante. Conviene revisarlos antes de facturar: se factura por lo ENTREGADO, no por lo pedido.">
+           ⚠ Con faltante: ${filasFalt.length}${_facSoloFalt ? " · mostrando solo estos" : ""}
+         </button>
+         ${_facSoloFalt ? `<button type="button" class="fac-filtro-quitar" onclick="facToggleSoloFalt()">✕ Ver todas (${filas.length})</button>` : ""}
+       </div>`
+    : "";
+
   container.innerHTML = `
+    ${_barFalt}
     <div class="fac-table-wrap">
       <table class="fac-np-tbl">
         <thead>

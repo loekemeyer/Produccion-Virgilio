@@ -1033,6 +1033,17 @@
 > cayera el timer, o sea rara vez acá y seguido en un runner lento — que es el patrón de la **CI, en
 > rojo desde antes de esta tanda**. Ahora los controles se **agregan** en vez de reemplazar el body.
 >
+> Nota **2026-09-03 — v12.63: el filtro "Con faltante" vuelve a tener entrada.**
+> Estaba en el chip de `.fac-stats`, oculto desde la v12.53, así que el filtro andaba pero no había
+> cómo llegar a él (el test lo llamaba a mano y por eso pasaba en verde ocho versiones sin que
+> nadie se enterara). **No vuelve al encabezado** —esa fila el dueño la pidió despejada— sino a una
+> barra pegada arriba de la tabla que filtra, que es donde se usa, y que **sólo aparece cuando hay
+> al menos una NP con faltante**: el día que no hay ninguna no ocupa nada. Prendido, el botón se
+> invierte a rojo pleno y aparece un "✕ Ver todas (N)", para que se vea de un vistazo que la tabla
+> está filtrada. `tests/fac-falta-filter.cjs` ahora **hace clic en la barra** en vez de invocar
+> `facToggleSoloFalt()`, y exige que se VEA de verdad (`offsetParent`): así el agujero por el que
+> se perdió la entrada no puede volver a pasar en verde. Bump a `v12.63`. Suite verde.
+>
 > Nota **2026-09-03 — v12.62: los avisos de columna vacía van en UNO solo, para que no sean ruido.**
 > Los avisos repuestos en v12.61 salían por separado y medidos contra los datos eran demasiado
 > frecuentes: en **Chef el vendedor falta en 40 de 65 NP (62 %)**, o sea que el cartel aparecía casi
