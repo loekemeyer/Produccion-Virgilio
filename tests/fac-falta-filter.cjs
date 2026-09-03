@@ -55,7 +55,17 @@ catch (_e) {
     // 1) Render normal: chip visible con "1", las 2 filas, la 500 marcada
     facRender(tandas);
     out.chipCount = (document.getElementById("facCntFalt") || {}).textContent;                 // "1"
+    /* OJO con lo que mide esta línea. `style.display !== "none"` sólo dice que el JS no
+       lo apagó: NO dice que se vea. Desde v12.53 el chip vive dentro de `.fac-stats`,
+       que está en `display:none`, así que para el usuario es INVISIBLE y el filtro
+       "Con faltante" no tiene entrada desde la pantalla (las llamadas a
+       facToggleSoloFalt() de más abajo lo invocan a mano). Se separan las dos cosas
+       para que el test no dé confianza falsa: `chipShown` = el JS lo prendió,
+       `chipVisible` = se ve de verdad (offsetParent, que es null si algún ancestro
+       está en display:none). Si algún día se repone la entrada en la UI, `chipVisible`
+       pasa a true solo y ahí conviene exigirlo. */
     out.chipShown = (document.getElementById("facChipFalt") || {}).style.display !== "none";    // true
+    out.chipVisible = !!(document.getElementById("facChipFalt") || {}).offsetParent;            // false hoy (padre oculto)
     out.rowsAll   = nRows();                                                                    // 2
     out.class500  = /fac-has-falta/.test((document.querySelector('#facContainer tr[data-fac-np="500"]') || {}).className || "");
     // v12.23: una sola columna "Faltantes y Agregados" (fac-falta-col) con ambos
@@ -127,6 +137,13 @@ catch (_e) {
     r.chipHiddenNoFalt === true && r.rows999 === 1 &&
     errs.length === 0;
   console.log("fac-falta-filter:", JSON.stringify(r));
+  /* Recordatorio visible en cada corrida: el filtro pasa, pero desde v12.53 el usuario
+     no tiene cómo llegar a él (el chip está adentro de .fac-stats, oculto). El test lo
+     llama a mano. Que esté en verde NO quiere decir que la función sea alcanzable. */
+  if (r.chipVisible === false) {
+    console.log("  ⚠ el chip 'Con faltante' NO es visible en pantalla (padre .fac-stats en display:none):");
+    console.log("    el filtro anda, pero hoy no tiene entrada desde la UI. Este test lo invoca a mano.");
+  }
   console.log("  pageerrors:", errs.length ? errs.join("|") : "none", "·", pass ? "✓ OK" : "✗ FAIL");
   await b.close();
   process.exit(pass ? 0 : 1);

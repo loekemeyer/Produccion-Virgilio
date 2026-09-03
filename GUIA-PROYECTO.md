@@ -1025,6 +1025,22 @@
 > ahora suma `oc_proy: it.proy`. Así el «Pedido» y el contexto (máximo−stock−pedidos) cuadran de la
 > misma foto (ej. cód 104: oc_max 40 − oc_stock 24 = 16 pedido).
 >
+> Nota **2026-09-03 — v12.61: vuelven los avisos que el Excel de ISIS había perdido.**
+> El rewrite de la v12.54 (selección por casillas en vez de pantalla intermedia) se llevó puestos
+> los avisos por fila que tenía el checklist. Quedaba **uno solo** (más armado que pedido), así que
+> el archivo podía salir **sin sucursal**, **sin vendedor** o con la **sucursal equivocada** y nadie
+> se enteraba. Vuelven los tres, como `confirm()` que no cortan la bajada pero la hacen consciente.
+> El de sucursal distingue **vacía** de **dudosa**, que es peor porque se ve bien: pasa cuando el
+> cliente tiene más de un pedido web ese día y los artículos no alcanzan para desempatar. Además
+> se empezó a usar la columna **`ambiguo`** de `lk_pedidos_match`, que se traía y se ignoraba: la
+> marca la vista de LK para el caso que el string de match no puede resolver por construcción
+> (mismo cliente, mismo día, mismos ítems, sucursal distinta — 17 de 977 pedidos históricos).
+> `tests/fac-falta-filter.cjs` medía `style.display` y daba el chip "Con faltante" por visible
+> cuando su padre `.fac-stats` está oculto desde v12.53: ahora mide visibilidad real
+> (`offsetParent`) y **avisa en cada corrida** que el filtro anda pero no tiene entrada desde la
+> pantalla. **Pendiente para el dueño:** decidir dónde reponer esa entrada, o si se deja así.
+> Bump a `v12.61`. Suite verde.
+>
 > Nota **2026-09-03 — v12.60: unidades por caja del Excel de ISIS, sin adivinar.**
 > El respaldo que buscaba el `uxb` de un código con letra sacándole la letra y usando el del
 > artículo numérico homónimo (`102E` → `102`, `438E` → `438`) tomaba el de **otro producto**: la

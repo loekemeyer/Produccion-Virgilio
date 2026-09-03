@@ -6635,7 +6635,7 @@ async function flushQueue() {
   }
 }
 
-const APP_VERSION = "v12.60";
+const APP_VERSION = "v12.61";
 
 /* v4.50 — Baliza de errores: manda los errores de JS a Supabase (tabla
    errores_cliente, best-effort) para poder VER los crashes / pantallas en blanco
@@ -33309,6 +33309,27 @@ async function facXlsBajar() {
       if (!ok) return;
     }
 
+    // Sucursal: sin ella el ERP no sabe a qué dirección va el pedido, y una dudosa es
+    // peor que una vacía porque se ve bien. Se avisan juntas, sin cortar.
+    const sinSuc = filas.filter(function (r) { return !r.suc; }).map(function (r) { return r.np; });
+    const sucDudosa = filas.filter(function (r) { return r.suc && r.sucDudosa; }).map(function (r) { return r.np; });
+    if (sinSuc.length || sucDudosa.length) {
+      let msg = "";
+      if (sinSuc.length) msg += sinSuc.length + " NP sin sucursal de entrega (" + sinSuc.join(", ") + "): esa columna va VACÍA.\n\n";
+      if (sucDudosa.length) msg += sucDudosa.length + " NP con sucursal DUDOSA (" + sucDudosa.join(", ") + "): " +
+        "el cliente tiene más de un pedido web posible ese día y no se pudo desempatar por los artículos, " +
+        "así que la sucursal puede ser la del otro pedido.\n\n";
+      if (!confirm("Ojo:\n\n" + msg + "¿Bajo igual?")) return;
+    }
+
+    // Sin vendedor la columna sale vacía. Es un dato de `clientes_vendedor`, no del
+    // pedido, así que falta cuando el cliente no tiene ficha ahí.
+    const sinVend = filas.filter(function (r) { return !r.vend; }).map(function (r) { return r.np; });
+    if (sinVend.length) {
+      if (!confirm("Ojo: " + sinVend.length + " NP sin vendedor (" + sinVend.join(", ") +
+        ").\n\nEn el archivo esa columna va VACÍA.\n\n¿Bajo igual?")) return;
+    }
+
     // Sin uxb la columna "uni" (unidades pedidas) va VACÍA. No corta la bajada —el ERP
     // puede recalcularla— pero se avisa: antes era un hueco silencioso y en una prueba
     // de importación un hueco que nadie vio es un resultado que no significa nada.
@@ -33513,6 +33534,10 @@ async function _facXlsArmar(nps) {
       suc = String(best.m.sucursal_entrega || "");
       // Sin match de ítems y con más de un pedido posible, la sucursal es una apuesta.
       if (!best.score && cands.length > 1) sucDudosa = true;
+      // `ambiguo` lo marca la propia vista de LK: mismo cliente, mismo día, mismos
+      // ítems y sucursal DISTINTA (17 de 977 pedidos históricos). Ahí el string de
+      // match no alcanza por construcción, así que el score 1 no significa acierto.
+      if (best.m.ambiguo) sucDudosa = true;
     }
 
     out.push({
