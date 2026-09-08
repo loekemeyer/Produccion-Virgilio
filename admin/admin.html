@@ -2522,6 +2522,39 @@
             </div>
           </div>
 
+          <!-- 3.b Mapa por vendedor -->
+          <div class="card" style="margin-bottom: 18px">
+            <div class="est-card-head" onclick="toggleEstCard('gvVendMapaBody', this)">
+              <span class="est-card-caret">▸</span>
+              <h2 style="margin: 0; font-size: 21px">Zona de cada vendedor</h2>
+              <span style="color: #666; font-size: 13px" id="gvVendResumen"></span>
+            </div>
+            <div class="est-card-body" id="gvVendMapaBody" style="display: none">
+              <p class="gv-ayuda">
+                Dónde están los clientes de cada vendedor. El <strong>índice de zona</strong>
+                es el % de clientes en sus 2 provincias principales: cuanto más alto, más
+                claramente atiende una zona. <em>(sin asignar)</em> son los clientes sin
+                vendedor cargado en comisiones.
+              </p>
+              <div class="gv-agenda-tools">
+                <select id="gvVendSel" class="gv-fecha" onchange="gvVendRender()">
+                  <option value="">Todos los vendedores</option>
+                </select>
+                <span class="gv-vend-zona" id="gvVendZona"></span>
+              </div>
+              <div class="gv-mapa-wrap">
+                <div id="gvVendMapaSlot" class="gv-mapa-slot">Cargando mapa…</div>
+                <div id="gvVendMapaTip" class="gv-mapa-tip" style="display: none"></div>
+              </div>
+              <div class="gv-mapa-leyenda">
+                <span><span class="gv-dot gv-dot-cal"></span>Mayoría activos</span>
+                <span><span class="gv-dot gv-dot-med"></span>Mezcla</span>
+                <span><span class="gv-dot gv-dot-fri"></span>Mayoría inactivos</span>
+                <span class="gv-leyenda-nota">El tamaño del círculo es la cantidad de clientes. Clic en una provincia para acercarte.</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 3. Ratio por provincia -->
           <div class="card" style="margin-bottom: 18px">
             <div class="est-card-head" onclick="toggleEstCard('gvRatioBody', this)">
