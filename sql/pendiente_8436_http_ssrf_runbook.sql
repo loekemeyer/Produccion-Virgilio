@@ -42,7 +42,7 @@ declare
   n integer;
   v_err text;
   v_dia text := to_char((now() at time zone 'America/Argentina/Buenos_Aires'), 'YYYYMMDD');
-  k constant text := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3a2Nsd2htb3lndW5xbWxlZ3JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1MjA2NzUsImV4cCI6MjA4NTA5NjY3NX0.soqPY5hfA3RkAJ9jmIms8UtEGUc4WpZztpEbmDijOgU';
+  k constant text := 'sb_publishable_mVX5MnjwM770cNjgiL6yLw_LDNl9pML';
 begin
   begin
     resp := http(('GET',
@@ -99,7 +99,7 @@ declare
   resp http_response;
   v_cod text;
   v_url text;
-  k constant text := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3a2Nsd2htb3lndW5xbWxlZ3JnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1MjA2NzUsImV4cCI6MjA4NTA5NjY3NX0.soqPY5hfA3RkAJ9jmIms8UtEGUc4WpZztpEbmDijOgU';
+  k constant text := 'sb_publishable_mVX5MnjwM770cNjgiL6yLw_LDNl9pML';
 begin
   v_cod := regexp_replace(upper(btrim(coalesce(p_cod,''))), '[^A-Z0-9]', '', 'g');
   if v_cod = '' then return; end if;
